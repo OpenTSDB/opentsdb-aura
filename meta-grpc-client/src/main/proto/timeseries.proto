@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+package myst;
+
+service MystService {
+  rpc GetTimeseries (QueryRequest) returns (stream TimeseriesResponse);
+}
+
+message QueryRequest {
+  string query = 1;
+}
+
+message Dictionary {
+  map<int64, string> dict = 1;
+}
+
+message TimeseriesResponse {
+  repeated GroupedTimeseries groupedTimeseries = 1;
+  Dictionary dict = 2;
+  int32 streams = 3;
+}
+
+message GroupedTimeseries {
+  repeated int64 group = 1;
+  repeated int64 timeseries = 2;
+}
