@@ -63,8 +63,8 @@ subprojects {
                     url = version.toString().endsWith('-SNAPSHOT') ? snapshotRepo : releaseRepo
                 }
                 credentials {
-                    username = System.getenv('OSSRH_USER') ? System.getenv('OSSRH_USER') : "Unknown user"
-                    password = System.getenv('OSSRH_PASS') ? System.getenv('OSSRH_PASS') : "Unknown password"
+                    username = System.getenv('CI_DEPLOY_USERNAME') ? System.getenv('CI_DEPLOY_USERNAME') : "Unknown user"
+                    password = System.getenv('CI_DEPLOY_PASSWORD') ? System.getenv('CI_DEPLOY_PASSWORD') : "Unknown password"
                 }
             }
         }
