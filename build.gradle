@@ -74,7 +74,7 @@ subprojects {
                 artifactId = archivesBaseName
                 from components.java
                 pom {
-                    groupId = 'net.opentsdb.horizon'
+                    groupId = 'net.opentsdb.aura'
                     name = 'OpenTSDB Aura Storage Libraries'
                     description = 'OpenTSDB Aura Storage Libraries'
                     url = 'https://github.com/OpenTSDB/opentsdb-aura'
