@@ -18,6 +18,7 @@
 package net.opentsdb.aura.metrics.meta;
 
 import java.util.Iterator;
+import java.util.concurrent.CountDownLatch;
 
 public interface MetaClient<ResT extends MetaTimeSeriesQueryResult> {
 
@@ -29,7 +30,7 @@ public interface MetaClient<ResT extends MetaTimeSeriesQueryResult> {
   /**
    * Async api
    */
-  void getTimeseries(String query, StreamConsumer<ResT> consumer);
+  CountDownLatch getTimeseries(String query, StreamConsumer<ResT> consumer);
 
   interface StreamConsumer<T> {
     void onNext(T t);

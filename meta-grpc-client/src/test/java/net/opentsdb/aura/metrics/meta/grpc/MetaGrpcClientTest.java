@@ -17,14 +17,15 @@
 
 package net.opentsdb.aura.metrics.meta.grpc;
 
-import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
 import io.grpc.stub.StreamObserver;
 import myst.Dictionary;
 import myst.GroupedTimeseries;
 import myst.MystServiceGrpc;
 import myst.QueryRequest;
 import myst.TimeseriesResponse;
-import net.opentsdb.aura.metrics.meta.MetaClient.StreamConsumer;
+import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
+import net.opentsdb.aura.metrics.meta.MetaClient;
+import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult.GroupResult;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult.GroupResult.TagHashes;
 import org.junit.jupiter.api.AfterEach;
