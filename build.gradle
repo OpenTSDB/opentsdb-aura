@@ -36,11 +36,71 @@ allprojects {
 }
 
 subprojects {
-    apply plugin: 'java'
+    apply plugin: 'java-library'
     apply plugin: 'maven-publish'
     apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'signing'
 
     archivesBaseName = rootProject.name + '-' + name
+
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+
+    group = 'net.opentsdb.aura'
+    description = 'OpenTSDB Aura Libraries'
+
+    java {
+        withSourcesJar()
+        withJavadocJar()
+    }
+
+    publishing {
+        repositories {
+            maven {
+                def releaseRepo = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+                def snapshotRepo = "https://oss.sonatype.org/content/repositories/snapshots/"
+                afterEvaluate {
+                    url = version.toString().endsWith('-SNAPSHOT') ? snapshotRepo : releaseRepo
+                }
+                credentials {
+                    username = System.getenv('OSSRH_USER') ? System.getenv('OSSRH_USER') : "Unknown user"
+                    password = System.getenv('OSSRH_PASS') ? System.getenv('OSSRH_PASS') : "Unknown password"
+                }
+            }
+        }
+
+        publications {
+            maven(MavenPublication) {
+                artifactId = archivesBaseName
+                from components.java
+                pom {
+                    groupId = 'net.opentsdb.horizon'
+                    name = 'OpenTSDB Aura Storage Libraries'
+                    description = 'OpenTSDB Aura Storage Libraries'
+                    url = 'https://github.com/OpenTSDB/opentsdb-aura'
+                    //from components.java
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+                    scm {
+                        connection = 'scm:git:git@github.com:OpenTSDB/opentsdb-aura'
+                        developerConnection = 'scm:git:git@github.com:OpenTSDB/opentsdb-aura'
+                        url = 'https://github.com/OpenTSDB/opentsdb-aura/'
+                    }
+                }
+            }
+        }
+    }
+
+    signing {
+        sign publishing.publications.maven
+    }
+    tasks.withType(Sign) {
+        onlyIf { !version.toString().endsWith('-SNAPSHOT') }
+    }
 }
 
 dependencies {
@@ -110,9 +170,7 @@ dependencies {
 }
 
 group = 'net.opentsdb.aura'
-description = 'OpenTSDB Aura Libraries'
-sourceCompatibility = JavaVersion.VERSION_11
-targetCompatibility = JavaVersion.VERSION_11
+
 ext['guava.version'] = '23.6.1-jre'
 
 sourceSets {
@@ -141,11 +199,6 @@ protobuf {
             grpc {}
         }
     }
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 tasks.withType(JavaCompile) {

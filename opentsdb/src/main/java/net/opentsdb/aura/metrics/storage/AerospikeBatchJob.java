@@ -36,8 +36,8 @@ import java.util.concurrent.CountDownLatch;
 /**
  *
  * INVARIATES:
- * - endHashId MUST be > 0 and > startHashId.
- * - endGroupId >= startGroupId
+ * - endHashId MUST be &gt; 0 and &gt; startHashId.
+ * - endGroupId &gt;= startGroupId
  */
 public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
   private static final Logger LOGGER = LoggerFactory.getLogger(AerospikeBatchJob.class);

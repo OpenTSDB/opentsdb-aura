@@ -1,0 +1,22 @@
+shared:
+  image: gradle:7-jdk11
+
+jobs:
+  pr:
+    requires: [~pr]
+    steps:
+      - run_arbitrary_script: ./gradlew build
+  main:
+    requires: [~commit]
+    steps:
+      - run_arbitrary_script: ./gradlew publish
+    secrets:
+      - CI_DEPLOY_USERNAME
+      - CI_DEPLOY_PASSWORD
+      - DOCKER_EMAIL
+      - DOCKER_REPO
+      - DOCKER_PASSWORD
+      - DOCKER_REPOSITORY
+      - DOCKER_USERNAME
+    annotations:
+      screwdriver.cd/dockerEnabled: true
