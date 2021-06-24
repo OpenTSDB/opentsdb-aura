@@ -1,18 +1,18 @@
 OpenTSDB Aura Time Series Store
 ===============================
 
-Aura is an in-memory observability data store with the ability to flush "segments"
+Aura is an in-memory time-series data store with the ability to flush "segments"
 to other long-term storage systems.
 
 Background
 ----------
 
-Taking inspiration from Facebook's Gorilla/Behreingi and Pinterest's Yuvi 
-in-memory stores, Aura compresses time series data following the Gorilla protocol
-with the added capability to perform additional lossy compression.
+Taking inspiration from Facebook's [Gorilla/Beringei](https://github.com/facebookarchive/beringei) and Pinterest's [Yuvi](https://github.com/pinterest/yuvi)
+in-memory stores, Aura compresses time-series data following the Gorilla format
+with the added capability to perform additional lossy compression to save space.
 
 The store is meant to hold the most recent time series data with a query engine
-like OpenTSDB 3.0 routing queries to longer term storage for older data.
+like OpenTSDB 3.x routing queries to longer term storage for older data.
 
 Configuration
 -------------
@@ -47,11 +47,11 @@ get involved. We welcome issues, questions, and pull requests.
 Maintainers
 -----------
 
-* Smruti Ranjan Sahoo
-* Arun Gupta
-* Ravi Kiran Chiruvolu
-* Chaitanya GSK
-* Chris Larsen
+* Smruti Ranjan Sahoo @smrutilal2
+* Arun Gupta @arungupta
+* Ravi Kiran Chiruvolu @mailravi3390
+* Chaitanya GSK @gskchaitanya
+* Chris Larsen @manolama
 
 License
 -------
