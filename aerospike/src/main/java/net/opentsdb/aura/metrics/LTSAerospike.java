@@ -195,7 +195,7 @@ public class LTSAerospike implements LongTermStorage {
      * The way it works is this:
      * <ol>
      *   <li>The read() method above calls {@link #advance()} to find the FIRST record
-     *   from AS in the time range given. Check the {@see TimeSeriesEncoder} segment
+     *   from AS in the time range given. Check the TimeSeriesEncoder segment
      *   time to find the actual base timestamp as it could be far from the start
      *   time. Or there may be nothing. The iterator is ready either way.</li>
      *   <li>The querant calls {@link #hasNext()} to see if there is more data to

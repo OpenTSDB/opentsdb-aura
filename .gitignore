@@ -1,0 +1,14 @@
+target/
+build/
+out/
+*.iml
+*.ipr
+*.iws
+.idea/
+
+.DS_Store
+.gradle/
+.clover/
+.docker-gradle/
+
+log4j.properties
