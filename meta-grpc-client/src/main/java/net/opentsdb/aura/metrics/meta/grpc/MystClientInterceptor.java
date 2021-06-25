@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.meta;
+package net.opentsdb.aura.metrics.meta.grpc;
 
-import java.util.Iterator;
-import java.util.concurrent.CountDownLatch;
+import io.grpc.CallOptions;
+import io.grpc.Channel;
+import io.grpc.ClientCall;
+import io.grpc.MethodDescriptor;
 
-public interface MetaClient<ResT extends MetaTimeSeriesQueryResult> {
+public class MystClientInterceptor implements io.grpc.ClientInterceptor {
 
-  /**
-   * Blocking api
-   */
-  Iterator<ResT> getTimeseries(String query);
-
-  /**
-   * Async api
-   */
-  CountDownLatch getTimeseries(String query, StreamConsumer<ResT> consumer);
-
-  interface StreamConsumer<T> {
-    void onNext(T t);
-
-    void onError(Throwable t);
-
-    void onCompleted();
+  @Override
+  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
+      MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
+    return new MystClientCall<>(next.newCall(method, callOptions));
   }
-
 }
