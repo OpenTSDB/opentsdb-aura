@@ -1,3 +1,6 @@
+[![Build Status][status-image]][status-url]
+
+
 OpenTSDB Aura Time Series Store
 ===============================
 
@@ -58,3 +61,7 @@ License
 
 This project is licensed under the terms of the Apache 2.0 open source license. 
 Please refer to [LICENSE](LICENSE.md) for the full terms.
+
+
+[status-image]: https://cd.screwdriver.cd/pipelines/7618/badge
+[status-url]: https://cd.screwdriver.cd/pipelines/7618
