@@ -17,19 +17,36 @@
 
 package net.opentsdb.aura.metrics.core;
 
-public interface Segment {
+public abstract class BaseSegmentEncoder<T extends Segment> implements SegmentEncoder {
 
-  long create(int segmentTime);
+  protected T segment;
 
-  void open(long id);
+  protected long segmentCount;
 
-  void free();
+  public BaseSegmentEncoder(final T segment) {
+    this.segment = segment;
+  }
 
-  int getSegmentTime();
+  @Override
+  public long createSegment(final int segmentTime) {
+    long id = this.segment.create(segmentTime);
+    segmentCount++;
+    return id;
+  }
 
-  boolean isDirty();
+  @Override
+  public void openSegment(final long id) {
+    segment.open(id);
+  }
 
-  boolean hasDupesOrOutOfOrderData();
+  @Override
+  public void freeSegment() {
+    segment.free();
+    segmentCount--;
+  }
 
-  void markFlushed();
+  @Override
+  public int getSegmentTime() {
+    return segment.getSegmentTime();
+  }
 }

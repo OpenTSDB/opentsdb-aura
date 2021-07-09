@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.downsample;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+public class SumOfSquareAggregator extends Aggregator {
 
-public interface GorillaSegment extends Segment, BitMap {
+  public static final byte ID = (byte) 0b100000;
+  public static final String NAME = "sumofsquare";
 
-  void updateHeader();
+  public SumOfSquareAggregator() {
+    this(null);
+  }
 
-  void moveToHead();
+  public SumOfSquareAggregator(Aggregator aggregator) {
+    super(0.0, ID, NAME, aggregator);
+  }
 
-  void moveToTail();
+  @Override
+  public void doApply(final double value) {
+    this.value += Math.pow(value, 2);
+  }
 }

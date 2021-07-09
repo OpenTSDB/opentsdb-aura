@@ -15,16 +15,25 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.downsample;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+public class MinAggregator extends Aggregator {
 
-public interface GorillaSegment extends Segment, BitMap {
+  public static final byte ID = (byte) 0b1000;
+  public static final String NAME = "min";
 
-  void updateHeader();
+  public MinAggregator() {
+    this(null);
+  }
 
-  void moveToHead();
+  public MinAggregator(Aggregator aggregator) {
+    super(Double.MAX_VALUE, ID, NAME, aggregator);
+  }
 
-  void moveToTail();
+  @Override
+  public void doApply(double value) {
+    if (value < this.value) {
+      this.value = value;
+    }
+  }
 }

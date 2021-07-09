@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.downsample;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+import org.junit.jupiter.api.Test;
 
-public interface GorillaSegment extends Segment, BitMap {
+public class CounterAggregatorTest {
 
-  void updateHeader();
+  @Test
+  void counts() {
+    Aggregator aggregator = Aggregator.newBuilder().count().min().max().build();
+    aggregator.apply(5.0);
 
-  void moveToHead();
 
-  void moveToTail();
+  }
 }

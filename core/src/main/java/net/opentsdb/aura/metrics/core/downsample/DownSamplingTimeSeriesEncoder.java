@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.downsample;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+import net.opentsdb.aura.metrics.core.SegmentEncoder;
 
-public interface GorillaSegment extends Segment, BitMap {
+public interface DownSamplingTimeSeriesEncoder extends SegmentEncoder {
 
-  void updateHeader();
+  void addDataPoints(double[] values);
 
-  void moveToHead();
+  int readAggValues(double[] valueBuffer, byte aggId);
 
-  void moveToTail();
 }

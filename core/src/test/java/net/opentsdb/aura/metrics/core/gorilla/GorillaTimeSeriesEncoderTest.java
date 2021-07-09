@@ -17,14 +17,15 @@
 
 package net.opentsdb.aura.metrics.core.gorilla;
 
-import net.opentsdb.aura.metrics.core.SegmentCollector;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
 import io.ultrabrew.metrics.Gauge;
 import io.ultrabrew.metrics.MetricRegistry;
 import mockit.Expectations;
 import mockit.Injectable;
 import mockit.Verifications;
+import net.opentsdb.aura.metrics.core.SegmentCollector;
+import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
+import net.opentsdb.aura.metrics.core.data.MemoryBlock;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,8 @@ public class GorillaTimeSeriesEncoderTest {
   static void setUp() {
     metricRegistry = new MetricRegistry();
     segmentCollector =
-        new SegmentCollector(10, 15, new OffHeapGorillaSegment(256, metricRegistry), metricRegistry);
+        new SegmentCollector(
+            10, 15, new OffHeapGorillaSegment(256, metricRegistry), metricRegistry);
   }
 
   @BeforeEach
@@ -80,28 +82,36 @@ public class GorillaTimeSeriesEncoderTest {
     assertEquals(42.5, values[60], 0.001);
 
     encoder.collectSegment(42);
-    new Verifications() {{
-      times(1);
-      segmentCollector.collect(42);
-    }};
+    new Verifications() {
+      {
+        times(1);
+        segmentCollector.collect(42);
+      }
+    };
 
     encoder.freeSegment();
-    new Verifications() {{
-      times(1);
-      segmentCollector.freeSegments();
-    }};
+    new Verifications() {
+      {
+        times(1);
+        segmentCollector.freeSegments();
+      }
+    };
 
     encoder.freeCollectedSegments();
-    new Verifications() {{
-      times(2);
-      segmentCollector.freeSegments();
-    }};
+    new Verifications() {
+      {
+        times(2);
+        segmentCollector.freeSegments();
+      }
+    };
 
     encoder.setTags(new String[0]);
-    new Verifications() {{
-      times(1);
-      segmentCollector.setTags(new String[0]);
-    }};
+    new Verifications() {
+      {
+        times(1);
+        segmentCollector.setTags(new String[0]);
+      }
+    };
   }
 
   @Test
@@ -128,7 +138,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertEquals(ts, tArray[0]);
     assertEquals(value, vArray[0]);
 
-    GorillaSegment segment = encoder.getSegment();
+    RawGorillaSegment segment = encoder.getSegment();
     assertEquals(SEGMENT_TIMESTAMP, encoder.getSegmentTime());
     assertEquals(value, Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(ts, segment.getLastTimestamp());
@@ -140,7 +150,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertFalse(encoder.segmentHasOutOfOrderOrDuplicates());
 
     // reload to validate the dirty flag stays
-    long segmentAddress = segment.getAddress();
+    long segmentAddress = ((MemoryBlock) segment).getAddress();
     before();
     encoder.openSegment(segmentAddress);
 
@@ -186,7 +196,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertArrayEquals(times, tArray);
     assertArrayEquals(values, vArray);
 
-    GorillaSegment segment = encoder.getSegment();
+    RawGorillaSegment segment = encoder.getSegment();
     assertEquals(SEGMENT_TIMESTAMP, encoder.getSegmentTime());
     assertEquals(values[values.length - 1], Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(times[times.length - 1], segment.getLastTimestamp());
@@ -198,60 +208,60 @@ public class GorillaTimeSeriesEncoderTest {
   @Test
   void testEncoding() {
     int[] times =
-        new int[]{
-            1611288000,
-            1611288001,
-            1611288002,
-            1611288003,
-            1611288004,
-            1611288005,
-            1611288006,
-            1611288007,
-            1611288008,
-            1611288009,
-            1611288010,
-            1611288011,
-            1611288012,
-            1611288013,
-            1611288014,
-            1611288015,
-            1611288016,
-            1611288017,
-            1611288018,
-            1611288019,
-            1611288020,
-            1611288021,
-            1611288022,
-            1611288023,
-            1611288024
+        new int[] {
+          1611288000,
+          1611288001,
+          1611288002,
+          1611288003,
+          1611288004,
+          1611288005,
+          1611288006,
+          1611288007,
+          1611288008,
+          1611288009,
+          1611288010,
+          1611288011,
+          1611288012,
+          1611288013,
+          1611288014,
+          1611288015,
+          1611288016,
+          1611288017,
+          1611288018,
+          1611288019,
+          1611288020,
+          1611288021,
+          1611288022,
+          1611288023,
+          1611288024
         };
     double[] values =
-        new double[]{
-            0.8973950653568595,
-            0.43654855440361706,
-            0.827450779634358,
-            0.3584920510780665,
-            0.9295624657514724,
-            0.9610921547553934,
-            0.6329804921575314,
-            0.34905996592724153,
-            0.5379730703355181,
-            0.8403559626106764,
-            0.30075147324566376,
-            0.15691026481149195,
-            0.7525354276869367,
-            0.942970394430076,
-            0.2401190623680185,
-            0.42611404794594654,
-            0.7615746658524079,
-            0.46418976228229414,
-            0.6942765189361159,
-            0.9690728790734268,
-            0.32890435244089244,
-            0.6098703276841767,
-            0.22878432168195317,
-            0.8844305249065624,
-            0.7157591580282211
+        new double[] {
+          0.8973950653568595,
+          0.43654855440361706,
+          0.827450779634358,
+          0.3584920510780665,
+          0.9295624657514724,
+          0.9610921547553934,
+          0.6329804921575314,
+          0.34905996592724153,
+          0.5379730703355181,
+          0.8403559626106764,
+          0.30075147324566376,
+          0.15691026481149195,
+          0.7525354276869367,
+          0.942970394430076,
+          0.2401190623680185,
+          0.42611404794594654,
+          0.7615746658524079,
+          0.46418976228229414,
+          0.6942765189361159,
+          0.9690728790734268,
+          0.32890435244089244,
+          0.6098703276841767,
+          0.22878432168195317,
+          0.8844305249065624,
+          0.7157591580282211
         };
 
     int numPoints = values.length;
@@ -280,18 +290,12 @@ public class GorillaTimeSeriesEncoderTest {
   @Test
   void testOutOfOrder() throws Exception {
     int[] times =
-        new int[]{
-            1611288000,
-            1611288002,
-            1611288003,
-            1611288001,
+        new int[] {
+          1611288000, 1611288002, 1611288003, 1611288001,
         };
     double[] values =
-        new double[]{
-            0.8973950653568595,
-            0.43654855440361706,
-            0.827450779634358,
-            0.3584920510780665,
+        new double[] {
+          0.8973950653568595, 0.43654855440361706, 0.827450779634358, 0.3584920510780665,
         };
 
     int numPoints = values.length;
@@ -316,7 +320,7 @@ public class GorillaTimeSeriesEncoderTest {
 
     assertArrayEquals(times, tArray);
     assertArrayEquals(values, vArray);
-    GorillaSegment segment = encoder.getSegment();
+    RawGorillaSegment segment = encoder.getSegment();
     assertEquals(segmentTime, encoder.getSegmentTime());
     assertEquals(values[values.length - 1], Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(times[times.length - 1], segment.getLastTimestamp());
@@ -325,7 +329,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertTrue(encoder.segmentHasOutOfOrderOrDuplicates());
 
     // reload to validate the OOO flag stays
-    long segmentAddress = segment.getAddress();
+    long segmentAddress = ((MemoryBlock) segment).getAddress();
     before();
     encoder.openSegment(segmentAddress);
 
@@ -335,15 +339,15 @@ public class GorillaTimeSeriesEncoderTest {
     assertTrue(encoder.segmentHasOutOfOrderOrDuplicates());
 
     // reset and read
-    encoder.reset();
+    //    encoder.reset();
     ai.set(0);
     encoder.read(
-            (t, v, d) -> {
-              int i = ai.get();
-              tArray[i] = t;
-              vArray[i] = v;
-              ai.getAndIncrement();
-            });
+        (t, v, d) -> {
+          int i = ai.get();
+          tArray[i] = t;
+          vArray[i] = v;
+          ai.getAndIncrement();
+        });
     assertEquals(segmentTime, encoder.getSegmentTime());
     assertEquals(numPoints, segment.getNumDataPoints());
     assertTrue(encoder.segmentIsDirty());
@@ -353,18 +357,12 @@ public class GorillaTimeSeriesEncoderTest {
   @Test
   void testDupes() throws Exception {
     int[] times =
-        new int[]{
-            1611288000,
-            1611288002,
-            1611288002,
-            1611288004,
+        new int[] {
+          1611288000, 1611288002, 1611288002, 1611288004,
         };
     double[] values =
-        new double[]{
-            0.8973950653568595,
-            0.43654855440361706,
-            0.827450779634358,
-            0.3584920510780665,
+        new double[] {
+          0.8973950653568595, 0.43654855440361706, 0.827450779634358, 0.3584920510780665,
         };
 
     int numPoints = values.length;
@@ -389,7 +387,7 @@ public class GorillaTimeSeriesEncoderTest {
 
     assertArrayEquals(times, tArray);
     assertArrayEquals(values, vArray);
-    GorillaSegment segment = encoder.getSegment();
+    RawGorillaSegment segment = encoder.getSegment();
     assertEquals(segmentTime, encoder.getSegmentTime());
     assertEquals(values[values.length - 1], Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(times[times.length - 1], segment.getLastTimestamp());
@@ -422,7 +420,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertEquals(ts, tArray[0]);
     assertEquals(value, vArray[0]);
 
-    GorillaSegment segment = encoder.getSegment();
+    RawGorillaSegment segment = encoder.getSegment();
     assertEquals(SEGMENT_TIMESTAMP, encoder.getSegmentTime());
     assertEquals(value, Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(ts, segment.getLastTimestamp());
@@ -437,7 +435,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertFalse(encoder.segmentIsDirty());
 
     // reload to validate the dirty flag stays
-    long segmentAddress = segment.getAddress();
+    long segmentAddress = ((MemoryBlock) segment).getAddress();
     before();
     encoder.openSegment(segmentAddress);
 
@@ -505,13 +503,10 @@ public class GorillaTimeSeriesEncoderTest {
   }
 
   @Test
-  void testLossyManyRandom() throws Exception {
+  void testLossyManyRandom() {
     encoder =
         new GorillaTimeSeriesEncoder(
-            true,
-            metricRegistry,
-            new OffHeapGorillaSegment(256, metricRegistry),
-            segmentCollector);
+            true, metricRegistry, new OffHeapGorillaSegment(256, metricRegistry), segmentCollector);
 
     int runs = 4096;
     int maxSize = 3600;
@@ -538,10 +533,7 @@ public class GorillaTimeSeriesEncoderTest {
       }
 
       Map<Integer, Double> tested = new TreeMap<>();
-      encoder.read(
-          (t, v, d) -> {
-            tested.put(t, v);
-          });
+      encoder.read((t, v, d) -> tested.put(t, v));
       assertLossyMapEquals(canonical, tested);
 
       encoder.freeSegment();
@@ -556,9 +548,11 @@ public class GorillaTimeSeriesEncoderTest {
     for (int i = 0; i < ((int) Short.MAX_VALUE); i++) {
       encoder.addDataPoint(ts++, i);
     }
-    assertThrows(IllegalStateException.class, () -> {
-      encoder.addDataPoint(SEGMENT_TIMESTAMP, -1);
-    });
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          encoder.addDataPoint(SEGMENT_TIMESTAMP, -1);
+        });
   }
 
   @Test
@@ -568,11 +562,12 @@ public class GorillaTimeSeriesEncoderTest {
 
     for (int x = 0; x < runs; x++) {
       int ts = SEGMENT_TIMESTAMP;
-      encoder = new GorillaTimeSeriesEncoder(
-          false,
-          metricRegistry,
-          new OffHeapGorillaSegment(256, metricRegistry),
-          segmentCollector);
+      encoder =
+          new GorillaTimeSeriesEncoder(
+              false,
+              metricRegistry,
+              new OffHeapGorillaSegment(256, metricRegistry),
+              segmentCollector);
       encoder.createSegment(SEGMENT_TIMESTAMP);
 
       int size = random.nextInt(maxSize);
@@ -596,16 +591,15 @@ public class GorillaTimeSeriesEncoderTest {
       encoder.serialize(buffer, 0, serializationLength);
       assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
 
-      OnHeapGorillaSegment onHeapSegment = new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
-      encoder = new GorillaTimeSeriesEncoder(
-          false,
-          metricRegistry,
-          onHeapSegment,
-          segmentCollector);
+      OnHeapGorillaSegment onHeapSegment =
+          new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+      encoder =
+          new GorillaTimeSeriesEncoder(false, metricRegistry, onHeapSegment, segmentCollector);
       Map<Integer, Double> dps = new TreeMap<>();
-      encoder.read((t, v, d) -> {
-        dps.put(t, v);
-      });
+      encoder.read(
+          (t, v, d) -> {
+            dps.put(t, v);
+          });
       assertEquals(canonical, dps);
 
       encoder.freeSegment();
@@ -620,11 +614,12 @@ public class GorillaTimeSeriesEncoderTest {
     for (int x = 0; x < runs; x++) {
       int ts = SEGMENT_TIMESTAMP;
 
-      encoder = new GorillaTimeSeriesEncoder(
-          true,
-          metricRegistry,
-          new OffHeapGorillaSegment(256, metricRegistry),
-          segmentCollector);
+      encoder =
+          new GorillaTimeSeriesEncoder(
+              true,
+              metricRegistry,
+              new OffHeapGorillaSegment(256, metricRegistry),
+              segmentCollector);
       encoder.createSegment(SEGMENT_TIMESTAMP);
 
       int size = random.nextInt(maxSize);
@@ -648,16 +643,14 @@ public class GorillaTimeSeriesEncoderTest {
       encoder.serialize(buffer, 0, serializationLength);
       assertEquals(TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS, buffer[0]);
 
-      OnHeapGorillaSegment onHeapSegment = new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
-      encoder = new GorillaTimeSeriesEncoder(
-          true,
-          metricRegistry,
-          onHeapSegment,
-          segmentCollector);
+      OnHeapGorillaSegment onHeapSegment =
+          new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+      encoder = new GorillaTimeSeriesEncoder(true, metricRegistry, onHeapSegment, segmentCollector);
       Map<Integer, Double> dps = new TreeMap<>();
-      encoder.read((t, v, d) -> {
-        dps.put(t, v);
-      });
+      encoder.read(
+          (t, v, d) -> {
+            dps.put(t, v);
+          });
       assertLossyMapEquals(canonical, dps);
 
       encoder.freeSegment();
@@ -675,12 +668,14 @@ public class GorillaTimeSeriesEncoderTest {
     encoder.serialize(buffer, 0, serializationLength);
     assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
 
-    OnHeapGorillaSegment onHeapSegment = new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+    OnHeapGorillaSegment onHeapSegment =
+        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
     encoder.setSegment(onHeapSegment);
     Map<Integer, Double> dps = new TreeMap<>();
-    encoder.read((t, v, d) -> {
-      dps.put(t, v);
-    });
+    encoder.read(
+        (t, v, d) -> {
+          dps.put(t, v);
+        });
 
     assertEquals(1, dps.size());
     assertEquals(42D, dps.get(SEGMENT_TIMESTAMP));
@@ -705,16 +700,14 @@ public class GorillaTimeSeriesEncoderTest {
     encoder.serialize(buffer, 0, serializationLength);
     assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
 
-    OnHeapGorillaSegment onHeapSegment = new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
-    encoder = new GorillaTimeSeriesEncoder(
-        false,
-        metricRegistry,
-        onHeapSegment,
-        segmentCollector);
+    OnHeapGorillaSegment onHeapSegment =
+        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+    encoder = new GorillaTimeSeriesEncoder(false, metricRegistry, onHeapSegment, segmentCollector);
     Map<Integer, Double> dps = new TreeMap<>();
-    encoder.read((t, v, d) -> {
-      dps.put(t, v);
-    });
+    encoder.read(
+        (t, v, d) -> {
+          dps.put(t, v);
+        });
 
     assertEquals(canonical, dps);
     encoder.freeSegment();
@@ -729,19 +722,17 @@ public class GorillaTimeSeriesEncoderTest {
     byte[] buffer = new byte[serializationLength];
     encoder.serialize(buffer, 0, serializationLength);
     assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
-    assertArrayEquals(new byte[]{0, 0}, buffer);
+    assertArrayEquals(new byte[] {0, 0}, buffer);
 
-    OnHeapGorillaSegment onHeapSegment = new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
-    encoder = new GorillaTimeSeriesEncoder(
-        false,
-        metricRegistry,
-        onHeapSegment,
-        segmentCollector);
+    OnHeapGorillaSegment onHeapSegment =
+        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+    encoder = new GorillaTimeSeriesEncoder(false, metricRegistry, onHeapSegment, segmentCollector);
 
     Map<Integer, Double> dps = new TreeMap<>();
-    encoder.read((t, v, d) -> {
-      dps.put(t, v);
-    });
+    encoder.read(
+        (t, v, d) -> {
+          dps.put(t, v);
+        });
     assertTrue(dps.isEmpty());
 
     encoder.freeSegment();
@@ -771,16 +762,14 @@ public class GorillaTimeSeriesEncoderTest {
     int offset = 13;
     encoder.serialize(buffer, offset, serializationLength);
 
-    OnHeapGorillaSegment onHeapSegment = new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, offset, serializationLength);
-    encoder = new GorillaTimeSeriesEncoder(
-        false,
-        metricRegistry,
-        onHeapSegment,
-        segmentCollector);
+    OnHeapGorillaSegment onHeapSegment =
+        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, offset, serializationLength);
+    encoder = new GorillaTimeSeriesEncoder(false, metricRegistry, onHeapSegment, segmentCollector);
     Map<Integer, Double> dps = new TreeMap<>();
-    encoder.read((t, v, d) -> {
-      dps.put(t, v);
-    });
+    encoder.read(
+        (t, v, d) -> {
+          dps.put(t, v);
+        });
     assertEquals(canonical, dps);
 
     encoder.freeSegment();
@@ -805,9 +794,11 @@ public class GorillaTimeSeriesEncoderTest {
 
     int serializationLength = encoder.serializationLength();
     byte[] buffer = new byte[serializationLength - 1];
-    assertThrows(ArrayIndexOutOfBoundsException.class, () -> {
-      encoder.serialize(buffer, 0, serializationLength);
-    });
+    assertThrows(
+        ArrayIndexOutOfBoundsException.class,
+        () -> {
+          encoder.serialize(buffer, 0, serializationLength);
+        });
 
     encoder.freeSegment();
   }
@@ -815,7 +806,8 @@ public class GorillaTimeSeriesEncoderTest {
   @Test
   void testSerializationFullSegment() throws Exception {
     int ts = SEGMENT_TIMESTAMP;
-    encoder = new GorillaTimeSeriesEncoder(
+    encoder =
+        new GorillaTimeSeriesEncoder(
             false,
             metricRegistry,
             new OffHeapGorillaSegment(256, metricRegistry),
@@ -833,12 +825,9 @@ public class GorillaTimeSeriesEncoderTest {
     encoder.serialize(buffer, 0, expectedLength);
     encoder.freeSegment();
 
-    OnHeapGorillaSegment onHeapSegment = new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, 8567);
-    encoder = new GorillaTimeSeriesEncoder(
-            false,
-            metricRegistry,
-            onHeapSegment,
-            segmentCollector);
+    OnHeapGorillaSegment onHeapSegment =
+        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, 8567);
+    encoder = new GorillaTimeSeriesEncoder(false, metricRegistry, onHeapSegment, segmentCollector);
     double[] array = new double[SECONDS_IN_A_SEGMENT];
     encoder.readAndDedupe(array);
     for (int i = 0; i < array.length; i++) {
@@ -857,9 +846,11 @@ public class GorillaTimeSeriesEncoderTest {
     }
 
     double[] read = new double[SECONDS_IN_A_SEGMENT];
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      encoder.readAndDedupe(read);
-    });
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> {
+          encoder.readAndDedupe(read);
+        });
   }
 
   @Test
@@ -923,60 +914,60 @@ public class GorillaTimeSeriesEncoderTest {
     // 0.8661819072263801, 0.9522528950544387, 0.42347657640344527};
 
     int[] times =
-        new int[]{
-            1611288000,
-            1611288001,
-            1611288002,
-            1611288003,
-            1611288004,
-            1611288005,
-            1611288006,
-            1611288007,
-            1611288008,
-            1611288009,
-            1611288010,
-            1611288011,
-            1611288012,
-            1611288013,
-            1611288014,
-            1611288015,
-            1611288016,
-            1611288017,
-            1611288018,
-            1611288019,
-            1611288020,
-            1611288021,
-            1611288022,
-            1611288023,
-            1611288024
+        new int[] {
+          1611288000,
+          1611288001,
+          1611288002,
+          1611288003,
+          1611288004,
+          1611288005,
+          1611288006,
+          1611288007,
+          1611288008,
+          1611288009,
+          1611288010,
+          1611288011,
+          1611288012,
+          1611288013,
+          1611288014,
+          1611288015,
+          1611288016,
+          1611288017,
+          1611288018,
+          1611288019,
+          1611288020,
+          1611288021,
+          1611288022,
+          1611288023,
+          1611288024
         };
     double[] values =
-        new double[]{
-            0.8973950653568595,
-            0.43654855440361706,
-            0.827450779634358,
-            0.3584920510780665,
-            0.9295624657514724,
-            0.9610921547553934,
-            0.6329804921575314,
-            0.34905996592724153,
-            0.5379730703355181,
-            0.8403559626106764,
-            0.30075147324566376,
-            0.15691026481149195,
-            0.7525354276869367,
-            0.942970394430076,
-            0.2401190623680185,
-            0.42611404794594654,
-            0.7615746658524079,
-            0.46418976228229414,
-            0.6942765189361159,
-            0.9690728790734268,
-            0.32890435244089244,
-            0.6098703276841767,
-            0.22878432168195317,
-            0.8844305249065624,
-            0.7157591580282211
+        new double[] {
+          0.8973950653568595,
+          0.43654855440361706,
+          0.827450779634358,
+          0.3584920510780665,
+          0.9295624657514724,
+          0.9610921547553934,
+          0.6329804921575314,
+          0.34905996592724153,
+          0.5379730703355181,
+          0.8403559626106764,
+          0.30075147324566376,
+          0.15691026481149195,
+          0.7525354276869367,
+          0.942970394430076,
+          0.2401190623680185,
+          0.42611404794594654,
+          0.7615746658524079,
+          0.46418976228229414,
+          0.6942765189361159,
+          0.9690728790734268,
+          0.32890435244089244,
+          0.6098703276841767,
+          0.22878432168195317,
+          0.8844305249065624,
+          0.7157591580282211
         };
 
     //    int ts = (int) (now / 1000);
@@ -988,7 +979,7 @@ public class GorillaTimeSeriesEncoderTest {
     long start = System.nanoTime();
 
     for (int i = 0; i < iteration; i++) {
-      encoder.reset();
+      //      encoder.reset();
       for (int j = 0; j < numPoints; j++) {
         encoder.addDataPoint(times[j], values[j]);
       }
@@ -1017,22 +1008,27 @@ public class GorillaTimeSeriesEncoderTest {
    * Helper to check the equality of doubles that we expect to be a bit lossy
    *
    * @param expected The expected map values
-   * @param test     The test map values.
+   * @param test The test map values.
    */
-  void assertLossyMapEquals(Map<Integer, Double> expected,
-                            Map<Integer, Double> test) {
+  void assertLossyMapEquals(Map<Integer, Double> expected, Map<Integer, Double> test) {
     if (expected.size() != test.size()) {
-      throw new AssertionError("Expected " + expected.size() + " entries but got " + test.size() + " entries.");
+      throw new AssertionError(
+          "Expected " + expected.size() + " entries but got " + test.size() + " entries.");
     }
 
     for (Map.Entry<Integer, Double> entry : expected.entrySet()) {
       Double other = test.get(entry.getKey());
       if (other == null) {
-        throw new AssertionError("Test was missing an entry for key " + entry.getKey() + "\nExP: " + expected + "\ntest: " + test);
+        throw new AssertionError(
+            "Test was missing an entry for key "
+                + entry.getKey()
+                + "\nExP: "
+                + expected
+                + "\ntest: "
+                + test);
       }
 
       assertEquals(entry.getValue(), other, 0.001);
     }
   }
-
 }

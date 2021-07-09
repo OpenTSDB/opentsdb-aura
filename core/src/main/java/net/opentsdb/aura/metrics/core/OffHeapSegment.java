@@ -17,19 +17,31 @@
 
 package net.opentsdb.aura.metrics.core;
 
-public interface Segment {
+import net.opentsdb.aura.metrics.core.data.FixedSizedMemoryBlockStream;
 
-  long create(int segmentTime);
+public abstract class OffHeapSegment extends FixedSizedMemoryBlockStream implements Segment {
 
-  void open(long id);
+  protected static final int SEGMENT_TIME_BYTE_INDEX = 18;
 
-  void free();
+  public OffHeapSegment(int blockSizeBytes) {
+    super(blockSizeBytes);
+  }
 
-  int getSegmentTime();
+  @Override
+  public long create(int segmentTime) {
+    long address = allocate();
+    header.setInt(SEGMENT_TIME_BYTE_INDEX, segmentTime);
+    return address;
+  }
 
-  boolean isDirty();
+  @Override
+  public void open(long segmentAddress) {
+    load(segmentAddress);
+  }
 
-  boolean hasDupesOrOutOfOrderData();
+  @Override
+  public int getSegmentTime() {
+    return header.getInt(SEGMENT_TIME_BYTE_INDEX);
+  }
 
-  void markFlushed();
 }

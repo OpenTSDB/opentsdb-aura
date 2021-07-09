@@ -17,9 +17,9 @@
 
 package net.opentsdb.aura.metrics.core.gorilla;
 
+import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderFactory;
-import io.ultrabrew.metrics.MetricRegistry;
 
 public class GorillaTimeSeriesEncoderFactory
     implements TimeSeriesEncoderFactory<GorillaTimeSeriesEncoder> {
@@ -31,8 +31,11 @@ public class GorillaTimeSeriesEncoderFactory
   private GorillaSegmentFactory segmentFactory;
 
   public GorillaTimeSeriesEncoderFactory(
-      final boolean lossy, final int garbageQSize, final int segmentCollectionDelayMinutes,
-      final MetricRegistry metricRegistry, final GorillaSegmentFactory segmentFactory) {
+      final boolean lossy,
+      final int garbageQSize,
+      final int segmentCollectionDelayMinutes,
+      final MetricRegistry metricRegistry,
+      final GorillaSegmentFactory segmentFactory) {
     this.lossy = lossy;
     this.garbageQSize = garbageQSize;
     this.segmentCollectionDelayMinutes = segmentCollectionDelayMinutes;
@@ -43,15 +46,10 @@ public class GorillaTimeSeriesEncoderFactory
   @Override
   public GorillaTimeSeriesEncoder create() {
 
-    GorillaSegment segmentHandle = segmentFactory.create();
+    RawGorillaSegment segmentHandle = segmentFactory.create();
     SegmentCollector segmentCollector =
         new SegmentCollector(
-            garbageQSize,
-            segmentCollectionDelayMinutes,
-            segmentHandle,
-            metricRegistry);
-    return new GorillaTimeSeriesEncoder(
-        lossy, metricRegistry, segmentHandle, segmentCollector);
+            garbageQSize, segmentCollectionDelayMinutes, segmentHandle, metricRegistry);
+    return new GorillaTimeSeriesEncoder(lossy, metricRegistry, segmentHandle, segmentCollector);
   }
-
 }

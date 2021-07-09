@@ -61,7 +61,7 @@ public class SegmentCollector implements LazyStatsCollector {
       final long timeElapsedMillis = now - time;
       final long timeElapsedMinutes = TimeUnit.MILLISECONDS.toMinutes(timeElapsedMillis);
       if (timeElapsedMinutes >= collectionDelayMinutes) {
-        segmentHandle.openSegment(garbageQueue.peekAddress());
+        segmentHandle.open(garbageQueue.peekAddress());
         segmentHandle.free();
         garbageQueue.remove();
         lastMS = time;
