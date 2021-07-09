@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.downsample;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+public class CountAggregator extends Aggregator {
 
-public interface GorillaSegment extends Segment, BitMap {
+  public static final byte ID = (byte) 0b100;
+  public static final String NAME = "count";
 
-  void updateHeader();
+  public CountAggregator() {
+    this(null);
+  }
 
-  void moveToHead();
+  public CountAggregator(Aggregator aggregator) {
+    super(0.0, ID, NAME, aggregator);
+  }
 
-  void moveToTail();
+  @Override
+  protected void doApply(double value) {
+    this.value++;
+  }
 }

@@ -22,7 +22,7 @@ import net.opentsdb.aura.metrics.core.data.ByteArrays;
 /**
  * More work to do on this but it's meant to deserialize stored gorilla segments.
  */
-public class OnHeapGorillaSegment implements GorillaSegment {
+public class OnHeapGorillaSegment implements RawGorillaSegment {
     static final int NUM_POINTS_OFFSET = 1;
 
     private int segmentTime;
@@ -66,17 +66,12 @@ public class OnHeapGorillaSegment implements GorillaSegment {
     }
 
     @Override
-    public long getAddress() {
+    public long create(int segmentTime) {
         return 0;
     }
 
     @Override
-    public long createSegment(int segmentTime) {
-        return 0;
-    }
-
-    @Override
-    public void openSegment(long segmentAddress) {
+    public void open(long segmentAddress) {
 
     }
 
@@ -166,7 +161,7 @@ public class OnHeapGorillaSegment implements GorillaSegment {
     }
 
     @Override
-    public long readData(int bitsToRead) {
+    public long read(int bitsToRead) {
         if (bitsToRead < 0 && bitsToRead > 64) {
             throw new IllegalArgumentException(
                     String.format("Invalid bitsToRead %d. Expected between %d to %d", bitsToRead, 0, 64));
@@ -207,8 +202,8 @@ public class OnHeapGorillaSegment implements GorillaSegment {
     }
 
     @Override
-    public void writeData(long value, int bitsToWrite) {
-
+    public void write(long value, int bitsToWrite) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -217,7 +212,12 @@ public class OnHeapGorillaSegment implements GorillaSegment {
     }
 
     @Override
-    public void resetCursor() {
+    public void moveToTail() {
+
+    }
+
+    @Override
+    public void moveToHead() {
         bitIndex = 0;
         // Number of data points is variable length encoded on either 1 or 2 bytes.
         if ((OffHeapGorillaSegment.TWO_BYTE_FLAG & buffer[startingOffset + NUM_POINTS_OFFSET]) != 0) {
@@ -233,11 +233,6 @@ public class OnHeapGorillaSegment implements GorillaSegment {
         }
         previousLong = ByteArrays.getLong(buffer, longIndex);
         longIndex += Long.BYTES;
-    }
-
-    @Override
-    public void reset() {
-
     }
 
     @Override

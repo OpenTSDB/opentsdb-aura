@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.data;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+public interface BitMap {
 
-public interface GorillaSegment extends Segment, BitMap {
+//  void set(int bitIndex);
 
-  void updateHeader();
+//  void unSet(int bitIndex);
+//
+//  boolean isSet(int bitIndex);
 
-  void moveToHead();
+  void write(long value, int bitsToWrite);
 
-  void moveToTail();
+  long read(int bitsToRead);
 }

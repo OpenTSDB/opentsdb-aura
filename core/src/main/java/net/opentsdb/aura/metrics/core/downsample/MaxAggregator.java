@@ -15,16 +15,25 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.downsample;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+public class MaxAggregator extends Aggregator {
 
-public interface GorillaSegment extends Segment, BitMap {
+  public static final byte ID = (byte) 0b10000;
+  public static final String NAME = "max";
 
-  void updateHeader();
+  public MaxAggregator() {
+    this(null);
+  }
 
-  void moveToHead();
+  public MaxAggregator(Aggregator aggregator) {
+    super(Double.MIN_VALUE, ID, NAME, aggregator);
+  }
 
-  void moveToTail();
+  @Override
+  public void doApply(final double value) {
+    if (value > this.value) {
+      this.value = value;
+    }
+  }
 }

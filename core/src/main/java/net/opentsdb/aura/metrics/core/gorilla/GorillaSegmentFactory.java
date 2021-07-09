@@ -19,7 +19,7 @@ package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.SegmentFactory;
 
-public interface GorillaSegmentFactory<S extends GorillaSegment> extends SegmentFactory {
+public interface GorillaSegmentFactory<S extends RawGorillaSegment> extends SegmentFactory {
   @Override
   S create();
 }

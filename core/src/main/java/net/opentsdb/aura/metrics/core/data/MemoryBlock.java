@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics.core.data;
 
-import net.opentsdb.aura.metrics.core.Segment;
-import net.opentsdb.aura.metrics.core.data.BitMap;
+public interface MemoryBlock {
 
-public interface GorillaSegment extends Segment, BitMap {
+  /** @return address of the memory block */
+  long getAddress();
 
-  void updateHeader();
+  /**
+   * Allocates a new block
+   *
+   * @return address of the memory block.
+   */
+  long allocate();
 
-  void moveToHead();
+  /**
+   * Seeks to the address location
+   *
+   * @param address of the memory block
+   */
+  void load(long address);
 
-  void moveToTail();
+  /**
+   * Frees memory block
+   */
+  void free();
 }

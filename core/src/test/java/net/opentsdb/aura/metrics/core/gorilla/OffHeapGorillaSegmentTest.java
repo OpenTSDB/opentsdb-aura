@@ -33,8 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * NOTE: Tests around reading and writing data are in the
- * GorillaTimeSeriesEncoderTest.java file.
+ * NOTE: Tests around reading and writing data are in the GorillaTimeSeriesEncoderTest.java file.
  */
 public class OffHeapGorillaSegmentTest {
 
@@ -49,56 +48,45 @@ public class OffHeapGorillaSegmentTest {
   private Random random = new Random(now);
 
   @Test
-  public void ctor(@Mocked MetricRegistry registry,
-                   @Mocked Gauge memoryBlockCountGauge,
-                   @Mocked Gauge segmentLengthGauge) throws Exception {
+  public void ctor(
+      @Mocked MetricRegistry registry,
+      @Mocked Gauge memoryBlockCountGauge,
+      @Mocked Gauge segmentLengthGauge) {
+
     int dataBlockSizeBytes = 256;
     OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    assertEquals(dataBlockSizeBytes, segment.dataBlockSizeBytes);
-    assertEquals(dataBlockSizeBytes / 8, segment.dataBlockSizeLongs);
-    assertEquals(dataBlockSizeBytes * 8, segment.dataBlockSizeBits);
-    assertEquals(0, segment.bitIndex);
+    assertEquals(dataBlockSizeBytes, segment.blockSizeBytes);
+    assertEquals(dataBlockSizeBytes / 8, segment.blockSizeLongs);
+    assertEquals(dataBlockSizeBytes * 8, segment.blockSizeBits);
+    assertEquals(0, segment.getBitIndex());
     assertFalse(segment.isDirty());
     assertFalse(segment.hasDupesOrOutOfOrderData());
-    assertEquals(0, segment.memoryBlockCount);
-    assertEquals(0, segment.header.getCapacity());
-    assertEquals(0, segment.dataBlock.getCapacity());
+    assertEquals(0, segment.getMemoryBlockCount());
+    assertEquals(0, segment.getHeader().getCapacity());
+    assertEquals(0, segment.getDataBlock().getCapacity());
     assertEquals(0, segment.getAddress());
 
     // no address so we're throwing as the capacity is 0.
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      segment.getSegmentTime();
-    });
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      segment.getNumDataPoints();
-    });
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      segment.getLastTimestamp();
-    });
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      segment.getLastValue();
-    });
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      segment.getLastTimestampDelta();
-    });
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      segment.getLastValueLeadingZeros();
-    });
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      segment.getLastValueTrailingZeros();
-    });
+    assertThrows(IndexOutOfBoundsException.class, () -> segment.getSegmentTime());
+    assertThrows(IndexOutOfBoundsException.class, () -> segment.getNumDataPoints());
+    assertThrows(IndexOutOfBoundsException.class, () -> segment.getLastTimestamp());
+    assertThrows(IndexOutOfBoundsException.class, () -> segment.getLastValue());
+    assertThrows(IndexOutOfBoundsException.class, () -> segment.getLastTimestampDelta());
+    assertThrows(IndexOutOfBoundsException.class, () -> segment.getLastValueLeadingZeros());
+    assertThrows(IndexOutOfBoundsException.class, () -> segment.getLastValueTrailingZeros());
 
     // just for code coverage
     segment.setTags(new String[0]);
   }
 
   @Test
-  public void createSegment(@Mocked MetricRegistry registry,
-                            @Mocked Gauge memoryBlockCountGauge,
-                            @Mocked Gauge segmentLengthGauge) throws Exception {
+  public void createSegment(
+      @Mocked MetricRegistry registry,
+      @Mocked Gauge memoryBlockCountGauge,
+      @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
     OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    long addr = segment.createSegment(SEGMENT_TIMESTAMP);
+    long addr = segment.create(SEGMENT_TIMESTAMP);
     assertTrue(addr > 0);
     assertEquals(addr, segment.getAddress());
     assertEquals(SEGMENT_TIMESTAMP, segment.getSegmentTime());
@@ -108,137 +96,128 @@ public class OffHeapGorillaSegmentTest {
     assertEquals(0, segment.getLastTimestampDelta());
     assertEquals(0, segment.getLastValueLeadingZeros());
     assertEquals(0, segment.getLastValueTrailingZeros());
-    assertEquals(320, segment.bitIndex);
+    assertEquals(320, segment.getBitIndex());
     assertFalse(segment.isDirty());
     assertFalse(segment.hasDupesOrOutOfOrderData());
-    assertEquals(1, segment.memoryBlockCount);
-    assertEquals(256, segment.header.getCapacity());
-    assertEquals(32, segment.dataBlock.getCapacity()); // longs
-    assertEquals(segment.header.getAddress(),
-            segment.dataBlock.getAddress());
+    assertEquals(1, segment.getMemoryBlockCount());
+    assertEquals(256, segment.getHeader().getCapacity());
+    assertEquals(32, segment.getDataBlock().getCapacity()); // longs
+    assertEquals(segment.getHeader().getAddress(), segment.getDataBlock().getAddress());
     segment.free();
 
     // what happens if we set a block size smaller than our header?
     dataBlockSizeBytes = 8;
-    final OffHeapGorillaSegment badSegment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      badSegment.createSegment(SEGMENT_TIMESTAMP);
-    });
+    final OffHeapGorillaSegment badSegment =
+        new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    assertThrows(IndexOutOfBoundsException.class, () -> badSegment.create(SEGMENT_TIMESTAMP));
 
     // what if it's too small for the first write?
     dataBlockSizeBytes = 42;
-    final OffHeapGorillaSegment badSegment2 = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    addr = badSegment2.createSegment(SEGMENT_TIMESTAMP);
+    final OffHeapGorillaSegment badSegment2 =
+        new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    addr = badSegment2.create(SEGMENT_TIMESTAMP);
     assertTrue(addr > 0);
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      badSegment2.writeData(42, Long.BYTES * 8);
-    });
+    assertThrows(IndexOutOfBoundsException.class, () -> badSegment2.write(42, Long.BYTES * 8));
   }
 
   @Test
-  public void writeData(@Mocked MetricRegistry registry,
-                        @Mocked Gauge memoryBlockCountGauge,
-                        @Mocked Gauge segmentLengthGauge) throws Exception {
+  public void writeData(
+      @Mocked MetricRegistry registry,
+      @Mocked Gauge memoryBlockCountGauge,
+      @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
     final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    segment.createSegment(SEGMENT_TIMESTAMP);
-    assertThrows(IllegalArgumentException.class, () -> {
-      segment.writeData(42, -1);
-    });
-    assertThrows(IllegalArgumentException.class, () -> {
-      segment.writeData(42, 65);
-    });
+    segment.create(SEGMENT_TIMESTAMP);
+    assertThrows(IllegalArgumentException.class, () -> segment.write(42, -1));
+    assertThrows(IllegalArgumentException.class, () -> segment.write(42, 65));
 
     // fill up the header till we hit the next block
     for (int i = 0; i < 26; i++) {
-      segment.writeData(0, 64);
+      segment.write(0, 64);
       segment.updateHeader();
     }
-    assertEquals((dataBlockSizeBytes * 8) - 64, segment.bitIndex);
-    assertEquals(1, segment.memoryBlockCount);
+    assertEquals((dataBlockSizeBytes * 8) - 64, segment.getBitIndex());
+    assertEquals(1, segment.getMemoryBlockCount());
 
-    segment.writeData(0, 64);
+    segment.write(0, 64);
     segment.updateHeader();
-    assertEquals(64, segment.bitIndex);
-    assertEquals(2, segment.memoryBlockCount);
+    assertEquals(64, segment.getBitIndex());
+    assertEquals(2, segment.getMemoryBlockCount());
 
     segment.free();
 
     // one bit left should force a new block
-    segment.createSegment(SEGMENT_TIMESTAMP);
+    segment.create(SEGMENT_TIMESTAMP);
     for (int i = 0; i < 26; i++) {
-      segment.writeData(0, 64);
+      segment.write(0, 64);
       segment.updateHeader();
     }
-    assertEquals((dataBlockSizeBytes * 8) - 64, segment.bitIndex);
-    assertEquals(1, segment.memoryBlockCount);
+    assertEquals((dataBlockSizeBytes * 8) - 64, segment.getBitIndex());
+    assertEquals(1, segment.getMemoryBlockCount());
 
-    segment.writeData(0, 63);
+    segment.write(0, 63);
     segment.updateHeader();
-    assertEquals((dataBlockSizeBytes * 8) -1, segment.bitIndex);
-    assertEquals(1, segment.memoryBlockCount);
+    assertEquals((dataBlockSizeBytes * 8) - 1, segment.getBitIndex());
+    assertEquals(1, segment.getMemoryBlockCount());
 
-    segment.writeData(0, 1);
+    segment.write(0, 1);
     segment.updateHeader();
-    assertEquals(64, segment.bitIndex);
-    assertEquals(2, segment.memoryBlockCount);
+    assertEquals(64, segment.getBitIndex());
+    assertEquals(2, segment.getMemoryBlockCount());
   }
 
   @Test
-  public void readData(@Mocked MetricRegistry registry,
-                       @Mocked Gauge memoryBlockCountGauge,
-                       @Mocked Gauge segmentLengthGauge) throws Exception {
+  public void readData(
+      @Mocked MetricRegistry registry,
+      @Mocked Gauge memoryBlockCountGauge,
+      @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
     final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    segment.createSegment(SEGMENT_TIMESTAMP);
+    segment.create(SEGMENT_TIMESTAMP);
     // fill up the header till we hit the next block
     for (int i = 0; i < 26; i++) {
-      segment.writeData(i, 64);
+      segment.write(i, 64);
       segment.updateHeader();
     }
 
     // have to reset
-    segment.reset();
-    assertThrows(IllegalArgumentException.class, () -> {
-      segment.readData(-1);
-    });
-    assertThrows(IllegalArgumentException.class, () -> {
-      segment.readData(65);
-    });
+    //    segment.reset();
+    assertThrows(IllegalArgumentException.class, () -> segment.read(-1));
+    assertThrows(IllegalArgumentException.class, () -> segment.read(65));
 
     for (int i = 0; i < 26; i++) {
-      assertEquals(i, segment.readData(64));
+      assertEquals(i, segment.read(64));
     }
   }
 
   @Test
-  public void readAfterWrite(@Mocked MetricRegistry registry,
-                             @Mocked Gauge memoryBlockCountGauge,
-                             @Mocked Gauge segmentLengthGauge) {
+  public void readAfterWrite(
+      @Mocked MetricRegistry registry,
+      @Mocked Gauge memoryBlockCountGauge,
+      @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
     final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    segment.createSegment(SEGMENT_TIMESTAMP);
+    segment.create(SEGMENT_TIMESTAMP);
 
-    segment.writeData(42L, 64);
-    assertThrows(IllegalStateException.class, () -> {
-      segment.readData(64);
-    });
+    segment.write(42L, 64);
+    assertEquals(42L, segment.read(64));
   }
 
   @Test
-  public void writeAfterRead(@Mocked MetricRegistry registry,
-                             @Mocked Gauge memoryBlockCountGauge,
-                             @Mocked Gauge segmentLengthGauge) throws Exception {
+  public void writeAfterRead(
+      @Mocked MetricRegistry registry,
+      @Mocked Gauge memoryBlockCountGauge,
+      @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
     final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
-    segment.createSegment(SEGMENT_TIMESTAMP);
+    segment.create(SEGMENT_TIMESTAMP);
 
-    segment.writeData(42L, 64);
-    segment.reset();
-    assertEquals(42, segment.readData(64));
-    assertThrows(IllegalStateException.class, () -> {
-      segment.writeData(24L, 64);
-    });
+    segment.write(42L, 64);
+    assertEquals(42, segment.read(64));
+    segment.write(24L, 64);
+
+    assertEquals(42L, segment.read(64));
+    assertEquals(24L, segment.read(64));
   }
 
   @Test
@@ -276,7 +255,7 @@ public class OffHeapGorillaSegmentTest {
       }
     };
 
-    segment.createSegment(segmentTime);
+    segment.create(segmentTime);
 
     segment.collectMetrics();
     new Verifications() {
@@ -292,8 +271,8 @@ public class OffHeapGorillaSegmentTest {
     };
 
     double value = random.nextDouble();
-    segment.writeData(segmentTime, 64);
-    segment.writeData(Double.doubleToRawLongBits(value), 64);
+    segment.write(segmentTime, 64);
+    segment.write(Double.doubleToRawLongBits(value), 64);
     segment.updateHeader();
 
     segment.collectMetrics();
@@ -361,7 +340,7 @@ public class OffHeapGorillaSegmentTest {
       }
     };
 
-    segment.createSegment(segmentTime);
+    segment.create(segmentTime);
 
     segment.collectMetrics();
     int initialBlockCount = 1;
@@ -382,8 +361,8 @@ public class OffHeapGorillaSegmentTest {
     for (int i = 0; i < size; i++) {
       int time = segmentTime + i;
       double value = random.nextDouble();
-      segment.writeData(time, 64);
-      segment.writeData(Double.doubleToRawLongBits(value), 64);
+      segment.write(time, 64);
+      segment.write(Double.doubleToRawLongBits(value), 64);
       segment.updateHeader();
     }
 
@@ -400,7 +379,7 @@ public class OffHeapGorillaSegmentTest {
       }
     };
 
-    segment.openSegment(segment.getAddress());
+    segment.open(segment.getAddress());
     segment.free();
 
     segment.collectMetrics();
@@ -416,5 +395,4 @@ public class OffHeapGorillaSegmentTest {
       }
     };
   }
-
 }
