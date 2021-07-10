@@ -22,31 +22,40 @@ import java.util.Iterator;
 
 public abstract class Aggregator {
 
-  private final double identity;
-  private final double[] values;
+  protected final double identity;
   protected double value;
   protected byte id;
   protected String name;
+  protected final double[] values;
 
   private final Aggregator previous;
   private Aggregator next;
+
+  private AggregatorIterator iterator;
 
   public static AggregatorBuilder newBuilder() {
     return new AggregatorBuilder();
   }
 
-  public Aggregator(final double identity, final byte id, final String name) {
-    this(identity, id, name, null);
+  public Aggregator(final double identity, final byte id, final String name, final int numPoints) {
+    this(identity, id, name, numPoints, null);
   }
 
   public Aggregator(
-      final double identity, final byte id, final String name, final Aggregator previous) {
+      final double identity,
+      final byte id,
+      final String name,
+      final int numPoints,
+      final Aggregator previous) {
     this.identity = identity;
     this.previous = previous;
-    this.values = new double[240];
+    this.values = new double[numPoints];
     this.id = id;
     this.name = name;
     if (previous != null) {
+      if ((id & previous.id) != 0) {
+        throw new IllegalArgumentException("Duplicate aggregator found for: " + name);
+      }
       this.id |= previous.id;
       this.name = previous.name + "-" + name;
       previous.next = this;
@@ -57,6 +66,10 @@ public abstract class Aggregator {
     if (null != previous) {
       previous.reset();
     }
+    doReset();
+  }
+
+  protected void doReset() {
     value = identity;
     Arrays.fill(values, Double.NaN);
   }
@@ -101,54 +114,71 @@ public abstract class Aggregator {
 
   public Iterator<double[]> iterator() {
 
-    return new Iterator<>() {
-      Aggregator head = head();
+    if (iterator == null) {
+      iterator = new AggregatorIterator();
+    }
+    iterator.reset();
+    return iterator;
+  }
 
-      @Override
-      public boolean hasNext() {
-        return head != null;
-      }
+  private class AggregatorIterator implements Iterator<double[]> {
 
-      @Override
-      public double[] next() {
-        double[] values = head.values;
-        head = head.next;
-        return values;
-      }
-    };
+    Aggregator current;
+    Aggregator head;
+
+    public AggregatorIterator() {
+      this.head = head();
+      reset();
+    }
+
+    @Override
+    public boolean hasNext() {
+      return current != null;
+    }
+
+    @Override
+    public double[] next() {
+      double[] values = current.values;
+      current = current.next;
+      return values;
+    }
+
+    void reset() {
+      current = head;
+    }
   }
 
   public static class AggregatorBuilder {
 
     private Aggregator aggregator;
 
-    public AggregatorBuilder avg() {
-      aggregator = new AverageAggregator(aggregator);
+    public AggregatorBuilder avg(final int numPoints) {
+      aggregator = new AverageAggregator(numPoints, aggregator);
       return this;
     }
 
-    public AggregatorBuilder count() {
-      aggregator = new CountAggregator(aggregator);
+    public AggregatorBuilder count(final int numPoints) {
+      aggregator = new CountAggregator(numPoints, aggregator);
       return this;
     }
 
-    public AggregatorBuilder sum() {
-      aggregator = new SumAggregator(aggregator);
+    public AggregatorBuilder sum(final int numPoints) {
+      aggregator = new SumAggregator(numPoints, aggregator);
       return this;
     }
 
-    public AggregatorBuilder min() {
-      aggregator = new MinAggregator(aggregator);
+    public AggregatorBuilder min(final int numPoints) {
+      aggregator = new MinAggregator(numPoints, aggregator);
       return this;
     }
 
-    public AggregatorBuilder max() {
-      aggregator = new MaxAggregator(aggregator);
+    public AggregatorBuilder max(final int numPoints) {
+      aggregator = new MaxAggregator(numPoints, aggregator);
       return this;
     }
 
-    public AggregatorBuilder sumOfSquares() {
-      aggregator = new SumOfSquareAggregator(aggregator);
+    public AggregatorBuilder sumOfSquares(final int numPoints) {
+      aggregator = new SumOfSquareAggregator(numPoints, aggregator);
       return this;
     }
 

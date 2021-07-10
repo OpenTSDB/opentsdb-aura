@@ -46,11 +46,13 @@ public class DownSampler {
       }
 
       offset++;
-      if ((offset == interval || i == lastIndex) && intervalHasValue) {
-        int index = i / interval;
-        aggregator.accumulate(index);
+      if ((offset == interval || i == lastIndex)) {
+        if (intervalHasValue) {
+          int index = i / interval;
+          aggregator.accumulate(index);
+          intervalHasValue = false;
+        }
         offset = 0;
-        intervalHasValue = false;
       }
     }
   }

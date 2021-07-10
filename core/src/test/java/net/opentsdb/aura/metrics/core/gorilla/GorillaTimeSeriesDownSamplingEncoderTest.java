@@ -37,18 +37,18 @@ public class GorillaTimeSeriesDownSamplingEncoderTest {
   @Test
   void addAverage() {
     Interval interval = Interval._30_SEC;
-    SegmentWidth segmentSize = SegmentWidth._2_HR;
+    SegmentWidth segmentWidth = SegmentWidth._2_HR;
 
     int intervalWidth = interval.getWidth();
-    short intervalCount = (short) (segmentSize.getWidth() / intervalWidth);
+    short intervalCount = interval.getCount(segmentWidth);
 
-    Aggregator aggregator = Aggregator.newBuilder().avg().build();
+    Aggregator aggregator = Aggregator.newBuilder().avg(intervalCount).build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
     OffHeapDownSampledGorillaSegment segment = new OffHeapDownSampledGorillaSegment(256, null);
     encoder =
         new GorillaTimeSeriesDownSamplingEncoder(
-            false, interval, segmentSize, downSampler, segment);
+            false, interval, segmentWidth, downSampler, segment);
 
     double[] values =
         new double[] {
