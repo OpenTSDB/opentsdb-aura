@@ -17,21 +17,29 @@
 
 package net.opentsdb.aura.metrics.core.downsample;
 
+import java.util.Arrays;
+
 public class CountAggregator extends Aggregator {
 
   public static final byte ID = (byte) 0b100;
   public static final String NAME = "count";
 
-  public CountAggregator() {
-    this(null);
+  public CountAggregator(final int numPoints) {
+    this(numPoints, null);
   }
 
-  public CountAggregator(Aggregator aggregator) {
-    super(0.0, ID, NAME, aggregator);
+  public CountAggregator(final int numPoints, final Aggregator aggregator) {
+    super(0.0, ID, NAME, numPoints, aggregator);
   }
 
   @Override
   protected void doApply(double value) {
     this.value++;
+  }
+
+  @Override
+  protected void doReset() {
+    value = identity;
+    Arrays.fill(values, identity);
   }
 }

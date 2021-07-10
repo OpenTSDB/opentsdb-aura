@@ -22,12 +22,12 @@ public class MaxAggregator extends Aggregator {
   public static final byte ID = (byte) 0b10000;
   public static final String NAME = "max";
 
-  public MaxAggregator() {
-    this(null);
+  public MaxAggregator(final int numPoints) {
+    this(numPoints, null);
   }
 
-  public MaxAggregator(Aggregator aggregator) {
-    super(Double.MIN_VALUE, ID, NAME, aggregator);
+  public MaxAggregator(final int numPoints, final Aggregator aggregator) {
+    super(Double.MIN_VALUE, ID, NAME, numPoints, aggregator);
   }
 
   @Override

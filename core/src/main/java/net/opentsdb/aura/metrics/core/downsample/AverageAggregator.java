@@ -25,14 +25,14 @@ public class AverageAggregator extends Aggregator {
   private SumAggregator sumAggregator;
   private CountAggregator countAggregator;
 
-  public AverageAggregator() {
-    this(null);
+  public AverageAggregator(final int numPoints) {
+    this(numPoints, null);
   }
 
-  public AverageAggregator(Aggregator aggregator) {
-    super(0.0, ID, NAME, aggregator);
-    this.sumAggregator = new SumAggregator();
-    this.countAggregator = new CountAggregator();
+  public AverageAggregator(final int numPoints, final Aggregator aggregator) {
+    super(0.0, ID, NAME, numPoints, aggregator);
+    this.sumAggregator = new SumAggregator(numPoints);
+    this.countAggregator = new CountAggregator(numPoints);
   }
 
   @Override

@@ -51,6 +51,10 @@ public enum Interval {
     return width;
   }
 
+  public short getCount(SegmentWidth segmentWidth) {
+    return (short) (segmentWidth.getWidth() / width);
+  }
+
   public Interval getById(byte id) {
     return values()[id];
   }

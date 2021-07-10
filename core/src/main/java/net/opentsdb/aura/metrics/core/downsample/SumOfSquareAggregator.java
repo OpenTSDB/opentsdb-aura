@@ -22,12 +22,12 @@ public class SumOfSquareAggregator extends Aggregator {
   public static final byte ID = (byte) 0b100000;
   public static final String NAME = "sumofsquare";
 
-  public SumOfSquareAggregator() {
-    this(null);
+  public SumOfSquareAggregator(final int numPoints) {
+    this(numPoints, null);
   }
 
-  public SumOfSquareAggregator(Aggregator aggregator) {
-    super(0.0, ID, NAME, aggregator);
+  public SumOfSquareAggregator(final int numPoints, final Aggregator aggregator) {
+    super(0.0, ID, NAME, numPoints, aggregator);
   }
 
   @Override
