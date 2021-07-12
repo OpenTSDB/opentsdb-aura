@@ -75,7 +75,7 @@ public class LTSAerospike implements LongTermStorage {
     private final Counter readTSMissesCounter;
     private final Counter readTSIterators;
 
-    LTSAerospike(final ASCluster cluster,
+    public LTSAerospike(final ASCluster cluster,
                  final String namespace,
                  final int secondsInRecord,
                  final int secondsInSegment,
