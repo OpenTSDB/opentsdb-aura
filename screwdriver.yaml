@@ -1,5 +1,7 @@
 shared:
   image: gradle:7-jdk11
+  annotations:
+    screwdriver.cd/ram: HIGH
 
 jobs:
   pr:
