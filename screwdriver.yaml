@@ -5,7 +5,7 @@ jobs:
   pr:
     requires: [~pr]
     steps:
-      - run_arbitrary_script: ./gradlew build --debug
+      - run_arbitrary_script: ./gradlew build
   main:
     requires: [~commit]
     steps:

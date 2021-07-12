@@ -195,6 +195,11 @@ public class ShardAwareHashedLowLevelMetricDataWrapper implements
   }
 
   @Override
+  public boolean commonTimestamp() {
+    return data.commonTimestamp();
+  }
+
+  @Override
   public void close() throws IOException {
     if (data != null) {
       data.close();
