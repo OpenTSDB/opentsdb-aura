@@ -377,11 +377,6 @@ public class LowLevelMetricShardContainer implements LowLevelMetricData.HashedLo
     }
 
     @Override
-    public boolean commonTags() {
-        return false;
-    }
-
-    @Override
     public void close() {
         last_tags_hash = -1;
         buffer_end = 0;

@@ -29,5 +29,4 @@ public interface DownSampledSegment extends Segment {
 
   byte getAggs();
 
-//  void resetCursor(byte aggId);
 }
