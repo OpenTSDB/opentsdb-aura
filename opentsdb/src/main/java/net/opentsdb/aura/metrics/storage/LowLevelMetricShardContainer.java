@@ -430,6 +430,18 @@ public class LowLevelMetricShardContainer implements LowLevelMetricData.HashedLo
     }
 
     @Override
+    public boolean commonTags() {
+        // TODO - maybe, maybe not
+        return false;
+    }
+
+    @Override
+    public boolean commonTimestamp() {
+        // TODO - maybe, maybe not
+        return false;
+    }
+
+    @Override
     public void run() {
         try {
             shard.addEvent(this);

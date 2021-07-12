@@ -21,8 +21,15 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Random;
 
+import net.opentsdb.aura.metrics.core.ShardAware;
+import net.opentsdb.aura.metrics.core.TimeSeriesShardIF;
 import net.opentsdb.aura.metrics.core.TimeSeriesStorageIf;
 import net.opentsdb.aura.metrics.pools.LowLevelMetricShardContainerPool;
+import net.opentsdb.aura.metrics.storage.ShardAwareHashedLowLevelMetricDataWrapper.ShardAwareWrapperAllocator;
+import net.opentsdb.data.TimeStamp;
+import net.opentsdb.storage.TimeSeriesDataConsumer;
+import net.opentsdb.storage.TimeSeriesDataConsumer.WriteCallback;
+import net.opentsdb.storage.TimeSeriesDataConsumerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,11 +48,14 @@ import net.opentsdb.data.LowLevelTimeSeriesData;
 import net.opentsdb.data.TimeSeriesDatum;
 import net.opentsdb.data.TimeSeriesSharedTagsAndTimeData;
 import net.opentsdb.stats.Span;
-import net.opentsdb.storage.WritableTimeSeriesDataStore;
-import net.opentsdb.storage.WritableTimeSeriesDataStoreFactory;
 import net.opentsdb.storage.WriteStatus;
 
-public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements WritableTimeSeriesDataStore, WritableTimeSeriesDataStoreFactory {
+/**
+ * TODO - properly break this up. For now it's just one big ole mess.
+ */
+public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin
+        implements TimeSeriesDataConsumer,
+        TimeSeriesDataConsumerFactory {
   private static Logger logger = LoggerFactory.getLogger(AuraMetricsDataStoreFactory.class);
   public static final String TYPE = AuraMetricsDataStoreFactory.class.toString();
 
@@ -54,6 +64,7 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements Writa
 
   public LowLevelMetricShardContainerPool allocator;
   public ThreadLocal<ObjectPool> shardContainerPools;
+  public ObjectPool shardAwareWrapperPool;
 
   private boolean process_deferreds;
   private Random rnd = new Random(System.currentTimeMillis());
@@ -83,25 +94,51 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements Writa
             return new BlockingQueueObjectPool(tsdb, poolConfig);
           }
         };
+
+    ObjectPoolConfig poolConfig = DefaultObjectPoolConfig.newBuilder()
+            // TODO config
+            .setInitialCount(4096)
+            .setMaxCount(4096)
+            .setAllocator(new ShardAwareWrapperAllocator())
+            .setId("ShardAwareWrapperAllocator")
+            .build();
+    shardAwareWrapperPool = new BlockingQueueObjectPool(tsdb, poolConfig);
     return Deferred.fromResult(null);
   }
   
   @Override
-  public Deferred<WriteStatus> write(AuthState state, TimeSeriesDatum datum, Span span) {
-    return Deferred.fromError(new UnsupportedOperationException("TODO"));
+  public void write(final AuthState state,
+                    final TimeSeriesDatum datum,
+                    final WriteCallback callback) {
+    throw new UnsupportedOperationException("TODO");
   }
 
   @Override
-  public Deferred<List<WriteStatus>> write(AuthState state, TimeSeriesSharedTagsAndTimeData data, Span span) {
-    return Deferred.fromError(new UnsupportedOperationException("TODO"));
+  public void write(final AuthState state,
+                    final TimeSeriesSharedTagsAndTimeData data,
+                    final WriteCallback callback) {
+    throw new UnsupportedOperationException("TODO");
   }
 
   @Override
-  public Deferred<List<WriteStatus>> write(AuthState state, LowLevelTimeSeriesData data, Span span) {
-    Deferred<List<WriteStatus>> deferred = null;
+  public void write(final AuthState state,
+                    final LowLevelTimeSeriesData data,
+                    final WriteCallback callback) {
     if (!(data instanceof HashedLowLevelMetricData)) {
       logger.warn("Not a hashed low level metric container: " + data.getClass());
       // bad!?!?!?!
+    } else if (data.commonTags()) {
+      // sweet, then we wrap or pass it down
+      if (data instanceof ShardAware) {
+        timeSeriesStorage.addEvent((HashedLowLevelMetricData) data);
+      } else {
+        final ShardAwareHashedLowLevelMetricDataWrapper wrapper =
+                (ShardAwareHashedLowLevelMetricDataWrapper) shardAwareWrapperPool.claim();
+        wrapper.data = (HashedLowLevelMetricData) data;
+        timeSeriesStorage.addEvent(wrapper);
+      }
+
+      // TODO - process deferreds.
     } else {
       // here's where things get "fun". We need to split the payload and find
       // the proper shard.
@@ -109,6 +146,7 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements Writa
       LowLevelMetricShardContainer[] shardContainers = new LowLevelMetricShardContainer[timeSeriesStorage.numShards()];//SHARD_CONTAINERS.get();
       LowLevelMetricShardContainer container = (LowLevelMetricShardContainer) pool.claim().object();
       HashedLowLevelMetricData hashed = (HashedLowLevelMetricData) data;
+
       // This is some code to play around with a direct shim. It won't work for our
       // use case.
 //      if (true) {
@@ -129,17 +167,12 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements Writa
         if ((currentTimeHour - segmentHour) / 3600 > timeSeriesStorage.retentionInHours()) { // older than retention period. drop it.
           //delayedTimeSeriesCounter.inc();
           if (process_deferreds) {
-            deferred = new Deferred();
             int read = 0;
             while (data.advance()) {
               read++;
             }
-            // TODO - pool and size properly
-            List<WriteStatus> status = Lists.newArrayListWithExpectedSize(read);
-            for (int i = 0; i < read; i++) {
-              status.add(WriteStatus.rejected());
-            }
-            deferred.callback(status);
+            // TODO - callback
+            return;
           }
           
           try {
@@ -153,17 +186,11 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements Writa
         if (segmentHour > currentTimeHour) { // too early, drop it.
           //earlyTimeSeriesCounter.inc();
           if (process_deferreds) {
-            deferred = new Deferred();
             int read = 0;
             while (data.advance()) {
               read++;
             }
-            // TODO - pool and size properly
-            List<WriteStatus> status = Lists.newArrayListWithExpectedSize(read);
-            for (int i = 0; i < read; i++) {
-              status.add(WriteStatus.rejected());
-            }
-            deferred.callback(status);
+            // TODO - callback
           }
           
           try {
@@ -204,7 +231,6 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements Writa
       }
       
     }
-    return deferred;
   }
 
   @Override
@@ -213,7 +239,7 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin implements Writa
   }
 
   @Override
-  public WritableTimeSeriesDataStore newStoreInstance(TSDB tsdb, String id) {
+  public TimeSeriesDataConsumer consumer() {
     return this;
   }
 

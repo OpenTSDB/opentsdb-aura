@@ -210,6 +210,16 @@ public class TestUtil {
             return tagValueEnd - tagValueStart;
           }
 
+          @Override
+          public boolean commonTags() {
+            return false;
+          }
+
+          @Override
+          public boolean commonTimestamp() {
+            return false;
+          }
+
           int findTagEnd(int start) {
             while (start < tagBytes.length) {
               if (tagBytes[start] == 0) {
