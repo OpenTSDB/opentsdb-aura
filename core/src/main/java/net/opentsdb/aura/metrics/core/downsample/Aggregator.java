@@ -33,8 +33,8 @@ public abstract class Aggregator {
 
   private AggregatorIterator iterator;
 
-  public static AggregatorBuilder newBuilder() {
-    return new AggregatorBuilder();
+  public static AggregatorBuilder newBuilder(final int intervalCount) {
+    return new AggregatorBuilder(intervalCount);
   }
 
   public Aggregator(final double identity, final byte id, final String name, final int numPoints) {
@@ -150,43 +150,49 @@ public abstract class Aggregator {
 
   public static class AggregatorBuilder {
 
+    private int intervalCount;
+
+    public AggregatorBuilder(final int intervalCount) {
+      this.intervalCount = intervalCount;
+    }
+
     private Aggregator aggregator;
 
-    public AggregatorBuilder forType(final AggregatorType type, final int intervalCount) {
+    public AggregatorBuilder forType(final AggregatorType type) {
       aggregator = type.create(intervalCount, aggregator);
       return this;
     }
 
-    public AggregatorBuilder forType(final String type, final int intervalCount) {
-      return forType(AggregatorType.valueOf(type.toLowerCase()), intervalCount);
+    public AggregatorBuilder forType(final String type) {
+      return forType(AggregatorType.valueOf(type.toLowerCase()));
     }
 
-    public AggregatorBuilder avg(final int intervalCount) {
+    public AggregatorBuilder avg() {
       aggregator = new AverageAggregator(intervalCount, aggregator);
       return this;
     }
 
-    public AggregatorBuilder count(final int intervalCount) {
+    public AggregatorBuilder count() {
       aggregator = new CountAggregator(intervalCount, aggregator);
       return this;
     }
 
-    public AggregatorBuilder sum(final int intervalCount) {
+    public AggregatorBuilder sum() {
       aggregator = new SumAggregator(intervalCount, aggregator);
       return this;
     }
 
-    public AggregatorBuilder min(final int intervalCount) {
+    public AggregatorBuilder min() {
       aggregator = new MinAggregator(intervalCount, aggregator);
       return this;
     }
 
-    public AggregatorBuilder max(final int intervalCount) {
+    public AggregatorBuilder max() {
       aggregator = new MaxAggregator(intervalCount, aggregator);
       return this;
     }
 
-    public AggregatorBuilder sumOfSquares(final int intervalCount) {
+    public AggregatorBuilder sumOfSquares() {
       aggregator = new SumOfSquareAggregator(intervalCount, aggregator);
       return this;
     }

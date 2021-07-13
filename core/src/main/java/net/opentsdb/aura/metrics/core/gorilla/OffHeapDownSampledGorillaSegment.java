@@ -72,4 +72,12 @@ public class OffHeapDownSampledGorillaSegment extends OffHeapSegment
   public void markFlushed() {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public int serializationLength() {
+    return 0;
+  }
+
+  @Override
+  public void serialize(byte[] buffer, int offset, int len, boolean lossy) {}
 }

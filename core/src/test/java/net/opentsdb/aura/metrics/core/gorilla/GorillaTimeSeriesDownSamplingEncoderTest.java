@@ -42,7 +42,7 @@ public class GorillaTimeSeriesDownSamplingEncoderTest {
     int intervalWidth = interval.getWidth();
     short intervalCount = interval.getCount(segmentWidth);
 
-    Aggregator aggregator = Aggregator.newBuilder().avg(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
     OffHeapDownSampledGorillaSegment segment = new OffHeapDownSampledGorillaSegment(256, null);
