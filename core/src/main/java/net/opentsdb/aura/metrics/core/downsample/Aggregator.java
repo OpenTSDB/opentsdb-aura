@@ -152,6 +152,15 @@ public abstract class Aggregator {
 
     private Aggregator aggregator;
 
+    public AggregatorBuilder forType(final AggregatorType type, final int numPoints) {
+      aggregator = type.create(numPoints, aggregator);
+      return this;
+    }
+
+    public AggregatorBuilder forType(final String type, final int numPoints) {
+      return forType(AggregatorType.valueOf(type.toLowerCase()), numPoints);
+    }
+
     public AggregatorBuilder avg(final int numPoints) {
       aggregator = new AverageAggregator(numPoints, aggregator);
       return this;

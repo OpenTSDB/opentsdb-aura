@@ -17,9 +17,22 @@
 
 package net.opentsdb.aura.metrics.core.gorilla;
 
-import net.opentsdb.aura.metrics.core.SegmentFactory;
+import io.ultrabrew.metrics.MetricRegistry;
 
-public interface GorillaSegmentFactory<S extends GorillaSegment> extends SegmentFactory {
+public class OffHeapDownSampledGorillaSegmentFactory
+    implements GorillaSegmentFactory<OffHeapDownSampledGorillaSegment> {
+
+  private int segmentBlockSizeBytes;
+  private MetricRegistry metricRegistry;
+
+  public OffHeapDownSampledGorillaSegmentFactory(
+      final int segmentBlockSizeBytes, final MetricRegistry metricRegistry) {
+    this.segmentBlockSizeBytes = segmentBlockSizeBytes;
+    this.metricRegistry = metricRegistry;
+  }
+
   @Override
-  S create();
+  public OffHeapDownSampledGorillaSegment create() {
+    return new OffHeapDownSampledGorillaSegment(segmentBlockSizeBytes, metricRegistry);
+  }
 }

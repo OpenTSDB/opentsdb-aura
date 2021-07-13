@@ -44,7 +44,41 @@ public enum SegmentWidth {
     return width;
   }
 
-  public SegmentWidth getById(final byte id) {
+  public static SegmentWidth getById(final byte id) {
     return values()[id];
+  }
+
+  public static SegmentWidth getBySeconds(final int seconds) {
+    if (seconds == _1_HR.width) {
+      return _1_HR;
+    } else if (seconds == _2_HR.width) {
+      return _2_HR;
+    } else if (seconds == _6_HR.width) {
+      return _6_HR;
+    } else if (seconds == _24_HR.width) {
+      return _24_HR;
+    } else if (seconds == _1_WEEK.width) {
+      return _1_WEEK;
+    } else if (seconds == _6_WEEK.width) {
+      return _6_WEEK;
+    } else {
+      throw new IllegalArgumentException("No Segment found for " + seconds + " seconds");
+    }
+  }
+
+  public static SegmentWidth getByHours(final int hours) {
+    try {
+      return getBySeconds((int) HOURS.toSeconds(hours));
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalArgumentException("No Segment found for " + hours + " hours");
+    }
+  }
+
+  public static SegmentWidth getByWeeks(final int weeks) {
+    try {
+      return getBySeconds((int) DAYS.toSeconds(weeks * 7));
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalArgumentException("No Segment found for " + weeks + " weeks");
+    }
   }
 }

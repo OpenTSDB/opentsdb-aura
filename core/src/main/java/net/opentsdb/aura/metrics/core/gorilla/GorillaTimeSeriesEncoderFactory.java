@@ -28,7 +28,7 @@ public class GorillaTimeSeriesEncoderFactory
   private int garbageQSize;
   private int segmentCollectionDelayMinutes;
   private MetricRegistry metricRegistry;
-  private GorillaSegmentFactory segmentFactory;
+  private GorillaSegmentFactory<RawGorillaSegment> segmentFactory;
 
   public GorillaTimeSeriesEncoderFactory(
       final boolean lossy,

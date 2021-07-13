@@ -55,7 +55,59 @@ public enum Interval {
     return (short) (segmentWidth.getWidth() / width);
   }
 
-  public Interval getById(byte id) {
+  public static Interval getById(byte id) {
     return values()[id];
+  }
+
+  public static Interval getBySeconds(final int seconds) {
+    if (seconds == _5_SEC.width) {
+      return _5_SEC;
+    } else if (seconds == _10_SEC.width) {
+      return _10_SEC;
+    } else if (seconds == _15_SEC.width) {
+      return _15_SEC;
+    } else if (seconds == _30_SEC.width) {
+      return _30_SEC;
+    } else if (seconds == _1_MIN.width) {
+      return _1_MIN;
+    } else if (seconds == _5_MIN.width) {
+      return _5_MIN;
+    } else if (seconds == _10_MIN.width) {
+      return _10_MIN;
+    } else if (seconds == _15_MIN.width) {
+      return _15_MIN;
+    } else if (seconds == _30_MIN.width) {
+      return _30_MIN;
+    } else if (seconds == _1_HR.width) {
+      return _1_HR;
+    } else if (seconds == _1_DAY.width) {
+      return _1_DAY;
+    } else {
+      throw new IllegalArgumentException("No interval found for " + seconds + " seconds");
+    }
+  }
+
+  public static Interval getByMinutes(final int minutes) {
+    try {
+      return getBySeconds((int) MINUTES.toSeconds(minutes));
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalArgumentException("No interval found for " + minutes + " minutes");
+    }
+  }
+
+  public static Interval getByHours(final int hours) {
+    try {
+      return getBySeconds((int) HOURS.toSeconds(hours));
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalArgumentException("No interval found for " + hours + " hours");
+    }
+  }
+
+  public static Interval getByDays(final int days) {
+    try {
+      return getBySeconds((int) DAYS.toSeconds(days));
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalArgumentException("No interval found for " + days + " days");
+    }
   }
 }
