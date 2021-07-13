@@ -24,6 +24,7 @@ import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.zip.GZIPInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -50,7 +51,20 @@ public class TestUploader implements Uploader {
         this.timestamp = timestamp;
         try {
             gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(payload));
-            this.uncompressed = gzipInputStream.readAllBytes();
+            uncompressed = new byte[4096];
+            byte[] buf = new byte[4096];
+            int read = 0;
+            int stored = 0;
+            while ((read = gzipInputStream.read(buf)) > 0) {
+                if (read + stored >= uncompressed.length) {
+                    uncompressed = Arrays.copyOf(uncompressed, uncompressed.length + Math.max(read, 1024));
+                }
+                System.arraycopy(buf, 0, uncompressed, stored, read);
+                stored += read;
+            }
+            uncompressed = Arrays.copyOf(uncompressed, stored);
+            // 9+
+            //this.uncompressed = gzipInputStream.readAllBytes();
         } catch (IOException e) {
             throw new AssertionError("Error reading from gzip stream", e);
         }
