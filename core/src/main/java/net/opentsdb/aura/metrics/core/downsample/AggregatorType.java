@@ -20,40 +20,40 @@ package net.opentsdb.aura.metrics.core.downsample;
 public enum AggregatorType {
   avg {
     @Override
-    public Aggregator create(int numPoints, Aggregator aggregator) {
-      return new AverageAggregator(numPoints, aggregator);
+    public Aggregator create(int intervalCount, Aggregator aggregator) {
+      return new AverageAggregator(intervalCount, aggregator);
     }
   },
   sum {
     @Override
-    public Aggregator create(int numPoints, Aggregator aggregator) {
-      return new SumAggregator(numPoints, aggregator);
+    public Aggregator create(int intervalCount, Aggregator aggregator) {
+      return new SumAggregator(intervalCount, aggregator);
     }
   },
   count {
     @Override
-    public Aggregator create(int numPoints, Aggregator aggregator) {
-      return new CountAggregator(numPoints, aggregator);
+    public Aggregator create(int intervalCount, Aggregator aggregator) {
+      return new CountAggregator(intervalCount, aggregator);
     }
   },
   min {
     @Override
-    public Aggregator create(int numPoints, Aggregator aggregator) {
-      return new MinAggregator(numPoints, aggregator);
+    public Aggregator create(int intervalCount, Aggregator aggregator) {
+      return new MinAggregator(intervalCount, aggregator);
     }
   },
   max {
     @Override
-    public Aggregator create(int numPoints, Aggregator aggregator) {
-      return new MaxAggregator(numPoints, aggregator);
+    public Aggregator create(int intervalCount, Aggregator aggregator) {
+      return new MaxAggregator(intervalCount, aggregator);
     }
   },
   sumofsquare {
     @Override
-    public Aggregator create(int numPoints, Aggregator aggregator) {
-      return new SumOfSquareAggregator(numPoints, aggregator);
+    public Aggregator create(int intervalCount, Aggregator aggregator) {
+      return new SumOfSquareAggregator(intervalCount, aggregator);
     }
   };
 
-  public abstract Aggregator create(int numPoints, Aggregator aggregator);
+  public abstract Aggregator create(int intervalCount, Aggregator aggregator);
 }

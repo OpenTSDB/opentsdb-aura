@@ -22,15 +22,15 @@ import io.ultrabrew.metrics.Gauge;
 import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.TSDataConsumer;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 
 /**
  * NOTE: The leading and trailing zeros can only have up to 64 bits. Therefore we're stealing the
  * MSB of both to use as dirty and OOO flags so that when we flush we can do some things a bit more
  * efficiently.
  */
-public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<RawGorillaSegment>
-    implements TimeSeriesEncoder {
+public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<BasicGorillaSegment>
+    implements BasicTimeSeriesEncoder {
 
   protected Gauge segmentCountGauge;
   protected String[] tags;
@@ -40,7 +40,7 @@ public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<RawGoril
   public GorillaTimeSeriesEncoder(
       final boolean lossy,
       final MetricRegistry metricRegistry,
-      final RawGorillaSegment segmentHandle,
+      final BasicGorillaSegment segmentHandle,
       final SegmentCollector segmentCollector) {
 
     super(lossy, segmentHandle);
@@ -48,7 +48,7 @@ public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<RawGoril
     this.segmentCollector = segmentCollector;
   }
 
-  public void setSegment(final RawGorillaSegment segment) {
+  public void setSegment(final BasicGorillaSegment segment) {
     this.segment = segment;
   }
 
@@ -464,7 +464,7 @@ public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<RawGoril
   }
 
   @VisibleForTesting
-  protected RawGorillaSegment getSegment() {
+  protected BasicGorillaSegment getSegment() {
     return segment;
   }
 

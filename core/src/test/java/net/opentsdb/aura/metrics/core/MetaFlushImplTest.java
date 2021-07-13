@@ -154,11 +154,11 @@ public class MetaFlushImplTest extends TimeSeriesShardTest {
     public void flushMeta() {
         final String namespace = "Yamas";
         //Meta stuff
-        final TimeSeriesEncoder encoder = super.encoder;
+        final BasicTimeSeriesEncoder encoder = super.encoder;
 
         TimeSeriesEncoderFactory timeSeriesEncoderFactory = new TimeSeriesEncoderFactory() {
             @Override
-            public TimeSeriesEncoder create() {
+            public BasicTimeSeriesEncoder create() {
                 return encoder;
             }
         };

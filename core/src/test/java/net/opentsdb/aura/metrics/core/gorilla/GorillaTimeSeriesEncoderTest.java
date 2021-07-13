@@ -23,7 +23,7 @@ import mockit.Expectations;
 import mockit.Injectable;
 import mockit.Verifications;
 import net.opentsdb.aura.metrics.core.SegmentCollector;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
 import net.opentsdb.aura.metrics.core.data.MemoryBlock;
 import org.junit.jupiter.api.BeforeAll;
@@ -138,7 +138,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertEquals(ts, tArray[0]);
     assertEquals(value, vArray[0]);
 
-    RawGorillaSegment segment = encoder.getSegment();
+    BasicGorillaSegment segment = encoder.getSegment();
     assertEquals(SEGMENT_TIMESTAMP, encoder.getSegmentTime());
     assertEquals(value, Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(ts, segment.getLastTimestamp());
@@ -196,7 +196,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertArrayEquals(times, tArray);
     assertArrayEquals(values, vArray);
 
-    RawGorillaSegment segment = encoder.getSegment();
+    BasicGorillaSegment segment = encoder.getSegment();
     assertEquals(SEGMENT_TIMESTAMP, encoder.getSegmentTime());
     assertEquals(values[values.length - 1], Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(times[times.length - 1], segment.getLastTimestamp());
@@ -320,7 +320,7 @@ public class GorillaTimeSeriesEncoderTest {
 
     assertArrayEquals(times, tArray);
     assertArrayEquals(values, vArray);
-    RawGorillaSegment segment = encoder.getSegment();
+    BasicGorillaSegment segment = encoder.getSegment();
     assertEquals(segmentTime, encoder.getSegmentTime());
     assertEquals(values[values.length - 1], Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(times[times.length - 1], segment.getLastTimestamp());
@@ -387,7 +387,7 @@ public class GorillaTimeSeriesEncoderTest {
 
     assertArrayEquals(times, tArray);
     assertArrayEquals(values, vArray);
-    RawGorillaSegment segment = encoder.getSegment();
+    BasicGorillaSegment segment = encoder.getSegment();
     assertEquals(segmentTime, encoder.getSegmentTime());
     assertEquals(values[values.length - 1], Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(times[times.length - 1], segment.getLastTimestamp());
@@ -420,7 +420,7 @@ public class GorillaTimeSeriesEncoderTest {
     assertEquals(ts, tArray[0]);
     assertEquals(value, vArray[0]);
 
-    RawGorillaSegment segment = encoder.getSegment();
+    BasicGorillaSegment segment = encoder.getSegment();
     assertEquals(SEGMENT_TIMESTAMP, encoder.getSegmentTime());
     assertEquals(value, Double.longBitsToDouble(segment.getLastValue()), 0.001);
     assertEquals(ts, segment.getLastTimestamp());
@@ -463,7 +463,7 @@ public class GorillaTimeSeriesEncoderTest {
     };
 
     int ts = SEGMENT_TIMESTAMP;
-    TimeSeriesEncoder encoder =
+    BasicTimeSeriesEncoder encoder =
         new GorillaTimeSeriesEncoder(
             false, registry, new OffHeapGorillaSegment(256, registry), segmentCollector);
 

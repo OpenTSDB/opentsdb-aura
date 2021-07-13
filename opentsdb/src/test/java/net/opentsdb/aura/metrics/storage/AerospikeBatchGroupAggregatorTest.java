@@ -21,7 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import net.opentsdb.aura.metrics.LTSAerospike;
 import net.opentsdb.aura.metrics.core.TSDataConsumer;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.core.DefaultRegistry;
 import net.opentsdb.core.MockTSDB;
@@ -1045,7 +1045,7 @@ public class AerospikeBatchGroupAggregatorTest {
     when(queryResult.source()).thenReturn(queryNode);
   }
 
-  class MockTimeSeriesEncoder implements TimeSeriesEncoder {
+  class MockTimeSeriesEncoder implements BasicTimeSeriesEncoder {
     int segmentTime;
     double value;
     int frequency;

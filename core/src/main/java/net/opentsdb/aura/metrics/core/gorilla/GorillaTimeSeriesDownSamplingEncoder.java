@@ -38,16 +38,16 @@ public class GorillaTimeSeriesDownSamplingEncoder
   public GorillaTimeSeriesDownSamplingEncoder(
       final boolean lossy,
       final Interval interval,
-      final SegmentWidth segmentSize,
+      final SegmentWidth segmentWidth,
       final DownSampler downSampler,
       final OffHeapDownSampledGorillaSegment segment) {
 
     super(lossy, segment);
     this.interval = interval;
-    this.segmentSize = segmentSize;
+    this.segmentSize = segmentWidth;
     this.downSampler = downSampler;
     this.aggId = downSampler.getAggId();
-    this.intervalCount = (short) (segmentSize.getWidth() / interval.getWidth());
+    this.intervalCount = (short) (segmentWidth.getWidth() / interval.getWidth());
   }
 
   @Override

@@ -22,6 +22,7 @@ import com.aerospike.client.Value;
 import com.aerospike.client.command.ParticleType;
 import com.aerospike.client.lua.LuaInstance;
 import com.aerospike.client.util.Packer;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
 import org.luaj.vm2.LuaValue;
 import org.slf4j.Logger;

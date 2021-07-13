@@ -17,7 +17,7 @@
 
 package net.opentsdb.aura.metrics.core;
 
-public abstract class BaseSegmentEncoder<T extends Segment> implements SegmentEncoder {
+public abstract class BaseSegmentEncoder<T extends Segment> implements TimeSeriesEncoder {
 
   protected T segment;
 

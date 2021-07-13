@@ -28,7 +28,7 @@ public class GorillaTimeSeriesEncoderFactory
   private int garbageQSize;
   private int segmentCollectionDelayMinutes;
   private MetricRegistry metricRegistry;
-  private GorillaSegmentFactory<RawGorillaSegment> segmentFactory;
+  private GorillaSegmentFactory<BasicGorillaSegment> segmentFactory;
 
   public GorillaTimeSeriesEncoderFactory(
       final boolean lossy,
@@ -46,7 +46,7 @@ public class GorillaTimeSeriesEncoderFactory
   @Override
   public GorillaTimeSeriesEncoder create() {
 
-    RawGorillaSegment segmentHandle = segmentFactory.create();
+    BasicGorillaSegment segmentHandle = segmentFactory.create();
     SegmentCollector segmentCollector =
         new SegmentCollector(
             garbageQSize, segmentCollectionDelayMinutes, segmentHandle, metricRegistry);

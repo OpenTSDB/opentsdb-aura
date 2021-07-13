@@ -18,7 +18,7 @@
 package net.opentsdb.aura.metrics.storage;
 
 import com.google.common.reflect.TypeToken;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderFactory;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecord;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecordFactory;
@@ -62,7 +62,7 @@ public class AuraMetricsNumericArrayIterator implements
   public static final double[] IDENTITY = {0.0, 0.0, Double.MAX_VALUE, -Double.MAX_VALUE, 0.0};
 
   //TODO: inject the factories
-  public static TimeSeriesEncoderFactory timeSeriesEncoderFactory;
+  public static TimeSeriesEncoderFactory<? extends BasicTimeSeriesEncoder> timeSeriesEncoderFactory;
   public static TimeSeriesRecordFactory timeSeriesRecordFactory;
 
   /**
@@ -75,7 +75,7 @@ public class AuraMetricsNumericArrayIterator implements
    */
   public static final ThreadLocal<double[]> threadLocalAggs = ThreadLocal.withInitial(() -> Arrays.copyOf(IDENTITY, IDENTITY.length));
   static final ThreadLocal<TimeSeriesRecord> threadLocalTimeseries = ThreadLocal.withInitial(() -> timeSeriesRecordFactory.create());
-  static final ThreadLocal<TimeSeriesEncoder> threadTSEncoder = ThreadLocal.withInitial(() -> timeSeriesEncoderFactory.create());
+  static final ThreadLocal<BasicTimeSeriesEncoder> threadTSEncoder = ThreadLocal.withInitial(() -> timeSeriesEncoderFactory.create());
 
   public enum Agg {
     SUM,
@@ -305,7 +305,7 @@ public class AuraMetricsNumericArrayIterator implements
     boolean intervalHasValue = false;
     boolean intervalInfectedByNans = false;
 
-    TimeSeriesEncoder timeSeriesEncoder = threadTSEncoder.get();
+    BasicTimeSeriesEncoder timeSeriesEncoder = threadTSEncoder.get();
     TimeSeriesStorageIf timeSeriesStorage = ((AuraMetricsSourceFactory) node.factory()).timeSeriesStorage();
     int secondsInSegment = timeSeriesStorage.secondsInSegment();
 

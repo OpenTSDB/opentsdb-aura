@@ -17,30 +17,48 @@
 
 package net.opentsdb.aura.metrics.core;
 
-public interface TimeSeriesEncoder extends SegmentEncoder, LazyStatsCollector {
+public interface TimeSeriesEncoder {
 
-  void addDataPoint(int timestamp, double value);
+  long createSegment(int segmentTime);
 
-  void read(TSDataConsumer consumer);
+  void openSegment(long segmentAddress);
+
+  int getSegmentTime();
+
+  int getNumDataPoints();
+
+  void freeSegment();
 
   /**
-   * Decodes the segments, sorts and removes the duplicate data points. Subsequent data points will override the previous values.
-   * It offsets the timestamp from the segment time and uses that as the index in the array to store the values.
-   * So, the length of the array should be equal to the number of seconds in the segment. For two hour segment, the array should be of length 7200.
+   * Determines how many bytes are needed to serialize the current segment. If the segment doesn't
+   * have any data (and that shouldn't happen as we should not have created a segment if we don't
+   * have data to write).
    *
-   * @param valueBuffer values array of size == seconds in the segment.
-   * @return count of unique data points
+   * @return A positive value reflecting the number of bytes to serialize.
    */
-  int readAndDedupe(double[] valueBuffer);
+  int serializationLength();
 
-  void collectSegment(long segmentAddress);
-
-  void freeCollectedSegments();
-
-  boolean segmentIsDirty();
-
-  boolean segmentHasOutOfOrderOrDuplicates();
-
-  void markSegmentFlushed();
-
+  /**
+   * Serializes the segment into the given byte buffer. For gorilla the serialized data is as
+   * follows:
+   *
+   * <ul>
+   *   <li><b>1b</b> - Encoding type
+   *   <li><b>1 to 2b</b> - The number of data points. The MSB is a flag that when set, means there
+   *       are 2 bytes for the length and if not set the length is only one byte. Make sure to mask
+   *       this bit on reading.
+   *   <li><b>nb</b> - The gorilla encoded data. Note that Aura uses a long array and some
+   *       bits/bytes from the final long may not be used. Those are dropped in this serialization
+   *       and must be padded on read.
+   * </ul>
+   *
+   * <b>NOTE</b> - The serialization does not include the data length or references to segment
+   * timestamp or last time, leading or trailing zeros, etc. The length and segment time must be
+   * handled by the flusher.
+   *
+   * @param buffer The non-null buffer to write to.
+   * @param offset The starting offset to write to.
+   * @param length The length of data we will be serializing. From {@link #serializationLength()}
+   */
+  void serialize(byte[] buffer, int offset, int length);
 }

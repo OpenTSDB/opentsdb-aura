@@ -25,7 +25,7 @@ import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.collections.DirectByteArray;
 import net.opentsdb.collections.DirectLongArray;
 
-public class OffHeapGorillaSegment extends OffHeapSegment implements RawGorillaSegment {
+public class OffHeapGorillaSegment extends OffHeapSegment implements BasicGorillaSegment {
 
   protected static final int LAST_TIMESTAMP_BYTE_INDEX = 22;
   protected static final int LAST_VALUE_BYTE_INDEX = 26;

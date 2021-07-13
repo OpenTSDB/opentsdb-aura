@@ -55,7 +55,7 @@ public class TimeSeriesShardTest {
   private static HashFunction hashFunction = new XxHash();
 
   protected MetricRegistry metricRegistry = new MetricRegistry();
-  protected TimeSeriesEncoder encoder;
+  protected BasicTimeSeriesEncoder encoder;
   protected TimeSeriesShardIF shard;
   private TimeseriesStorageContext storageContext;
 
