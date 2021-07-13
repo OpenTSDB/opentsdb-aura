@@ -17,6 +17,11 @@
 
 package net.opentsdb.aura.metrics.core;
 
+import net.opentsdb.aura.metrics.core.downsample.Interval;
+import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
+
+import java.util.List;
+
 public class ShardConfig {
 
   public String namespace;
@@ -45,6 +50,10 @@ public class ShardConfig {
   public int metaPurgeBatchSize = 4000;
 
   public boolean metaQueryEnabled;
+
+  public Interval downSampleInterval;
+  public SegmentWidth segmentWidth;
+  public List<String> downSampleAggTypes;
 
   public int getSegmentWallClockHour() {
     if (null != segmentStartTimes && segmentStartTimes.length > 0) {

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
 
+import static net.opentsdb.aura.metrics.core.downsample.AggregatorType.sum;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -55,7 +56,7 @@ public class AggregatorTest {
 
   @Test
   void sumAggregator() {
-    Aggregator aggregator = Aggregator.newBuilder().sum(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder().forType(sum, intervalCount).build();
 
     assertEquals(0b10, aggregator.getId());
     assertEquals("sum", aggregator.getName());
@@ -68,7 +69,7 @@ public class AggregatorTest {
 
   @Test
   void averageAggregator() {
-    Aggregator aggregator = Aggregator.newBuilder().avg(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder().forType("AVG", intervalCount).build();
 
     assertEquals(0b1, aggregator.getId());
     assertEquals("avg", aggregator.getName());
