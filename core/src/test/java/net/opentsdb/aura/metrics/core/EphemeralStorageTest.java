@@ -48,7 +48,7 @@ public class EphemeralStorageTest {
   @Injectable private MemoryInfoReader memoryInfoReader;
   @Injectable private MetricRegistry metricRegistry;
   @Injectable private HashFunction hashFunction;
-  @Injectable private TimeSeriesEncoderFactory encoderFactory;
+  @Injectable private TimeSeriesEncoderFactory<BasicTimeSeriesEncoder> encoderFactory;
   @Injectable private MetaDataStoreFactory dataStoreFactory;
   @Injectable private ScheduledExecutorService scheduledExecutorService;
 

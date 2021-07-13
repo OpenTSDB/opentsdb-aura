@@ -19,6 +19,7 @@ package net.opentsdb.aura.metrics;
 
 import com.aerospike.client.ResultCode;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoder;
@@ -244,7 +245,7 @@ public class LTSAerospike implements LongTermStorage {
         }
 
         @Override
-        public TimeSeriesEncoder next() {
+        public BasicTimeSeriesEncoder next() {
             for (int i = 0; i < segmentsInRecord; i++) {
                 // UGG!! Because we may be missing segments and the AS client returns
                 // maps as entries in a list... we can't just go to an index. We have

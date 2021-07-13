@@ -17,7 +17,7 @@
 
 package net.opentsdb.aura.metrics.storage;
 
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderFactory;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecord;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecordFactory;
@@ -44,7 +44,7 @@ public class AerospikeQueryNodeTest {
   private static MockTSDB TSDB;
   private static TimeSeriesShardIF shard;
   private static TimeSeriesEncoderFactory encoderFactory;
-  private static TimeSeriesEncoder encoder;
+  private static BasicTimeSeriesEncoder encoder;
   private static TimeSeriesRecordFactory timeSeriesRecordFactory;
   private static TimeSeriesRecord timeSeriesRecord;
   private static AerospikeSourceFactory SOURCE_FACTORY;

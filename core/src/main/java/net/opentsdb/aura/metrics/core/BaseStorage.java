@@ -53,7 +53,7 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
       final ShardConfig shardConfig,
       final MetricRegistry metricRegistry,
       final HashFunction hashFunction,
-      final TimeSeriesEncoderFactory encoderFactory,
+      final TimeSeriesEncoderFactory<BasicTimeSeriesEncoder> encoderFactory,
       final MetaDataStoreFactory metaDataStoreFactory,
       final Flusher flusher,
       final TimeseriesStorageContext context,
@@ -69,7 +69,7 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
     LocalDateTime purgeDateTime = Util.getPurgeTime();
     for (int i = 0; i < shardCount; i++) {
       int shardId = shardIds[i];
-      TimeSeriesEncoder encoder = encoderFactory.create();
+      BasicTimeSeriesEncoder encoder = encoderFactory.create();
       MetaDataStore metaDataStore = metaDataStoreFactory.create();
       TimeSeriesShard shard =
           new TimeSeriesShard(

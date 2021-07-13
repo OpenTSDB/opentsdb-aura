@@ -39,6 +39,6 @@ public interface LongTermStorage {
      * the segments can be out of order and there may be gaps in between.
      * NOTE That a call to next may trigger another fetch to storage.
      */
-    public interface Records extends Iterator<TimeSeriesEncoder> {
+    public interface Records<T extends TimeSeriesEncoder> extends Iterator<T> {
     }
 }

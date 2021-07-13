@@ -17,7 +17,7 @@
 
 package net.opentsdb.aura.metrics.storage;
 
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import gnu.trove.iterator.TLongIntIterator;
 import gnu.trove.map.TLongIntMap;
@@ -235,7 +235,7 @@ public class AerospikeBatchGroupAggregator {
     }
   }
 
-  public void addSegment(TimeSeriesEncoder encoder, long hash) {
+  public void addSegment(BasicTimeSeriesEncoder encoder, long hash) {
     if (hadError) {
       return;
     }

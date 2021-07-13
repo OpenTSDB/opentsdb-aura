@@ -19,7 +19,7 @@ package net.opentsdb.aura.metrics.storage;
 
 import net.opentsdb.aura.metrics.LTSAerospike;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.data.TimeSeriesValue;
 import net.opentsdb.data.TypedTimeSeriesIterator;
@@ -114,9 +114,9 @@ public class AerospikeRawTimeSeriesTest {
             .thenReturn(true)
             .thenReturn(true)
             .thenReturn(false);
-    TimeSeriesEncoder enc1 = mockEncoder(1614556800);
-    TimeSeriesEncoder enc2 = mockEncoder(1614556800 + (3600 * 2));
-    TimeSeriesEncoder enc3 = mockEncoder(1614556800 + (3600 * 4));
+    BasicTimeSeriesEncoder enc1 = mockEncoder(1614556800);
+    BasicTimeSeriesEncoder enc2 = mockEncoder(1614556800 + (3600 * 2));
+    BasicTimeSeriesEncoder enc3 = mockEncoder(1614556800 + (3600 * 4));
     when(records.next())
             .thenReturn(enc1)
             .thenReturn(enc2)
@@ -160,9 +160,9 @@ public class AerospikeRawTimeSeriesTest {
             .thenReturn(true)
             .thenReturn(true)
             .thenReturn(false);
-    TimeSeriesEncoder enc1 = mockEncoder(1614556800);
+    BasicTimeSeriesEncoder enc1 = mockEncoder(1614556800);
     //TimeSeriesEncoder enc2 = mockEncoder(1614556800 + (3600 * 2));
-    TimeSeriesEncoder enc3 = mockEncoder(1614556800 + (3600 * 4));
+    BasicTimeSeriesEncoder enc3 = mockEncoder(1614556800 + (3600 * 4));
     when(records.next())
             .thenReturn(enc1)
             //.thenReturn(enc2)
@@ -188,8 +188,8 @@ public class AerospikeRawTimeSeriesTest {
     }
   }
 
-  TimeSeriesEncoder mockEncoder(int segmentTime) {
-    TimeSeriesEncoder encoder = mock(TimeSeriesEncoder.class);
+  BasicTimeSeriesEncoder mockEncoder(int segmentTime) {
+    BasicTimeSeriesEncoder encoder = mock(BasicTimeSeriesEncoder.class);
     when(encoder.getSegmentTime()).thenReturn(segmentTime);
     when(encoder.readAndDedupe(any(double[].class))).thenAnswer(new Answer<Integer>() {
       @Override

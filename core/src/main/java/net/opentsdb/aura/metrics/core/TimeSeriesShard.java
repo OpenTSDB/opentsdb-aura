@@ -77,7 +77,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   private final int segmentsInATimeSeries;
 
   private final int shardId;
-  private final TimeSeriesEncoder encoder;
+  private final BasicTimeSeriesEncoder encoder;
   private final LinkedBlockingQueue<Runnable> queue;
   private final HashTable tagTable;
   private final HashTable metricTable;
@@ -136,7 +136,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
       final int shardId,
       final ShardConfig config,
       final TimeseriesStorageContext storageContext,
-      final TimeSeriesEncoder encoder,
+      final BasicTimeSeriesEncoder encoder,
       final MetaDataStore docStore,
       final MemoryInfoReader memoryInfoReader,
       final MetricRegistry metricRegistry,

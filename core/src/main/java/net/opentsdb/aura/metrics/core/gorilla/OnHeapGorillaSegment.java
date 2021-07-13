@@ -22,7 +22,7 @@ import net.opentsdb.aura.metrics.core.data.ByteArrays;
 /**
  * More work to do on this but it's meant to deserialize stored gorilla segments.
  */
-public class OnHeapGorillaSegment implements RawGorillaSegment {
+public class OnHeapGorillaSegment implements BasicGorillaSegment {
     static final int NUM_POINTS_OFFSET = 1;
 
     private int segmentTime;

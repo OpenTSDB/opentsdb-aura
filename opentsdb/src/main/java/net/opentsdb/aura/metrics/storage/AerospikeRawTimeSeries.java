@@ -21,7 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.data.TimeSeries;
 import net.opentsdb.data.TimeSeriesDataType;
@@ -182,7 +182,7 @@ public class AerospikeRawTimeSeries implements TimeSeries {
     MutableNumericValue dp;
     MutableNumericValue next;
     boolean has_next;
-    LongTermStorage.Records records;
+    LongTermStorage.Records<BasicTimeSeriesEncoder> records;
     double[] values;
     int idx;
     int base_timestamp;
@@ -229,7 +229,7 @@ public class AerospikeRawTimeSeries implements TimeSeries {
 
     boolean nextEncoder() {
       while (records.hasNext()) {
-        TimeSeriesEncoder encoder = records.next();
+        BasicTimeSeriesEncoder encoder = records.next();
         if (encoder == null) {
           // nothing for this segment slice
           nulls++;

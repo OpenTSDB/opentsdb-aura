@@ -18,7 +18,7 @@
 package net.opentsdb.aura.metrics.storage;
 
 import com.google.common.reflect.TypeToken;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecord;
 import net.opentsdb.aura.metrics.core.TimeSeriesStorageIf;
 import net.opentsdb.data.SecondTimeStamp;
@@ -51,7 +51,7 @@ public class AuraMetricsNumericIterator implements TypedTimeSeriesIterator<Numer
   private final int secondsInSegment;
 
   TimeSeriesRecord timeSeriesRecord;
-  TimeSeriesEncoder timeSeriesEncoder;
+  BasicTimeSeriesEncoder timeSeriesEncoder;
   int i = 0;
   final AuraMetricsNumericArrayIterator.Accumulator accumulator;
 
