@@ -46,7 +46,7 @@ public class DownSamplerTest {
 
   @Test
   void downSampleSum() {
-    Aggregator aggr = Aggregator.newBuilder().sum(intervalCount).build();
+    Aggregator aggr = Aggregator.newBuilder(intervalCount).sum().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();
@@ -57,7 +57,7 @@ public class DownSamplerTest {
 
   @Test
   void downSampleCount() {
-    Aggregator aggr = Aggregator.newBuilder().count(intervalCount).build();
+    Aggregator aggr = Aggregator.newBuilder(intervalCount).count().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();
@@ -68,7 +68,7 @@ public class DownSamplerTest {
 
   @Test
   void downSampleAverage() {
-    Aggregator aggr = Aggregator.newBuilder().avg(intervalCount).build();
+    Aggregator aggr = Aggregator.newBuilder(intervalCount).avg().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();
@@ -79,7 +79,7 @@ public class DownSamplerTest {
 
   @Test
   void downSampleMin() {
-    Aggregator aggr = Aggregator.newBuilder().min(intervalCount).build();
+    Aggregator aggr = Aggregator.newBuilder(intervalCount).min().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();
@@ -90,7 +90,7 @@ public class DownSamplerTest {
 
   @Test
   void downSampleMax() {
-    Aggregator aggr = Aggregator.newBuilder().max(intervalCount).build();
+    Aggregator aggr = Aggregator.newBuilder(intervalCount).max().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();
@@ -101,7 +101,7 @@ public class DownSamplerTest {
 
   @Test
   void downSampleSumOfSquares() {
-    Aggregator aggr = Aggregator.newBuilder().sumOfSquares(intervalCount).build();
+    Aggregator aggr = Aggregator.newBuilder(intervalCount).sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();
@@ -112,7 +112,7 @@ public class DownSamplerTest {
 
   @Test
   void downSampleAverageAndCount() {
-    Aggregator aggr = Aggregator.newBuilder().avg(intervalCount).count(intervalCount).build();
+    Aggregator aggr = Aggregator.newBuilder(intervalCount).avg().count().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();
@@ -125,14 +125,7 @@ public class DownSamplerTest {
   @Test
   void downSampleAllAggregations() {
     Aggregator aggr =
-        Aggregator.newBuilder()
-            .avg(intervalCount)
-            .sum(intervalCount)
-            .count(intervalCount)
-            .min(intervalCount)
-            .max(intervalCount)
-            .sumOfSquares(intervalCount)
-            .build();
+        Aggregator.newBuilder(intervalCount).avg().sum().count().min().max().sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
     Iterator<double[]> iterator = downSampler.iterator();

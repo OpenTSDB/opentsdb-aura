@@ -44,7 +44,7 @@ public class AggregatorTest {
   @Test
   void countAggregator() {
 
-    Aggregator aggregator = Aggregator.newBuilder().count(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).count().build();
 
     assertEquals(0b100, aggregator.getId());
     assertEquals("count", aggregator.getName());
@@ -56,7 +56,7 @@ public class AggregatorTest {
 
   @Test
   void sumAggregator() {
-    Aggregator aggregator = Aggregator.newBuilder().forType(sum, intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).forType(sum).build();
 
     assertEquals(0b10, aggregator.getId());
     assertEquals("sum", aggregator.getName());
@@ -69,7 +69,7 @@ public class AggregatorTest {
 
   @Test
   void averageAggregator() {
-    Aggregator aggregator = Aggregator.newBuilder().forType("AVG", intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).forType("AVG").build();
 
     assertEquals(0b1, aggregator.getId());
     assertEquals("avg", aggregator.getName());
@@ -81,7 +81,7 @@ public class AggregatorTest {
 
   @Test
   void minAggregator() {
-    Aggregator aggregator = Aggregator.newBuilder().min(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).min().build();
 
     assertEquals(0b1000, aggregator.getId());
     assertEquals("min", aggregator.getName());
@@ -93,7 +93,7 @@ public class AggregatorTest {
 
   @Test
   void maxAggregator() {
-    Aggregator aggregator = Aggregator.newBuilder().max(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).max().build();
 
     assertEquals(0b10000, aggregator.getId());
     assertEquals("max", aggregator.getName());
@@ -105,7 +105,7 @@ public class AggregatorTest {
 
   @Test
   void sumOfSquareAggregator() {
-    Aggregator aggregator = Aggregator.newBuilder().sumOfSquares(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).sumOfSquares().build();
 
     assertEquals(0b100000, aggregator.getId());
     assertEquals("sumofsquare", aggregator.getName());
@@ -118,14 +118,7 @@ public class AggregatorTest {
   @Test
   void allAggregation() {
     Aggregator aggregator =
-        Aggregator.newBuilder()
-            .avg(intervalCount)
-            .sum(intervalCount)
-            .count(intervalCount)
-            .min(intervalCount)
-            .max(intervalCount)
-            .sumOfSquares(intervalCount)
-            .build();
+        Aggregator.newBuilder(intervalCount).avg().sum().count().min().max().sumOfSquares().build();
 
     assertEquals(0b111111, aggregator.getId());
     assertEquals("avg-sum-count-min-max-sumofsquare", aggregator.getName());
@@ -146,14 +139,7 @@ public class AggregatorTest {
   @Test
   void testOrderOfAggregators() {
     Aggregator aggregator =
-        Aggregator.newBuilder()
-            .sumOfSquares(intervalCount)
-            .avg(intervalCount)
-            .max(intervalCount)
-            .min(intervalCount)
-            .count(intervalCount)
-            .sum(intervalCount)
-            .build();
+        Aggregator.newBuilder(intervalCount).sumOfSquares().avg().max().min().count().sum().build();
 
     assertEquals(0b111111, aggregator.getId());
     assertEquals("sumofsquare-avg-max-min-count-sum", aggregator.getName());
@@ -173,7 +159,7 @@ public class AggregatorTest {
 
   @Test
   void averageAndCount() {
-    Aggregator aggregator = Aggregator.newBuilder().avg(intervalCount).count(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().count().build();
 
     assertEquals(0b101, aggregator.getId());
     assertEquals("avg-count", aggregator.getName());
@@ -192,33 +178,21 @@ public class AggregatorTest {
     IllegalArgumentException expected =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                Aggregator.newBuilder()
-                    .sum(intervalCount)
-                    .count(intervalCount)
-                    .sum(intervalCount)
-                    .build(),
+            () -> Aggregator.newBuilder(intervalCount).sum().count().sum().build(),
             "Duplicate Aggregators should not be supported");
     assertEquals("Duplicate aggregator found for: sum", expected.getMessage());
 
     expected =
         assertThrows(
             IllegalArgumentException.class,
-            () -> Aggregator.newBuilder().count(intervalCount).count(intervalCount).build(),
+            () -> Aggregator.newBuilder(intervalCount).count().count().build(),
             "Duplicate Aggregators should not be supported");
     assertEquals("Duplicate aggregator found for: count", expected.getMessage());
 
     expected =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                Aggregator.newBuilder()
-                    .avg(intervalCount)
-                    .count(intervalCount)
-                    .sum(intervalCount)
-                    .min(intervalCount)
-                    .min(intervalCount)
-                    .build(),
+            () -> Aggregator.newBuilder(intervalCount).avg().count().sum().min().min().build(),
             "Duplicate Aggregators should not be supported");
     assertEquals("Duplicate aggregator found for: min", expected.getMessage());
   }
@@ -227,7 +201,7 @@ public class AggregatorTest {
   void reuseTheAggregator() {
 
     // reuse count
-    Aggregator aggregator = Aggregator.newBuilder().count(intervalCount).build();
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).count().build();
     apply(aggregator, rawData);
 
     double[] rawData2 = new double[rawData.length];
@@ -245,7 +219,7 @@ public class AggregatorTest {
     assertFalse(iterator.hasNext());
 
     // reuse sum
-    aggregator = Aggregator.newBuilder().sum(intervalCount).build();
+    aggregator = Aggregator.newBuilder(intervalCount).sum().build();
     apply(aggregator, rawData);
 
     rawData2 = new double[rawData.length];
@@ -263,7 +237,7 @@ public class AggregatorTest {
     assertFalse(iterator.hasNext());
 
     // reuse average
-    aggregator = Aggregator.newBuilder().avg(intervalCount).build();
+    aggregator = Aggregator.newBuilder(intervalCount).avg().build();
     apply(aggregator, rawData);
 
     rawData2 = new double[rawData.length];
@@ -281,8 +255,7 @@ public class AggregatorTest {
     assertFalse(iterator.hasNext());
 
     // reuse composite aggregator
-    aggregator =
-        Aggregator.newBuilder().avg(intervalCount).sum(intervalCount).count(intervalCount).build();
+    aggregator = Aggregator.newBuilder(intervalCount).avg().sum().count().build();
     apply(aggregator, rawData);
 
     rawData2 = new double[rawData.length];

@@ -57,8 +57,8 @@ public class GorillaTimeSeriesDownSamplingEncoderFactory
   public GorillaTimeSeriesDownSamplingEncoder create() {
 
     OffHeapDownSampledGorillaSegment segmentHandle = segmentFactory.create();
-    Aggregator.AggregatorBuilder aggBuilder = Aggregator.newBuilder();
-    aggs.stream().forEach(agg -> aggBuilder.forType(agg, intervalCount));
+    Aggregator.AggregatorBuilder aggBuilder = Aggregator.newBuilder(intervalCount);
+    aggs.stream().forEach(agg -> aggBuilder.forType(agg));
     DownSampler downSampler =
         new DownSampler(interval.getWidth(), intervalCount, aggBuilder.build());
     return new GorillaTimeSeriesDownSamplingEncoder(
