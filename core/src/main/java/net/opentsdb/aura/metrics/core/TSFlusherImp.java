@@ -107,13 +107,10 @@ public class TSFlusherImp implements TSFlusher {
                 int ts = (int) fi.start / 1_000_000_000;
                 if (ts + (int) ((frequency / 1000) * 2) < System.currentTimeMillis() / 1000) {
                   LOGGER.warn(
-                      "Flush for shard "
-                          + i
-                          + "@"
-                          + fi.baseTimestamp
-                          + " has been running for "
-                          + ((int) (System.currentTimeMillis() / 1000) - ts)
-                          + " so cancelling.");
+                      "Flush for shard {}@{} has been running for {} so cancelling",
+                      i,
+                      fi.baseTimestamp,
+                      ((int) (System.currentTimeMillis() / 1000) - ts));
                   // fi.cancel();
                 }
               }
@@ -266,13 +263,7 @@ public class TSFlusherImp implements TSFlusher {
 
     void complete() {
       LOGGER.debug(
-          "Finishing shard flush for "
-              + shardId
-              + "@"
-              + baseTimestamp
-              + " with "
-              + flushed
-              + " records");
+          "Finishing shard flush for {}@{} with {} records", shardId, baseTimestamp, flushed);
       flushedGuage.set(flushed, tagSet);
       oooGuage.set(ooo, tagSet);
       failureGuage.set(failures, tagSet);
