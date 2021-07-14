@@ -23,7 +23,7 @@ import net.opentsdb.aura.metrics.core.MemoryInfoReader;
 import net.opentsdb.aura.metrics.core.OffHeapTimeSeriesRecordFactory;
 import net.opentsdb.aura.metrics.core.ShardConfig;
 import net.opentsdb.aura.metrics.core.StorageMode;
-import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderFactory;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecord;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecordFactory;
@@ -33,7 +33,7 @@ import net.opentsdb.aura.metrics.core.TimeSeriesShard;
 import net.opentsdb.aura.metrics.core.TimeseriesStorageContext;
 import net.opentsdb.aura.metrics.core.XxHash;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaSegmentFactory;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoderFactory;
 import net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaSegmentFactory;
 import net.opentsdb.aura.metrics.meta.NewDocStore;
@@ -76,8 +76,8 @@ public class AuraMetricsNumericArrayIteratorRateTest {
   private static MockTSDB TSDB;
   private static AuraMetricsQueryNode NODE;
   private static TimeSeriesShardIF shard;
-  private static TimeSeriesEncoderFactory<GorillaTimeSeriesEncoder> encoderFactory;
-  private static BasicTimeSeriesEncoder encoder;
+  private static TimeSeriesEncoderFactory<GorillaRawTimeSeriesEncoder> encoderFactory;
+  private static RawTimeSeriesEncoder encoder;
   private static TimeSeriesRecordFactory timeSeriesRecordFactory;
   private static TimeSeriesRecord timeSeriesRecord;
   private static TimeseriesStorageContext storageContext;
@@ -541,7 +541,7 @@ public class AuraMetricsNumericArrayIteratorRateTest {
             .setId("rate")
             .build();
 
-    BasicTimeSeriesEncoder newEncoder = encoderFactory.create();
+    RawTimeSeriesEncoder newEncoder = encoderFactory.create();
     int segmentTime = segmentTimeList.get(0);
     long segmentAddress = newEncoder.createSegment(segmentTime);
 

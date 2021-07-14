@@ -23,7 +23,7 @@ import net.opentsdb.aura.metrics.core.MemoryInfoReader;
 import net.opentsdb.aura.metrics.core.OffHeapTimeSeriesRecordFactory;
 import net.opentsdb.aura.metrics.core.ShardConfig;
 import net.opentsdb.aura.metrics.core.StorageMode;
-import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderFactory;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecord;
 import net.opentsdb.aura.metrics.core.TimeSeriesRecordFactory;
@@ -33,7 +33,7 @@ import net.opentsdb.aura.metrics.core.TimeSeriesShard;
 import net.opentsdb.aura.metrics.core.TimeseriesStorageContext;
 import net.opentsdb.aura.metrics.core.XxHash;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaSegmentFactory;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoderFactory;
 import net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaSegmentFactory;
 import net.opentsdb.aura.metrics.meta.NewDocStore;
@@ -68,7 +68,7 @@ public class AuraMetricsNumericIteratorTest {
   private static MockTSDB TSDB;
   private static long tsPointer;
   private static TimeSeriesShardIF shard;
-  private static BasicTimeSeriesEncoder encoder;
+  private static RawTimeSeriesEncoder encoder;
   private static TimeSeriesRecordFactory timeSeriesRecordFactory;
   private static TimeseriesStorageContext storageContext;
   private static AuraMetricsSourceFactory SOURCE_FACTORY;
@@ -93,7 +93,7 @@ public class AuraMetricsNumericIteratorTest {
     MetricRegistry registry = new MetricRegistry();
     GorillaSegmentFactory segmentFactory =
         new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
-    TimeSeriesEncoderFactory<GorillaTimeSeriesEncoder> encoderFactory =
+    TimeSeriesEncoderFactory<GorillaRawTimeSeriesEncoder> encoderFactory =
         new GorillaTimeSeriesEncoderFactory(
             false,
             shardConfig.garbageQSize,

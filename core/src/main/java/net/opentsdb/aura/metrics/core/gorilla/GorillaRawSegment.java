@@ -19,7 +19,7 @@ package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.LazyStatsCollector;
 
-public interface BasicGorillaSegment extends GorillaSegment, LazyStatsCollector {
+public interface GorillaRawSegment extends GorillaSegment, LazyStatsCollector {
 
   void setNumDataPoints(short numDataPoints);
 

@@ -21,9 +21,9 @@ import com.aerospike.client.ResultCode;
 import com.aerospike.client.Value;
 import com.google.common.collect.Lists;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
-import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
 import io.ultrabrew.metrics.MetricRegistry;
 import mockit.Expectations;
@@ -64,11 +64,11 @@ public class LTSAerospikeTest {
   @Injectable
   private ScheduledExecutorService scheduledExecutorService;
   @Injectable
-  private BasicTimeSeriesEncoder timeSeriesEncoder;
+  private RawTimeSeriesEncoder timeSeriesEncoder;
   @Mocked
   private OnHeapGorillaSegment gorillaSegment;
   @Mocked
-  private GorillaTimeSeriesEncoder gorillaTimeSeriesEncoder;
+  private GorillaRawTimeSeriesEncoder gorillaRawTimeSeriesEncoder;
   @Injectable
   private RecordIterator ri;
   @Mocked

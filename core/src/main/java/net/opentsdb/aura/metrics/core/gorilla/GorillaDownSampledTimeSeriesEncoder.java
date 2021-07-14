@@ -18,17 +18,17 @@
 package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
+import net.opentsdb.aura.metrics.core.downsample.DownSampledTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.downsample.DownSampler;
-import net.opentsdb.aura.metrics.core.downsample.DownSamplingTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.downsample.Interval;
 import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
 
 import java.util.Arrays;
 import java.util.Iterator;
 
-public class GorillaTimeSeriesDownSamplingEncoder
-    extends BaseGorillaSegmentEncoder<OffHeapDownSampledGorillaSegment>
-    implements DownSamplingTimeSeriesEncoder {
+public class GorillaDownSampledTimeSeriesEncoder
+    extends GorillaSegmentEncoder<OffHeapGorillaDownSampledSegment>
+    implements DownSampledTimeSeriesEncoder {
 
   private short intervalCount;
   private Interval interval;
@@ -36,12 +36,12 @@ public class GorillaTimeSeriesDownSamplingEncoder
   private DownSampler downSampler;
   private byte aggId;
 
-  public GorillaTimeSeriesDownSamplingEncoder(
+  public GorillaDownSampledTimeSeriesEncoder(
       final boolean lossy,
       final Interval interval,
       final SegmentWidth segmentWidth,
       final DownSampler downSampler,
-      final OffHeapDownSampledGorillaSegment segment) {
+      final OffHeapGorillaDownSampledSegment segment) {
 
     super(lossy, segment);
     this.interval = interval;

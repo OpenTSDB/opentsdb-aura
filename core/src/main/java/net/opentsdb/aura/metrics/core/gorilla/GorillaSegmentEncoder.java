@@ -19,7 +19,7 @@ package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.BaseSegmentEncoder;
 
-public abstract class BaseGorillaSegmentEncoder<T extends GorillaSegment>
+public abstract class GorillaSegmentEncoder<T extends GorillaSegment>
     extends BaseSegmentEncoder<T> {
 
   protected static final int FIRST_TIMESTAMP_BITS = 13; // TODO: derive from the segment size
@@ -41,7 +41,7 @@ public abstract class BaseGorillaSegmentEncoder<T extends GorillaSegment>
   protected byte lastValueTrailingZeros;
   protected boolean meaningFullBitsChanged;
 
-  public BaseGorillaSegmentEncoder(final boolean lossy, final T segment) {
+  public GorillaSegmentEncoder(final boolean lossy, final T segment) {
     super(segment);
     this.lossy = lossy;
   }

@@ -22,7 +22,7 @@ import com.google.common.collect.Sets;
 import net.opentsdb.aura.metrics.LTSAerospike;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
 import net.opentsdb.aura.metrics.core.TSDataConsumer;
-import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.storage.AerospikeClientPlugin;
 import net.opentsdb.aura.metrics.storage.AerospikeGBQueryResult;
@@ -89,9 +89,9 @@ public class AerospikeGBTimeSeriesTest {
   private static AerospikeSourceFactory SOURCE_FACTORY;
   private static AerospikeClientPlugin AS_CLIENT;
   private static MockTSDB TSDB;
-  private static BasicTimeSeriesEncoder THROW_ON_NEXT;
-  private static BasicTimeSeriesEncoder THROW_ON_SEGMENT_TIME;
-  private static BasicTimeSeriesEncoder THROW_ON_DECODE;
+  private static RawTimeSeriesEncoder THROW_ON_NEXT;
+  private static RawTimeSeriesEncoder THROW_ON_SEGMENT_TIME;
+  private static RawTimeSeriesEncoder THROW_ON_DECODE;
 
   private LTSAerospike asClient;
   private AerospikeGBQueryResult queryResult;
@@ -115,10 +115,10 @@ public class AerospikeGBTimeSeriesTest {
     AS_CLIENT = mock(AerospikeClientPlugin.class);
     TSDB.registry.registerPlugin(AerospikeClientPlugin.class, null, AS_CLIENT);
     SOURCE_FACTORY = new AerospikeSourceFactory();
-    THROW_ON_NEXT = mock(BasicTimeSeriesEncoder.class);
-    THROW_ON_SEGMENT_TIME = mock(BasicTimeSeriesEncoder.class);
+    THROW_ON_NEXT = mock(RawTimeSeriesEncoder.class);
+    THROW_ON_SEGMENT_TIME = mock(RawTimeSeriesEncoder.class);
     when(THROW_ON_SEGMENT_TIME.getSegmentTime()).thenThrow(new UnitTestException());
-    THROW_ON_DECODE = mock(BasicTimeSeriesEncoder.class);
+    THROW_ON_DECODE = mock(RawTimeSeriesEncoder.class);
     when(THROW_ON_DECODE.readAndDedupe(any(double[].class))).thenThrow(new UnitTestException());
     when(THROW_ON_DECODE.getSegmentTime()).thenReturn(BASE_TS);
     if (!TSDB.getConfig().hasProperty(AerospikeSourceFactory.SECONDS_IN_SEGMENT_KEY)) {
@@ -928,7 +928,7 @@ public class AerospikeGBTimeSeriesTest {
 
   @Test
   public void gbASExceptionSecondDecode() throws Exception {
-    BasicTimeSeriesEncoder tosser = mock(BasicTimeSeriesEncoder.class);
+    RawTimeSeriesEncoder tosser = mock(RawTimeSeriesEncoder.class);
     when(tosser.getSegmentTime()).thenReturn(BASE_TS + (3600 * 2));
     when(tosser.readAndDedupe(any(double[].class))).thenThrow(new UnitTestException());
     setup(BASE_TS + (3600 * 2) - 300, BASE_TS + (3600 * 2) + 300, "1m", "sum", false, "sum", null, "host");
@@ -1410,7 +1410,7 @@ public class AerospikeGBTimeSeriesTest {
       when(records.hasNext())
               .thenReturn(true)
               .thenReturn(false);
-      BasicTimeSeriesEncoder enc1 = mockEncoder(BASE_TS, answers[i]);
+      RawTimeSeriesEncoder enc1 = mockEncoder(BASE_TS, answers[i]);
       when(records.next()).thenReturn(enc1);
     }
   }
@@ -1428,8 +1428,8 @@ public class AerospikeGBTimeSeriesTest {
     }
   }
 
-  BasicTimeSeriesEncoder mockEncoder(int segmentTime, Answer<Integer> answer) {
-    BasicTimeSeriesEncoder encoder = mock(BasicTimeSeriesEncoder.class);
+  RawTimeSeriesEncoder mockEncoder(int segmentTime, Answer<Integer> answer) {
+    RawTimeSeriesEncoder encoder = mock(RawTimeSeriesEncoder.class);
     when(encoder.getSegmentTime()).thenReturn(segmentTime);
     when(encoder.readAndDedupe(any(double[].class))).thenAnswer(answer);
     return encoder;
@@ -1437,10 +1437,10 @@ public class AerospikeGBTimeSeriesTest {
 
   class MockRecords implements LongTermStorage.Records {
 
-    BasicTimeSeriesEncoder[] encoders;
+    RawTimeSeriesEncoder[] encoders;
     int idx;
 
-    MockRecords(BasicTimeSeriesEncoder... encoders) {
+    MockRecords(RawTimeSeriesEncoder... encoders) {
       this.encoders = encoders;
     }
 
@@ -1450,8 +1450,8 @@ public class AerospikeGBTimeSeriesTest {
     }
 
     @Override
-    public BasicTimeSeriesEncoder next() {
-      BasicTimeSeriesEncoder enc = encoders[idx++];
+    public RawTimeSeriesEncoder next() {
+      RawTimeSeriesEncoder enc = encoders[idx++];
       if (enc == THROW_ON_NEXT) {
         throw new UnitTestException();
       }
@@ -1459,7 +1459,7 @@ public class AerospikeGBTimeSeriesTest {
     }
   }
 
-  class MockTimeSeriesEncoder implements BasicTimeSeriesEncoder {
+  class MockTimeSeriesEncoder implements RawTimeSeriesEncoder {
     int segmentTime;
     double value;
     int frequency;

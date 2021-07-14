@@ -19,7 +19,7 @@ package net.opentsdb.aura.metrics.core.downsample;
 
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
 
-public interface DownSamplingTimeSeriesEncoder extends TimeSeriesEncoder {
+public interface DownSampledTimeSeriesEncoder extends TimeSeriesEncoder {
 
   void addDataPoints(double[] values);
 

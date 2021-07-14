@@ -26,7 +26,7 @@ import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
 import java.util.List;
 
 public class GorillaTimeSeriesDownSamplingEncoderFactory
-    implements TimeSeriesEncoderFactory<GorillaTimeSeriesDownSamplingEncoder> {
+    implements TimeSeriesEncoderFactory<GorillaDownSampledTimeSeriesEncoder> {
 
   private boolean lossy;
   private Interval interval;
@@ -34,7 +34,7 @@ public class GorillaTimeSeriesDownSamplingEncoderFactory
   //  private DownSampler downSampler;
   private short intervalCount;
   private List<String> aggs;
-  private GorillaSegmentFactory<OffHeapDownSampledGorillaSegment> segmentFactory;
+  private GorillaSegmentFactory<OffHeapGorillaDownSampledSegment> segmentFactory;
 
   public GorillaTimeSeriesDownSamplingEncoderFactory(
       final boolean lossy,
@@ -54,14 +54,14 @@ public class GorillaTimeSeriesDownSamplingEncoderFactory
   }
 
   @Override
-  public GorillaTimeSeriesDownSamplingEncoder create() {
+  public GorillaDownSampledTimeSeriesEncoder create() {
 
-    OffHeapDownSampledGorillaSegment segmentHandle = segmentFactory.create();
+    OffHeapGorillaDownSampledSegment segmentHandle = segmentFactory.create();
     Aggregator.AggregatorBuilder aggBuilder = Aggregator.newBuilder(intervalCount);
     aggs.stream().forEach(agg -> aggBuilder.forType(agg));
     DownSampler downSampler =
         new DownSampler(interval.getWidth(), intervalCount, aggBuilder.build());
-    return new GorillaTimeSeriesDownSamplingEncoder(
+    return new GorillaDownSampledTimeSeriesEncoder(
         lossy, interval, segmentWidth, downSampler, segmentHandle);
   }
 }
