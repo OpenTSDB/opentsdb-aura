@@ -70,7 +70,7 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
     header.init(blockSizeBytes, false);
     address = header.getAddress();
     header.setLong(CURRENT_BLOCK_BYTE_INDEX, address);
-    bitIndex = (short) (headerSizeBytes() * Byte.SIZE);
+    bitIndex = (short) (headerLengthBytes() * Byte.SIZE);
     header.setShort(CURRENT_BIT_INDEX_BYTE_INDEX, bitIndex);
     dataBlock.init(address, false, blockSizeLongs);
     memoryBlockCount++;
@@ -199,14 +199,14 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
     memoryBlockCount--;
   }
 
-  protected abstract int headerSizeBytes();
+  public abstract int headerLengthBytes();
 
   /** Moves the cursor to the beginning of the data stream. */
   public void moveToHead() {
     if (!atHead) {
       updateHeader();
       this.dataBlock.init(address, false, blockSizeLongs);
-      this.bitIndex = (short) (headerSizeBytes() * Byte.SIZE);
+      this.bitIndex = (short) (headerLengthBytes() * Byte.SIZE);
       atHead = true;
       atTail = false;
     }
@@ -232,5 +232,83 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
 
   public long getMemoryBlockCount() {
     return memoryBlockCount;
+  }
+
+  public int dataLengthBytes() {
+    int bytes = 0;
+    if (header.getAddress() == header.getLong(CURRENT_BLOCK_BYTE_INDEX)) {
+      // segment has only one memory block
+      int finalBytes = (int) Math.ceil(header.getShort(CURRENT_BIT_INDEX_BYTE_INDEX) / 8D);
+      bytes += finalBytes - headerLengthBytes();
+      return bytes;
+    }
+
+    // add data bytes from the first block
+    bytes += blockSizeBytes - headerLengthBytes();
+
+    long nextAddress = header.getLong(0);
+    while (nextAddress != 0) {
+      dataBlock.init(nextAddress, false, blockSizeLongs);
+      nextAddress = dataBlock.get(0);
+      if (nextAddress == 0) {
+        // last block
+        int finalBytes = (int) Math.ceil(header.getShort(CURRENT_BIT_INDEX_BYTE_INDEX) / 8D);
+        bytes += finalBytes - DATA_BLOCK_ADDRESS_BYTES;
+      } else {
+        bytes += blockSizeBytes - DATA_BLOCK_ADDRESS_BYTES;
+      }
+    }
+    return bytes;
+  }
+
+  public void serialize(int srcOffset, byte[] dest, int destOffset, int length) {
+    moveToHead();
+
+    int blockIndex = srcOffset / (blockSizeBytes - DATA_BLOCK_ADDRESS_BYTES);
+    int blockOffset = srcOffset % (blockSizeBytes - DATA_BLOCK_ADDRESS_BYTES);
+
+    long nextAddress;
+    for (int i = 1; i <= blockIndex; i++) {
+      nextAddress = dataBlock.get(0);
+      if (nextAddress == 0) {
+        throw new IndexOutOfBoundsException("srcoffset out of range");
+      }
+      dataBlock.init(nextAddress, false, blockSizeLongs);
+    }
+
+    int blockLongOffset = blockOffset / Long.BYTES;
+    int finalByteOffset = (int) Math.ceil(header.getShort(CURRENT_BIT_INDEX_BYTE_INDEX) / 8D);
+    int lastSrcOffset = srcOffset + length;
+    nextAddress = dataBlock.get(0);
+
+    while (blockOffset < blockSizeBytes) {
+      if (nextAddress == 0 && blockOffset >= finalByteOffset) {
+        // no more data in this final block.
+        break;
+      }
+      long lv = dataBlock.get(blockLongOffset++);
+      blockOffset += 8;
+      if (srcOffset + 8 >= lastSrcOffset) {
+        int shifty = 56;
+        while (srcOffset++ < lastSrcOffset) {
+          dest[destOffset++] = (byte) (lv >> shifty);
+          shifty -= 8;
+        }
+      } else {
+        ByteArrays.putLong(lv, dest, destOffset);
+        destOffset += 8;
+        srcOffset += 8;
+      }
+
+      if (blockLongOffset >= blockSizeLongs) {
+        if (nextAddress == 0) {
+          break;
+        }
+        dataBlock.init(nextAddress, false, blockSizeLongs);
+        nextAddress = dataBlock.get(0);
+        blockLongOffset = 1;
+        blockOffset = 8;
+      }
+    }
   }
 }

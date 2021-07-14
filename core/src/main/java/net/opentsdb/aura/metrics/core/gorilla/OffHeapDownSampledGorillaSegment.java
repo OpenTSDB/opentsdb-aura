@@ -54,7 +54,7 @@ public class OffHeapDownSampledGorillaSegment extends OffHeapSegment
   }
 
   @Override
-  protected int headerSizeBytes() {
+  public int headerLengthBytes() {
     return HEADER_SIZE_BYTE;
   }
 
@@ -73,11 +73,4 @@ public class OffHeapDownSampledGorillaSegment extends OffHeapSegment
     throw new UnsupportedOperationException();
   }
 
-  @Override
-  public int serializationLength() {
-    return 0;
-  }
-
-  @Override
-  public void serialize(byte[] buffer, int offset, int len, boolean lossy) {}
 }

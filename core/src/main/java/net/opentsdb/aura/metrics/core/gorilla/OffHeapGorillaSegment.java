@@ -20,8 +20,6 @@ package net.opentsdb.aura.metrics.core.gorilla;
 import io.ultrabrew.metrics.Gauge;
 import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.OffHeapSegment;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
-import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.collections.DirectByteArray;
 import net.opentsdb.collections.DirectLongArray;
 
@@ -273,7 +271,7 @@ public class OffHeapGorillaSegment extends OffHeapSegment implements BasicGorill
   //  }
 
   @Override
-  protected int headerSizeBytes() {
+  public int headerLengthBytes() {
     return HEADER_SIZE_BYTES;
   }
 
@@ -302,92 +300,5 @@ public class OffHeapGorillaSegment extends OffHeapSegment implements BasicGorill
   @Override
   public void setTags(final String[] tags) {
     this.tags = tags;
-  }
-
-  @Override
-  public int serializationLength() {
-    int bytes = 1; // type
-    if (getNumDataPoints() <= 127) {
-      bytes++;
-    } else {
-      bytes += 2;
-    }
-
-    int headerRemaining = (blockSizeBytes - (HEADER_SIZE_LONGS * Long.BYTES));
-    long nextAddress = header.getAddress();
-
-    int finalBytes = (int) Math.ceil((double) bitIndex / 8D);
-    while (nextAddress != 0) {
-      dataBlock.init(nextAddress, false, blockSizeLongs);
-      nextAddress = dataBlock.get(0);
-      if (nextAddress == 0) {
-        bytes += finalBytes;
-        if (dataBlock.getAddress() == header.getAddress()) {
-          bytes -= (HEADER_SIZE_LONGS * Long.BYTES);
-        } else {
-          bytes -= DATA_BLOCK_ADDRESS_BYTES;
-        }
-        break;
-      } else if (dataBlock.getAddress() == header.getAddress()) {
-        bytes += headerRemaining + 1;
-        continue;
-      }
-
-      bytes += blockSizeBytes - DATA_BLOCK_ADDRESS_BYTES;
-    }
-    return bytes;
-  }
-
-  @Override
-  public void serialize(byte[] buffer, int offset, int length, boolean lossy) {
-    int bitIndex = this.bitIndex;
-    moveToHead();
-
-    int index = offset;
-    buffer[index++] =
-        lossy
-            ? TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS
-            : TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
-
-    if (getNumDataPoints() <= 127) {
-      buffer[index++] = (byte) getNumDataPoints();
-    } else {
-      // a bit messier. we have a signed short for the len but the first bit
-      // is 1 to denote we have a 2 byte num dps.
-      short dps = getNumDataPoints();
-      buffer[index] = (byte) (dps >> 8);
-      buffer[index++] |= TWO_BYTE_FLAG;
-      buffer[index++] = (byte) dps;
-    }
-
-    int blockIndex = HEADER_SIZE_LONGS;
-    long nextAddress = dataBlock.get(0);
-    int finalBytes = (int) Math.ceil((double) bitIndex / 8D) / Long.BYTES;
-    while (blockIndex < blockSizeLongs) {
-      if (nextAddress == 0 && blockIndex > finalBytes) {
-        // no more data in this final block.
-        break;
-      }
-      long lv = dataBlock.get(blockIndex++);
-      if (index + 8 >= offset + length) {
-        int shifty = 56;
-        while (index < offset + length) {
-          buffer[index++] = (byte) (lv >> shifty);
-          shifty -= 8;
-        }
-      } else {
-        ByteArrays.putLong(lv, buffer, index);
-        index += 8;
-      }
-
-      if (blockIndex >= blockSizeLongs) {
-        if (nextAddress == 0) {
-          break;
-        }
-        dataBlock.init(nextAddress, false, blockSizeLongs);
-        nextAddress = dataBlock.get(0);
-        blockIndex = 1;
-      }
-    }
   }
 }

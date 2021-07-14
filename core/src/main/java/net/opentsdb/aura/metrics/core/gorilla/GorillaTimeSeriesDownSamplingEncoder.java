@@ -17,6 +17,7 @@
 
 package net.opentsdb.aura.metrics.core.gorilla;
 
+import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
 import net.opentsdb.aura.metrics.core.downsample.DownSampler;
 import net.opentsdb.aura.metrics.core.downsample.DownSamplingTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.downsample.Interval;
@@ -53,13 +54,19 @@ public class GorillaTimeSeriesDownSamplingEncoder
   @Override
   public long createSegment(int segmentTime) {
     long address = super.createSegment(segmentTime);
-    segment.setInterval(encode(interval, segmentSize));
+    segment.setInterval(encodeInterval(interval, segmentSize));
     segment.setAggs(aggId);
     return address;
   }
 
-  private byte encode(Interval interval, SegmentWidth segmentSize) {
+  private static byte encodeInterval(Interval interval, SegmentWidth segmentSize) {
     return (byte) (interval.getId() << 3 | segmentSize.getId());
+  }
+
+  static int decodeIntervalCount(byte encoded) {
+    int intervalInSeconds = Interval.getById((byte) (encoded >>> 3)).getWidth();
+    int secondsInRawSegment = SegmentWidth.getById((byte) (encoded & 0b111)).getWidth();
+    return secondsInRawSegment / intervalInSeconds;
   }
 
   @Override
@@ -181,11 +188,19 @@ public class GorillaTimeSeriesDownSamplingEncoder
 
   @Override
   public int serializationLength() {
-    return 0;
+    return segment.dataLengthBytes() + 3; // 1 byte each for type, interval and aggs;
   }
 
   @Override
-  public void serialize(byte[] buffer, int offset, int length) {}
+  public void serialize(byte[] buffer, int offset, int length) {
+    buffer[offset++] =
+        lossy
+            ? TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS
+            : TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
+
+    // includes 2 bytes, interval and aggs from the header
+    segment.serialize(segment.headerLengthBytes() - 2, buffer, offset, length);
+  }
 
   @Override
   protected void loadValueHeaders() {

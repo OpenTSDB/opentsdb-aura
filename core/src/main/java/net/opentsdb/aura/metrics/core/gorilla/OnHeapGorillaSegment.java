@@ -203,14 +203,6 @@ public class OnHeapGorillaSegment implements BasicGorillaSegment {
   }
 
   @Override
-  public int serializationLength() {
-    return 0;
-  }
-
-  @Override
-  public void serialize(byte[] buffer, int offset, int length, boolean lossy) {}
-
-  @Override
   public void collectMetrics() {
 
   }
