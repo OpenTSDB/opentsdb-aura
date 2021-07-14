@@ -23,6 +23,9 @@ import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.TSDataConsumer;
 import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
+
+import static net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaSegment.TWO_BYTE_FLAG;
 
 /**
  * NOTE: The leading and trailing zeros can only have up to 64 bits. Therefore we're stealing the
@@ -84,12 +87,39 @@ public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<BasicGor
 
   @Override
   public int serializationLength() {
-    return segment.serializationLength();
+    int bytes = segment.dataLengthBytes();
+    bytes++; // type
+    if (getNumDataPoints() <= 127) {
+      bytes++;
+    } else {
+      bytes += 2;
+    }
+    return bytes;
   }
 
   @Override
   public void serialize(byte[] buffer, int offset, int length) {
-    segment.serialize(buffer, offset, length, lossy);
+    buffer[offset++] =
+        lossy
+            ? TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS
+            : TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
+    length--;
+
+    int numDataPoints = getNumDataPoints();
+    if (numDataPoints <= 127) {
+      buffer[offset++] = (byte) numDataPoints;
+      length--;
+    } else {
+      // a bit messier. we have a signed short for the len but the first bit
+      // is 1 to denote we have a 2 byte num dps.
+      short dps = (short) numDataPoints;
+      buffer[offset] = (byte) (dps >> 8);
+      buffer[offset++] |= TWO_BYTE_FLAG;
+      buffer[offset++] = (byte) dps;
+      length -= 2;
+    }
+
+    segment.serialize(segment.headerLengthBytes(), buffer, offset, length);
   }
 
   @Override

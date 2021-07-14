@@ -818,7 +818,7 @@ public class GorillaTimeSeriesEncoderTest {
     }
 
     assertEquals(SECONDS_IN_A_SEGMENT, encoder.getNumDataPoints());
-    int expectedLength = 8564;
+    int expectedLength = 8563;
     assertEquals(expectedLength, encoder.serializationLength());
 
     byte[] buffer = new byte[expectedLength];
