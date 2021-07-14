@@ -22,13 +22,13 @@ import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderFactory;
 
 public class GorillaTimeSeriesEncoderFactory
-    implements TimeSeriesEncoderFactory<GorillaTimeSeriesEncoder> {
+    implements TimeSeriesEncoderFactory<GorillaRawTimeSeriesEncoder> {
 
   private boolean lossy;
   private int garbageQSize;
   private int segmentCollectionDelayMinutes;
   private MetricRegistry metricRegistry;
-  private GorillaSegmentFactory<BasicGorillaSegment> segmentFactory;
+  private GorillaSegmentFactory<GorillaRawSegment> segmentFactory;
 
   public GorillaTimeSeriesEncoderFactory(
       final boolean lossy,
@@ -44,12 +44,12 @@ public class GorillaTimeSeriesEncoderFactory
   }
 
   @Override
-  public GorillaTimeSeriesEncoder create() {
+  public GorillaRawTimeSeriesEncoder create() {
 
-    BasicGorillaSegment segmentHandle = segmentFactory.create();
+    GorillaRawSegment segmentHandle = segmentFactory.create();
     SegmentCollector segmentCollector =
         new SegmentCollector(
             garbageQSize, segmentCollectionDelayMinutes, segmentHandle, metricRegistry);
-    return new GorillaTimeSeriesEncoder(lossy, metricRegistry, segmentHandle, segmentCollector);
+    return new GorillaRawTimeSeriesEncoder(lossy, metricRegistry, segmentHandle, segmentCollector);
   }
 }

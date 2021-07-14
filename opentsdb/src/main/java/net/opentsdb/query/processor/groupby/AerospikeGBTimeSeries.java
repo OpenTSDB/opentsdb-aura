@@ -22,7 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import net.opentsdb.aura.metrics.LTSAerospike;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
-import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.storage.AerospikeQueryNode;
 import net.opentsdb.aura.metrics.storage.AerospikeGBQueryResult;
@@ -360,7 +360,7 @@ public class AerospikeGBTimeSeries implements TimeSeries, CloseablePooledObject 
 
           final long hash = metaResult.getHash(i);
           long start = System.nanoTime();
-          LongTermStorage.Records<BasicTimeSeriesEncoder> records =
+          LongTermStorage.Records<RawTimeSeriesEncoder> records =
                   aerospikeQueryNode
                           .asClient()
                           .read(hash, aerospikeQueryNode.getSegmentsStart(), aerospikeQueryNode.getSegmentsEnd());
@@ -486,7 +486,7 @@ public class AerospikeGBTimeSeries implements TimeSeries, CloseablePooledObject 
    * @param records The non-null records from AS.
    * @param aggregator The non-null GB aggregator.
    */
-  void process(final LongTermStorage.Records<BasicTimeSeriesEncoder> records,
+  void process(final LongTermStorage.Records<RawTimeSeriesEncoder> records,
                final NumericArrayAggregator aggregator) {
     int previousRateTimestamp = -1;
     double previousRateValue = Double.NaN;
@@ -529,7 +529,7 @@ public class AerospikeGBTimeSeries implements TimeSeries, CloseablePooledObject 
     // NOTE This timer doesn't mean we're calling into AS each time but could just be
     // getting an entry from the map in in the buffer.
     long asStart = System.nanoTime();
-    BasicTimeSeriesEncoder encoder = records.hasNext() ? records.next() : null;
+    RawTimeSeriesEncoder encoder = records.hasNext() ? records.next() : null;
     long tt = System.nanoTime() - asStart;
     if (tt > maxASLatency) {
       tt = maxASLatency;

@@ -17,7 +17,7 @@
 
 package net.opentsdb.aura.metrics.core;
 
-public interface BasicTimeSeriesEncoder extends TimeSeriesEncoder, LazyStatsCollector {
+public interface RawTimeSeriesEncoder extends TimeSeriesEncoder, LazyStatsCollector {
 
   void addDataPoint(int timestamp, double value);
 

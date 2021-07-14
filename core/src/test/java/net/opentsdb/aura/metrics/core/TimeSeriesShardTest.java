@@ -20,8 +20,8 @@ package net.opentsdb.aura.metrics.core;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.data.InSufficientBufferLengthException;
 import net.opentsdb.aura.metrics.core.data.Memory;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaSegment;
+import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaRawSegment;
 import net.opentsdb.aura.metrics.meta.MetaDataStore;
 import io.ultrabrew.metrics.MetricRegistry;
 import mockit.Injectable;
@@ -55,7 +55,7 @@ public class TimeSeriesShardTest {
   private static HashFunction hashFunction = new XxHash();
 
   protected MetricRegistry metricRegistry = new MetricRegistry();
-  protected BasicTimeSeriesEncoder encoder;
+  protected RawTimeSeriesEncoder encoder;
   protected TimeSeriesShardIF shard;
   private TimeseriesStorageContext storageContext;
 
@@ -78,10 +78,10 @@ public class TimeSeriesShardTest {
   public void beforeEach() {
     config.segmentSizeHour = 2;
     encoder =
-        new GorillaTimeSeriesEncoder(
+        new GorillaRawTimeSeriesEncoder(
             false,
             metricRegistry,
-            new OffHeapGorillaSegment(256, metricRegistry),
+            new OffHeapGorillaRawSegment(256, metricRegistry),
             segmentCollector);
     storageContext = new LongRunningStorage.LongRunningStorageContext(config);
     shard =

@@ -20,7 +20,7 @@ package net.opentsdb.aura.metrics.core.gorilla;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 
 /** More work to do on this but it's meant to deserialize stored gorilla segments. */
-public class OnHeapGorillaSegment implements BasicGorillaSegment {
+public class OnHeapGorillaSegment implements GorillaRawSegment {
   static final int NUM_POINTS_OFFSET = 1;
 
   private int segmentTime;
@@ -186,9 +186,9 @@ public class OnHeapGorillaSegment implements BasicGorillaSegment {
   public void moveToHead() {
     bitIndex = 0;
     // Number of data points is variable length encoded on either 1 or 2 bytes.
-    if ((OffHeapGorillaSegment.TWO_BYTE_FLAG & buffer[startingOffset + NUM_POINTS_OFFSET]) != 0) {
+    if ((OffHeapGorillaRawSegment.TWO_BYTE_FLAG & buffer[startingOffset + NUM_POINTS_OFFSET]) != 0) {
       numDataPoints =
-          (buffer[startingOffset + NUM_POINTS_OFFSET] & OffHeapGorillaSegment.TWO_BYTE_MASK) << 8;
+          (buffer[startingOffset + NUM_POINTS_OFFSET] & OffHeapGorillaRawSegment.TWO_BYTE_MASK) << 8;
       numDataPoints |= (buffer[startingOffset + NUM_POINTS_OFFSET + 1] & 0xFF);
       longIndex = startingOffset + 3;
     } else {

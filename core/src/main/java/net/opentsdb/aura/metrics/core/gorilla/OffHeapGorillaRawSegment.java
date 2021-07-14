@@ -23,7 +23,7 @@ import net.opentsdb.aura.metrics.core.OffHeapSegment;
 import net.opentsdb.collections.DirectByteArray;
 import net.opentsdb.collections.DirectLongArray;
 
-public class OffHeapGorillaSegment extends OffHeapSegment implements BasicGorillaSegment {
+public class OffHeapGorillaRawSegment extends OffHeapSegment implements GorillaRawSegment {
 
   protected static final int LAST_TIMESTAMP_BYTE_INDEX = 22;
   protected static final int LAST_VALUE_BYTE_INDEX = 26;
@@ -48,7 +48,7 @@ public class OffHeapGorillaSegment extends OffHeapSegment implements BasicGorill
   protected Gauge segmentLengthGauge;
   protected String[] tags;
 
-  public OffHeapGorillaSegment(final int dataBlockSizeBytes, final MetricRegistry metricRegistry) {
+  public OffHeapGorillaRawSegment(final int dataBlockSizeBytes, final MetricRegistry metricRegistry) {
     super(dataBlockSizeBytes);
     this.memoryBlockCountGauge = metricRegistry.gauge("memory.block.count");
     this.segmentLengthGauge = metricRegistry.gauge("segment.length");

@@ -22,28 +22,28 @@ import io.ultrabrew.metrics.Gauge;
 import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.TSDataConsumer;
-import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
 
-import static net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaSegment.TWO_BYTE_FLAG;
+import static net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaRawSegment.TWO_BYTE_FLAG;
 
 /**
  * NOTE: The leading and trailing zeros can only have up to 64 bits. Therefore we're stealing the
  * MSB of both to use as dirty and OOO flags so that when we flush we can do some things a bit more
  * efficiently.
  */
-public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<BasicGorillaSegment>
-    implements BasicTimeSeriesEncoder {
+public class GorillaRawTimeSeriesEncoder extends GorillaSegmentEncoder<GorillaRawSegment>
+    implements RawTimeSeriesEncoder {
 
   protected Gauge segmentCountGauge;
   protected String[] tags;
 
   protected SegmentCollector segmentCollector;
 
-  public GorillaTimeSeriesEncoder(
+  public GorillaRawTimeSeriesEncoder(
       final boolean lossy,
       final MetricRegistry metricRegistry,
-      final BasicGorillaSegment segmentHandle,
+      final GorillaRawSegment segmentHandle,
       final SegmentCollector segmentCollector) {
 
     super(lossy, segmentHandle);
@@ -51,7 +51,7 @@ public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<BasicGor
     this.segmentCollector = segmentCollector;
   }
 
-  public void setSegment(final BasicGorillaSegment segment) {
+  public void setSegment(final GorillaRawSegment segment) {
     this.segment = segment;
   }
 
@@ -494,7 +494,7 @@ public class GorillaTimeSeriesEncoder extends BaseGorillaSegmentEncoder<BasicGor
   }
 
   @VisibleForTesting
-  protected BasicGorillaSegment getSegment() {
+  protected GorillaRawSegment getSegment() {
     return segment;
   }
 

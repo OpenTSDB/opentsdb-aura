@@ -54,7 +54,7 @@ public class OffHeapGorillaSegmentTest {
       @Mocked Gauge segmentLengthGauge) {
 
     int dataBlockSizeBytes = 256;
-    OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     assertEquals(dataBlockSizeBytes, segment.blockSizeBytes);
     assertEquals(dataBlockSizeBytes / 8, segment.blockSizeLongs);
     assertEquals(dataBlockSizeBytes * 8, segment.blockSizeBits);
@@ -85,7 +85,7 @@ public class OffHeapGorillaSegmentTest {
       @Mocked Gauge memoryBlockCountGauge,
       @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
-    OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     long addr = segment.create(SEGMENT_TIMESTAMP);
     assertTrue(addr > 0);
     assertEquals(addr, segment.getAddress());
@@ -107,14 +107,14 @@ public class OffHeapGorillaSegmentTest {
 
     // what happens if we set a block size smaller than our header?
     dataBlockSizeBytes = 8;
-    final OffHeapGorillaSegment badSegment =
-        new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    final OffHeapGorillaRawSegment badSegment =
+        new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     assertThrows(IndexOutOfBoundsException.class, () -> badSegment.create(SEGMENT_TIMESTAMP));
 
     // what if it's too small for the first write?
     dataBlockSizeBytes = 42;
-    final OffHeapGorillaSegment badSegment2 =
-        new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    final OffHeapGorillaRawSegment badSegment2 =
+        new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     addr = badSegment2.create(SEGMENT_TIMESTAMP);
     assertTrue(addr > 0);
     assertThrows(IndexOutOfBoundsException.class, () -> badSegment2.write(42, Long.BYTES * 8));
@@ -126,7 +126,7 @@ public class OffHeapGorillaSegmentTest {
       @Mocked Gauge memoryBlockCountGauge,
       @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
-    final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    final OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     segment.create(SEGMENT_TIMESTAMP);
     assertThrows(IllegalArgumentException.class, () -> segment.write(42, -1));
     assertThrows(IllegalArgumentException.class, () -> segment.write(42, 65));
@@ -172,7 +172,7 @@ public class OffHeapGorillaSegmentTest {
       @Mocked Gauge memoryBlockCountGauge,
       @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
-    final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    final OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     segment.create(SEGMENT_TIMESTAMP);
     // fill up the header till we hit the next block
     for (int i = 0; i < 26; i++) {
@@ -196,7 +196,7 @@ public class OffHeapGorillaSegmentTest {
       @Mocked Gauge memoryBlockCountGauge,
       @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
-    final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    final OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     segment.create(SEGMENT_TIMESTAMP);
 
     segment.write(42L, 64);
@@ -209,7 +209,7 @@ public class OffHeapGorillaSegmentTest {
       @Mocked Gauge memoryBlockCountGauge,
       @Mocked Gauge segmentLengthGauge) {
     int dataBlockSizeBytes = 256;
-    final OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    final OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
     segment.create(SEGMENT_TIMESTAMP);
 
     segment.write(42L, 64);
@@ -240,7 +240,7 @@ public class OffHeapGorillaSegmentTest {
     int segmentTime = ts - (ts % SECONDS_IN_A_TIMESERIES % SECONDS_IN_A_SEGMENT);
 
     int dataBlockSizeBytes = 256;
-    OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
 
     segment.collectMetrics();
     new Verifications() {
@@ -325,7 +325,7 @@ public class OffHeapGorillaSegmentTest {
     int segmentTime = ts - (ts % SECONDS_IN_A_TIMESERIES % SECONDS_IN_A_SEGMENT);
 
     int dataBlockSizeBytes = 256;
-    OffHeapGorillaSegment segment = new OffHeapGorillaSegment(dataBlockSizeBytes, registry);
+    OffHeapGorillaRawSegment segment = new OffHeapGorillaRawSegment(dataBlockSizeBytes, registry);
 
     segment.collectMetrics();
     new Verifications() {

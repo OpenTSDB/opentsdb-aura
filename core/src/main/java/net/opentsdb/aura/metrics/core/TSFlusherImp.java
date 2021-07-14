@@ -20,7 +20,7 @@ package net.opentsdb.aura.metrics.core;
 import io.ultrabrew.metrics.Gauge;
 import io.ultrabrew.metrics.MetricRegistry;
 import io.ultrabrew.metrics.Timer;
-import net.opentsdb.aura.metrics.core.downsample.DownSamplingTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.downsample.DownSampledTimeSeriesEncoder;
 import net.opentsdb.collections.LongLongHashTable;
 import net.opentsdb.collections.LongLongIterator;
 import org.slf4j.Logger;
@@ -46,12 +46,12 @@ public class TSFlusherImp implements TSFlusher {
   private final List<LongTermStorage> stores;
   private final ThreadLocal<int[]> tlTimestamps;
   private final ThreadLocal<double[]> tlValues;
-  private ThreadLocal<BasicTimeSeriesEncoder> encoders;
-  private ThreadLocal<DownSamplingTimeSeriesEncoder> dsEncoders;
+  private ThreadLocal<RawTimeSeriesEncoder> encoders;
+  private ThreadLocal<DownSampledTimeSeriesEncoder> dsEncoders;
   private final FlushInfo[] flushInfos;
   private final TimeSeriesRecordFactory recordFactory;
-  private final TimeSeriesEncoderFactory<BasicTimeSeriesEncoder> encoderFactory;
-  private final TimeSeriesEncoderFactory<DownSamplingTimeSeriesEncoder> dsEncoderFactory;
+  private final TimeSeriesEncoderFactory<RawTimeSeriesEncoder> encoderFactory;
+  private final TimeSeriesEncoderFactory<DownSampledTimeSeriesEncoder> dsEncoderFactory;
   private final String[] tagSet;
   private final long frequency;
   private final int threadsPerShard;
@@ -59,8 +59,8 @@ public class TSFlusherImp implements TSFlusher {
 
   public TSFlusherImp(
       final TimeSeriesRecordFactory recordFactory,
-      final TimeSeriesEncoderFactory<BasicTimeSeriesEncoder> encoderFactory,
-      final TimeSeriesEncoderFactory<DownSamplingTimeSeriesEncoder> dsEncoderFactory,
+      final TimeSeriesEncoderFactory<RawTimeSeriesEncoder> encoderFactory,
+      final TimeSeriesEncoderFactory<DownSampledTimeSeriesEncoder> dsEncoderFactory,
       final ShardConfig shardConfig,
       final List<LongTermStorage> stores,
       final ScheduledExecutorService scheduledExecutorService,
@@ -281,7 +281,7 @@ public class TSFlusherImp implements TSFlusher {
     class Job extends Thread {
       private final int idx;
       private final TimeSeriesRecord record;
-      private final BasicTimeSeriesEncoder encoder;
+      private final RawTimeSeriesEncoder encoder;
       private int flushed;
       private int ooo;
       private int failures;
@@ -355,7 +355,7 @@ public class TSFlusherImp implements TSFlusher {
               encoder.readAndDedupe(values);
 
               int segmentTime = encoder.getSegmentTime();
-              DownSamplingTimeSeriesEncoder dsEncoder = dsEncoders.get();
+              DownSampledTimeSeriesEncoder dsEncoder = dsEncoders.get();
               try {
                 dsEncoder.createSegment(segmentTime);
                 dsEncoder.addDataPoints(values);
@@ -372,7 +372,7 @@ public class TSFlusherImp implements TSFlusher {
               }
             } else {
               if (encoder.segmentHasOutOfOrderOrDuplicates()) {
-                BasicTimeSeriesEncoder reWrite = encoders.get();
+                RawTimeSeriesEncoder reWrite = encoders.get();
                 try {
                   double[] values = tlValues.get();
                   Arrays.fill(values, Double.NaN);

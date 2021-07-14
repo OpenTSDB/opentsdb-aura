@@ -28,9 +28,9 @@ import java.util.Iterator;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-public class GorillaTimeSeriesDownSamplingEncoderTest {
+public class GorillaDownSampledTimeSeriesEncoderTest {
 
-  private static GorillaTimeSeriesDownSamplingEncoder encoder;
+  private static GorillaDownSampledTimeSeriesEncoder encoder;
 
   private static final int SEGMENT_TIMESTAMP = 1620237600;
 
@@ -45,9 +45,9 @@ public class GorillaTimeSeriesDownSamplingEncoderTest {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
-    OffHeapDownSampledGorillaSegment segment = new OffHeapDownSampledGorillaSegment(256, null);
+    OffHeapGorillaDownSampledSegment segment = new OffHeapGorillaDownSampledSegment(256, null);
     encoder =
-        new GorillaTimeSeriesDownSamplingEncoder(
+        new GorillaDownSampledTimeSeriesEncoder(
             false, interval, segmentWidth, downSampler, segment);
 
     double[] values =

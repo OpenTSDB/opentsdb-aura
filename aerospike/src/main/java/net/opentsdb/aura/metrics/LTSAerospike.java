@@ -19,10 +19,10 @@ package net.opentsdb.aura.metrics;
 
 import com.aerospike.client.ResultCode;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
-import net.opentsdb.aura.metrics.core.BasicTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
 import io.ultrabrew.metrics.Counter;
 import io.ultrabrew.metrics.MetricRegistry;
@@ -245,7 +245,7 @@ public class LTSAerospike implements LongTermStorage {
         }
 
         @Override
-        public BasicTimeSeriesEncoder next() {
+        public RawTimeSeriesEncoder next() {
             for (int i = 0; i < segmentsInRecord; i++) {
                 // UGG!! Because we may be missing segments and the AS client returns
                 // maps as entries in a list... we can't just go to an index. We have
@@ -270,7 +270,7 @@ public class LTSAerospike implements LongTermStorage {
                         }
 
                         // TODO - reuse!!!!
-                        return new GorillaTimeSeriesEncoder(false, null, segment, null);
+                        return new GorillaRawTimeSeriesEncoder(false, null, segment, null);
                     }
                 }
                 segmentTimestamp += secondsInSegment;

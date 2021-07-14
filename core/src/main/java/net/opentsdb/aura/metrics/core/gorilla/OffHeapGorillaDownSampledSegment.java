@@ -21,14 +21,14 @@ import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.OffHeapSegment;
 import net.opentsdb.aura.metrics.core.downsample.DownSampledSegment;
 
-public class OffHeapDownSampledGorillaSegment extends OffHeapSegment
+public class OffHeapGorillaDownSampledSegment extends OffHeapSegment
     implements DownSampledSegment, GorillaSegment {
 
   protected static final int INTERVAL_BYTE_INDEX = 22;
   protected static final int AGG_BYTE_INDEX = 23;
   protected static final int HEADER_SIZE_BYTE = 24;
 
-  public OffHeapDownSampledGorillaSegment(
+  public OffHeapGorillaDownSampledSegment(
       final int dataBlockSizeBytes, final MetricRegistry metricRegistry) {
     super(dataBlockSizeBytes);
   }
