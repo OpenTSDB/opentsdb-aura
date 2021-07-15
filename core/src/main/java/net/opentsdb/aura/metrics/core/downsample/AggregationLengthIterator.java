@@ -17,15 +17,7 @@
 
 package net.opentsdb.aura.metrics.core.downsample;
 
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
+public interface AggregationLengthIterator extends AggregatorIterator<Void> {
 
-public interface DownSampledTimeSeriesEncoder extends TimeSeriesEncoder {
-
-  void addDataPoints(double[] values);
-
-  int readAggValues(double[] valueBuffer, byte aggId);
-
-  int getAggCount();
-
-  AggregationLengthIterator aggIterator();
+  int aggLength();
 }

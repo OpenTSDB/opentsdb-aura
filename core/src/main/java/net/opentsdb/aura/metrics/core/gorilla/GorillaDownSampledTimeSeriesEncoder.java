@@ -18,13 +18,14 @@
 package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
+import net.opentsdb.aura.metrics.core.downsample.AggregationLengthIterator;
+import net.opentsdb.aura.metrics.core.downsample.AggregatorIterator;
 import net.opentsdb.aura.metrics.core.downsample.DownSampledTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.downsample.DownSampler;
 import net.opentsdb.aura.metrics.core.downsample.Interval;
 import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
 
 import java.util.Arrays;
-import java.util.Iterator;
 
 public class GorillaDownSampledTimeSeriesEncoder
     extends GorillaSegmentEncoder<OffHeapGorillaDownSampledSegment>
@@ -35,6 +36,11 @@ public class GorillaDownSampledTimeSeriesEncoder
   private SegmentWidth segmentSize;
   private DownSampler downSampler;
   private byte aggId;
+  private int aggCount;
+  private int[] aggLengths;
+  private boolean aggLengthGood;
+
+  private AggregationLengthIteratorImpl iterator;
 
   public GorillaDownSampledTimeSeriesEncoder(
       final boolean lossy,
@@ -48,6 +54,8 @@ public class GorillaDownSampledTimeSeriesEncoder
     this.segmentSize = segmentWidth;
     this.downSampler = downSampler;
     this.aggId = downSampler.getAggId();
+    this.aggCount = downSampler.getAggCount();
+    this.aggLengths = new int[aggCount];
     this.intervalCount = (short) (segmentWidth.getWidth() / interval.getWidth());
   }
 
@@ -56,14 +64,21 @@ public class GorillaDownSampledTimeSeriesEncoder
     long address = super.createSegment(segmentTime);
     segment.setInterval(encodeInterval(interval, segmentSize));
     segment.setAggs(aggId);
+    aggLengthGood = false;
     return address;
+  }
+
+  @Override
+  public void openSegment(long id) {
+    super.openSegment(id);
+    aggLengthGood = false;
   }
 
   private static byte encodeInterval(Interval interval, SegmentWidth segmentSize) {
     return (byte) (interval.getId() << 3 | segmentSize.getId());
   }
 
-  static int decodeIntervalCount(byte encoded) {
+  private static int decodeIntervalCount(byte encoded) {
     int intervalInSeconds = Interval.getById((byte) (encoded >>> 3)).getWidth();
     int secondsInRawSegment = SegmentWidth.getById((byte) (encoded & 0b111)).getWidth();
     return secondsInRawSegment / intervalInSeconds;
@@ -79,8 +94,9 @@ public class GorillaDownSampledTimeSeriesEncoder
 
     downSampler.apply(rawValues);
 
-    Iterator<double[]> iterator = downSampler.iterator();
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
     boolean addTime = true;
+    int i = 0;
     while (iterator.hasNext()) {
       double[] aggs = iterator.next();
 
@@ -89,16 +105,17 @@ public class GorillaDownSampledTimeSeriesEncoder
         addTime = false;
       }
 
-      addAggregation(aggs);
+      int numBits = addAggregation(aggs);
+      aggLengths[i++] = numBits;
     }
-
+    aggLengthGood = true;
     segment.updateHeader();
   }
 
   @Override
   public int readAggValues(final double[] valueBuffer, final byte aggId) {
 
-    if ((segment.getAggs() & aggId) == 0) { // agg not found
+    if ((this.aggId & aggId) == 0) { // agg not found
       throw new IllegalArgumentException("aggregation with id: " + aggId + " not found");
     }
 
@@ -155,6 +172,20 @@ public class GorillaDownSampledTimeSeriesEncoder
     return numPoints;
   }
 
+  @Override
+  public int getAggCount() {
+    return aggCount;
+  }
+
+  @Override
+  public AggregationLengthIterator aggIterator() {
+    if (iterator == null) {
+      iterator = new AggregationLengthIteratorImpl();
+    }
+    iterator.reset();
+    return iterator;
+  }
+
   private void addTimestamps(final double[] aggs) {
     // encode timestamp bits.
     long bitMap = 0;
@@ -178,12 +209,14 @@ public class GorillaDownSampledTimeSeriesEncoder
     }
   }
 
-  private void addAggregation(final double[] aggs) {
+  private int addAggregation(final double[] aggs) {
     dataPoints = 0;
+    int bitsWritten = 0;
     for (int i = 0; i < aggs.length; i++) {
-      appendValue(aggs[i]);
+      bitsWritten += appendValue(aggs[i]);
       lastValue = newValue;
     }
+    return bitsWritten;
   }
 
   @Override
@@ -205,5 +238,53 @@ public class GorillaDownSampledTimeSeriesEncoder
   @Override
   protected void loadValueHeaders() {
     // doNothing
+  }
+
+  private class AggregationLengthIteratorImpl implements AggregationLengthIterator {
+
+    AggregatorIterator aggIterator;
+    int index = -1;
+
+    public AggregationLengthIteratorImpl() {
+      aggIterator = downSampler.iterator();
+    }
+
+    @Override
+    public int aggLength() {
+      if (aggLengthGood) {
+        return aggLengths[index];
+      } else {
+        // TODO decode the segment
+        throw new UnsupportedOperationException();
+      }
+    }
+
+    @Override
+    public byte aggID() {
+      return aggIterator.aggID();
+    }
+
+    @Override
+    public String aggName() {
+      return aggIterator.aggName();
+    }
+
+    @Override
+    public void reset() {
+      aggIterator.reset();
+      index = -1;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return aggIterator.hasNext();
+    }
+
+    @Override
+    public Void next() {
+      index++;
+      aggIterator.next();
+      return null;
+    }
   }
 }
