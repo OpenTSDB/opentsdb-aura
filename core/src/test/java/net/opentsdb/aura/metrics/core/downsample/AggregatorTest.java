@@ -48,6 +48,8 @@ public class AggregatorTest {
 
     assertEquals(0b100, aggregator.getId());
     assertEquals("count", aggregator.getName());
+    assertEquals(1, aggregator.getAggCount());
+
     apply(aggregator, rawData);
 
     double[] counts = aggregator.iterator().next();
@@ -60,6 +62,7 @@ public class AggregatorTest {
 
     assertEquals(0b10, aggregator.getId());
     assertEquals("sum", aggregator.getName());
+    assertEquals(1, aggregator.getAggCount());
 
     apply(aggregator, rawData);
 
@@ -73,6 +76,8 @@ public class AggregatorTest {
 
     assertEquals(0b1, aggregator.getId());
     assertEquals("avg", aggregator.getName());
+    assertEquals(1, aggregator.getAggCount());
+
     apply(aggregator, rawData);
 
     double[] averages = aggregator.iterator().next();
@@ -85,6 +90,8 @@ public class AggregatorTest {
 
     assertEquals(0b1000, aggregator.getId());
     assertEquals("min", aggregator.getName());
+    assertEquals(1, aggregator.getAggCount());
+
     apply(aggregator, rawData);
 
     double[] mins = aggregator.iterator().next();
@@ -97,6 +104,8 @@ public class AggregatorTest {
 
     assertEquals(0b10000, aggregator.getId());
     assertEquals("max", aggregator.getName());
+    assertEquals(1, aggregator.getAggCount());
+
     apply(aggregator, rawData);
 
     double[] max = aggregator.iterator().next();
@@ -109,6 +118,8 @@ public class AggregatorTest {
 
     assertEquals(0b100000, aggregator.getId());
     assertEquals("sumofsquare", aggregator.getName());
+    assertEquals(1, aggregator.getAggCount());
+
     apply(aggregator, rawData);
 
     double[] sumOfSquares = aggregator.iterator().next();
@@ -122,6 +133,7 @@ public class AggregatorTest {
 
     assertEquals(0b111111, aggregator.getId());
     assertEquals("avg-sum-count-min-max-sumofsquare", aggregator.getName());
+    assertEquals(6, aggregator.getAggCount());
 
     apply(aggregator, rawData);
 
@@ -163,6 +175,7 @@ public class AggregatorTest {
 
     assertEquals(0b101, aggregator.getId());
     assertEquals("avg-count", aggregator.getName());
+    assertEquals(2, aggregator.getAggCount());
 
     apply(aggregator, rawData);
 

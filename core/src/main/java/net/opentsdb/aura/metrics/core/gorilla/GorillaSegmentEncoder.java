@@ -46,17 +46,21 @@ public abstract class GorillaSegmentEncoder<T extends GorillaSegment>
     this.lossy = lossy;
   }
 
-  protected void appendTimeStamp(final int timestamp) {
+  protected int appendTimeStamp(final int timestamp) {
+    int bitsWritten = 0;
+
     delta = (short) (timestamp - lastTimestamp);
 
     if (dataPoints == 0) { // first write
       segment.write(delta, FIRST_TIMESTAMP_BITS);
+      bitsWritten += FIRST_TIMESTAMP_BITS;
     } else {
       short deltaOfDelta = (short) (delta - lastTimestampDelta);
 
       if (deltaOfDelta == 0) {
         segment.write(0, 1); // writes a zero bit
         //        timestamp_0bits.getAndIncrement();
+        bitsWritten++;
       } else {
 
         if (deltaOfDelta > 0) {
@@ -78,15 +82,21 @@ public abstract class GorillaSegmentEncoder<T extends GorillaSegment>
             // stores the signed value [-2^(n-1) to 2^n] in [0 to 2^n - 1]
             long encoded = deltaOfDelta + mask;
             segment.write(encoded, valueBits);
+
+            bitsWritten += (controlBits + valueBits);
             break;
           }
         }
       }
     }
     lastTimestamp = timestamp;
+    return bitsWritten;
   }
 
-  protected void appendValue(final double value) {
+  /** @return number of bits written */
+  protected int appendValue(final double value) {
+    int bitsWritten = 0;
+
     newValue = Double.doubleToRawLongBits(value);
 
     if (lossy) {
@@ -99,6 +109,7 @@ public abstract class GorillaSegmentEncoder<T extends GorillaSegment>
       lastValueTrailingZeros = blockSize;
 
       meaningFullBitsChanged = true;
+      bitsWritten += 64;
     } else {
       {
         long xor = newValue ^ lastValue;
@@ -122,6 +133,7 @@ public abstract class GorillaSegmentEncoder<T extends GorillaSegment>
 
         if (xor == 0) {
           segment.write(0, 1); // writes 0 bit
+          bitsWritten++;
           //        value_0bits.getAndIncrement();
         } else {
           byte leadingZeros = (byte) Long.numberOfLeadingZeros(xor);
@@ -135,6 +147,7 @@ public abstract class GorillaSegmentEncoder<T extends GorillaSegment>
             long meaningFulValue = xor >>> lastValueTrailingZeros;
             segment.write(meaningFulValue, meaningFullBits);
             //          value_10bits.getAndIncrement();
+            bitsWritten += (2 + meaningFullBits);
           } else {
             segment.write(0b11, 2); // writes 1,1. Control bit for not using last block information.
             segment.write(leadingZeros, LEADING_ZERO_LENGTH_BITS);
@@ -147,11 +160,15 @@ public abstract class GorillaSegmentEncoder<T extends GorillaSegment>
             lastValueLeadingZeros = leadingZeros;
             lastValueTrailingZeros = trailingZeros;
             //          value_11bits.getAndIncrement();
+            bitsWritten +=
+                (2 + LEADING_ZERO_LENGTH_BITS + MEANINGFUL_BIT_LENGTH_BITS + meaningFullBits);
           }
         }
       }
     }
     dataPoints++;
+
+    return bitsWritten;
   }
 
   protected int readNextTimestamp() {

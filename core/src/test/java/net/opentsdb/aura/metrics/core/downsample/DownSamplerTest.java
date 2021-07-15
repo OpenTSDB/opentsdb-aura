@@ -29,6 +29,7 @@ import static net.opentsdb.aura.metrics.core.downsample.AggregatorTest.assertMin
 import static net.opentsdb.aura.metrics.core.downsample.AggregatorTest.assertSumEquals;
 import static net.opentsdb.aura.metrics.core.downsample.AggregatorTest.assertSumOfSquareEquals;
 import static net.opentsdb.aura.metrics.core.downsample.AggregatorTest.generateRawData;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class DownSamplerTest {
@@ -128,13 +129,31 @@ public class DownSamplerTest {
         Aggregator.newBuilder(intervalCount).avg().sum().count().min().max().sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggr);
     downSampler.apply(rawData);
-    Iterator<double[]> iterator = downSampler.iterator();
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+
     assertAverageEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(AverageAggregator.ID, iterator.aggID());
+    assertEquals(AverageAggregator.NAME, iterator.aggName());
+
     assertSumEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(SumAggregator.ID, iterator.aggID());
+    assertEquals(SumAggregator.NAME, iterator.aggName());
+
     assertCountEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(CountAggregator.ID, iterator.aggID());
+    assertEquals(CountAggregator.NAME, iterator.aggName());
+
     assertMinEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(MinAggregator.ID, iterator.aggID());
+    assertEquals(MinAggregator.NAME, iterator.aggName());
+
     assertMaxEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(MaxAggregator.ID, iterator.aggID());
+    assertEquals(MaxAggregator.NAME, iterator.aggName());
+
     assertSumOfSquareEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(SumOfSquareAggregator.ID, iterator.aggID());
+    assertEquals(SumOfSquareAggregator.NAME, iterator.aggName());
 
     assertFalse(iterator.hasNext());
   }

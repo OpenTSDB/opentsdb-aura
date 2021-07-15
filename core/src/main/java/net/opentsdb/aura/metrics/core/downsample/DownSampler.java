@@ -57,11 +57,15 @@ public class DownSampler {
     }
   }
 
-  public Iterator<double[]> iterator() {
+  public AggregatorIterator<double[]> iterator() {
     return aggregator.iterator();
   }
 
   public byte getAggId() {
     return aggregator.getId();
+  }
+
+  public int getAggCount() {
+    return aggregator.getAggCount();
   }
 }

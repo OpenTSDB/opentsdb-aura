@@ -18,7 +18,6 @@
 package net.opentsdb.aura.metrics.core.downsample;
 
 import java.util.Arrays;
-import java.util.Iterator;
 
 public abstract class Aggregator {
 
@@ -26,12 +25,15 @@ public abstract class Aggregator {
   protected double value;
   protected byte id;
   protected String name;
+  protected byte compositeId;
+  protected String compositeName;
   protected final double[] values;
+  protected int aggregatorCount;
 
   private final Aggregator previous;
-  private Aggregator next;
+  protected Aggregator next;
 
-  private AggregatorIterator iterator;
+  private AggregatorIteratorImpl iterator;
 
   public static AggregatorBuilder newBuilder(final int intervalCount) {
     return new AggregatorBuilder(intervalCount);
@@ -51,14 +53,18 @@ public abstract class Aggregator {
     this.previous = previous;
     this.values = new double[numPoints];
     this.id = id;
+    this.compositeId = id;
     this.name = name;
+    this.compositeName = name;
+    this.aggregatorCount = 1;
     if (previous != null) {
-      if ((id & previous.id) != 0) {
+      if ((id & previous.compositeId) != 0) {
         throw new IllegalArgumentException("Duplicate aggregator found for: " + name);
       }
-      this.id |= previous.id;
-      this.name = previous.name + "-" + name;
+      this.compositeId |= previous.compositeId;
+      this.compositeName = previous.compositeName + "-" + name;
       previous.next = this;
+      aggregatorCount += previous.aggregatorCount;
     }
   }
 
@@ -92,11 +98,11 @@ public abstract class Aggregator {
   }
 
   public byte getId() {
-    return id;
+    return compositeId;
   }
 
   public String getName() {
-    return name;
+    return compositeName;
   }
 
   protected abstract void doApply(double value);
@@ -105,28 +111,35 @@ public abstract class Aggregator {
     return values;
   }
 
-  private Aggregator head() {
+  protected Aggregator head() {
     if (null != previous) {
       return previous.head();
     }
     return this;
   }
 
-  public Iterator<double[]> iterator() {
+  public AggregatorIterator<double[]> iterator() {
 
     if (iterator == null) {
-      iterator = new AggregatorIterator();
+      iterator = new AggregatorIteratorImpl();
     }
     iterator.reset();
     return iterator;
   }
 
-  private class AggregatorIterator implements Iterator<double[]> {
+  public int getAggCount() {
+    return aggregatorCount;
+  }
+
+  public class AggregatorIteratorImpl implements AggregatorIterator<double[]> {
 
     Aggregator current;
     Aggregator head;
 
-    public AggregatorIterator() {
+    byte aggId;
+    String aggName;
+
+    public AggregatorIteratorImpl() {
       this.head = head();
       reset();
     }
@@ -139,12 +152,27 @@ public abstract class Aggregator {
     @Override
     public double[] next() {
       double[] values = current.values;
+      aggId = current.id;
+      aggName = current.name;
       current = current.next;
       return values;
     }
 
-    void reset() {
+    @Override
+    public void reset() {
       current = head;
+      aggId = 0;
+      aggName = null;
+    }
+
+    @Override
+    public byte aggID() {
+      return aggId;
+    }
+
+    @Override
+    public String aggName() {
+      return aggName;
     }
   }
 
