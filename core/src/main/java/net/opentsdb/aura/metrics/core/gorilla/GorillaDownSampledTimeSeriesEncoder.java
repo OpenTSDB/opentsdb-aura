@@ -33,12 +33,13 @@ public class GorillaDownSampledTimeSeriesEncoder
 
   private short intervalCount;
   private Interval interval;
-  private SegmentWidth segmentSize;
+  private SegmentWidth segmentWidth;
   private DownSampler downSampler;
   private byte aggId;
   private int aggCount;
   private int[] aggLengths;
-  private boolean aggLengthGood;
+  private int numPoints;
+  private boolean aggLengthValid;
 
   private AggregationLengthIteratorImpl iterator;
 
@@ -51,7 +52,7 @@ public class GorillaDownSampledTimeSeriesEncoder
 
     super(lossy, segment);
     this.interval = interval;
-    this.segmentSize = segmentWidth;
+    this.segmentWidth = segmentWidth;
     this.downSampler = downSampler;
     this.aggId = downSampler.getAggId();
     this.aggCount = downSampler.getAggCount();
@@ -62,19 +63,19 @@ public class GorillaDownSampledTimeSeriesEncoder
   @Override
   public long createSegment(int segmentTime) {
     long address = super.createSegment(segmentTime);
-    segment.setInterval(encodeInterval(interval, segmentSize));
+    segment.setInterval(encodeInterval(interval, segmentWidth));
     segment.setAggs(aggId);
-    aggLengthGood = false;
+    aggLengthValid = false;
     return address;
   }
 
   @Override
   public void openSegment(long id) {
     super.openSegment(id);
-    aggLengthGood = false;
+    aggLengthValid = false;
   }
 
-  private static byte encodeInterval(Interval interval, SegmentWidth segmentSize) {
+  protected static byte encodeInterval(Interval interval, SegmentWidth segmentSize) {
     return (byte) (interval.getId() << 3 | segmentSize.getId());
   }
 
@@ -86,6 +87,15 @@ public class GorillaDownSampledTimeSeriesEncoder
 
   @Override
   public int getNumDataPoints() {
+    if (aggLengthValid) {
+      return numPoints;
+    } else {
+      throw new UnsupportedOperationException("Need to decode the timestamp bitmaps");
+    }
+  }
+
+  @Override
+  public int getIntervalCount() {
     return intervalCount;
   }
 
@@ -101,14 +111,14 @@ public class GorillaDownSampledTimeSeriesEncoder
       double[] aggs = iterator.next();
 
       if (addTime) {
-        addTimestamps(aggs);
+        numPoints = addTimestamps(aggs);
         addTime = false;
       }
 
       int numBits = addAggregation(aggs);
       aggLengths[i++] = numBits;
     }
-    aggLengthGood = true;
+    aggLengthValid = true;
     segment.updateHeader();
   }
 
@@ -178,6 +188,16 @@ public class GorillaDownSampledTimeSeriesEncoder
   }
 
   @Override
+  public Interval getInterval() {
+    return interval;
+  }
+
+  @Override
+  public SegmentWidth getSegmentWidth() {
+    return segmentWidth;
+  }
+
+  @Override
   public AggregationLengthIterator aggIterator() {
     if (iterator == null) {
       iterator = new AggregationLengthIteratorImpl();
@@ -186,15 +206,17 @@ public class GorillaDownSampledTimeSeriesEncoder
     return iterator;
   }
 
-  private void addTimestamps(final double[] aggs) {
+  private int addTimestamps(final double[] aggs) {
     // encode timestamp bits.
     long bitMap = 0;
     int offset = 0;
+    int numPoints = 0;
     final int lastIndex = aggs.length - 1;
     for (int i = 0; i < aggs.length; i++) {
       offset++;
       if (!Double.isNaN(aggs[i])) {
         bitMap = bitMap | (1l << (64 - offset));
+        numPoints++;
       }
 
       if (offset == 64 || i == lastIndex) {
@@ -207,6 +229,7 @@ public class GorillaDownSampledTimeSeriesEncoder
         offset = 0;
       }
     }
+    return numPoints;
   }
 
   private int addAggregation(final double[] aggs) {
@@ -230,9 +253,12 @@ public class GorillaDownSampledTimeSeriesEncoder
         lossy
             ? TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS
             : TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
+    buffer[offset++] = segment.getInterval();
+    buffer[offset++] = segment.getAggs();
 
-    // includes 2 bytes, interval and aggs from the header
-    segment.serialize(segment.headerLengthBytes() - 2, buffer, offset, length);
+    length -= 3;
+
+    segment.serialize(segment.headerLengthBytes(), buffer, offset, length);
   }
 
   @Override
@@ -251,11 +277,11 @@ public class GorillaDownSampledTimeSeriesEncoder
 
     @Override
     public int aggLength() {
-      if (aggLengthGood) {
+      if (aggLengthValid) {
         return aggLengths[index];
       } else {
         // TODO decode the segment
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("need to decode the agg values");
       }
     }
 
