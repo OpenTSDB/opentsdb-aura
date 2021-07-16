@@ -24,83 +24,102 @@ import net.opentsdb.aura.metrics.core.downsample.CountAggregator;
 import net.opentsdb.aura.metrics.core.downsample.DownSampler;
 import net.opentsdb.aura.metrics.core.downsample.Interval;
 import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
 
+import static net.opentsdb.aura.metrics.core.TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
+import static net.opentsdb.aura.metrics.core.gorilla.GorillaDownSampledTimeSeriesEncoder.encodeInterval;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class GorillaDownSampledTimeSeriesEncoderTest {
 
-  private static GorillaDownSampledTimeSeriesEncoder encoder;
+  private static final int SEGMENT_TIMESTAMP = 1611288000;
 
-  private static final int SEGMENT_TIMESTAMP = 1620237600;
+  private static double[] values =
+      new double[] {
+        0.8973950653568595,
+        0.43654855440361706,
+        0.827450779634358,
+        0.3584920510780665,
+        0.9295624657514724,
+        0.9610921547553934,
+        0.6329804921575314,
+        0.34905996592724153,
+        0.5379730703355181,
+        0.8403559626106764,
+        0.30075147324566376,
+        0.15691026481149195,
+        0.7525354276869367,
+        0.942970394430076,
+        0.2401190623680185,
+        0.42611404794594654,
+        0.7615746658524079,
+        0.46418976228229414,
+        0.6942765189361159,
+        0.9690728790734268,
+        0.32890435244089244,
+        0.6098703276841767,
+        0.22878432168195317,
+        0.8844305249065624,
+        0.7157591580282211
+      };
 
-  @Test
-  void addAverage() {
-    Interval interval = Interval._30_SEC;
-    SegmentWidth segmentWidth = SegmentWidth._2_HR;
+  private static Interval interval = Interval._30_SEC;
+  private static SegmentWidth segmentWidth = SegmentWidth._2_HR;
+  private static int intervalWidth = interval.getWidth();
+  private static short intervalCount = interval.getCount(segmentWidth);
+  private static double[] rawValues = new double[segmentWidth.getWidth()];
 
-    int intervalWidth = interval.getWidth();
-    short intervalCount = interval.getCount(segmentWidth);
+  private OffHeapGorillaDownSampledSegment segment =
+      new OffHeapGorillaDownSampledSegment(256, null);
 
-    Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().build();
-    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+  private GorillaDownSampledTimeSeriesEncoder encoder;
 
-    OffHeapGorillaDownSampledSegment segment = new OffHeapGorillaDownSampledSegment(256, null);
-    encoder =
-        new GorillaDownSampledTimeSeriesEncoder(
-            false, interval, segmentWidth, downSampler, segment);
+  private short dataPoints;
+  private long newValue;
+  private long lastValue;
+  private byte blockSize;
+  private byte lastValueLeadingZeros;
+  private byte lastValueTrailingZeros;
+  private boolean meaningFullBitsChanged;
 
-    double[] values =
-        new double[] {
-          0.8973950653568595,
-          0.43654855440361706,
-          0.827450779634358,
-          0.3584920510780665,
-          0.9295624657514724,
-          0.9610921547553934,
-          0.6329804921575314,
-          0.34905996592724153,
-          0.5379730703355181,
-          0.8403559626106764,
-          0.30075147324566376,
-          0.15691026481149195,
-          0.7525354276869367,
-          0.942970394430076,
-          0.2401190623680185,
-          0.42611404794594654,
-          0.7615746658524079,
-          0.46418976228229414,
-          0.6942765189361159,
-          0.9690728790734268,
-          0.32890435244089244,
-          0.6098703276841767,
-          0.22878432168195317,
-          0.8844305249065624,
-          0.7157591580282211
-        };
-
-    int segmentTime = 1611288000;
-    double[] rawValues = new double[7200];
+  @BeforeAll
+  static void beforeAl() {
     Arrays.fill(rawValues, Double.NaN);
     for (int i = 0; i < rawValues.length; i++) {
       if (i % intervalWidth == 0) {
         rawValues[i] = values[i % values.length];
       }
     }
+  }
+
+  @Test
+  void addAverage() {
+
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    assertEquals(1, encoder.getAggCount());
+    assertEquals(intervalCount, encoder.getIntervalCount());
 
     downSampler.apply(rawValues);
 
     Iterator<double[]> iterator = downSampler.iterator();
     double[] expectedAvg = iterator.next();
 
-    encoder.createSegment(segmentTime);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
 
     encoder.addDataPoints(rawValues);
+
+    assertEquals(intervalCount, encoder.getNumDataPoints());
 
     AggregationLengthIterator aggLengthIterator = encoder.aggIterator();
     aggLengthIterator.next();
@@ -118,57 +137,15 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
 
   @Test
   void addAverageAndCount() {
-    Interval interval = Interval._30_SEC;
-    SegmentWidth segmentWidth = SegmentWidth._2_HR;
-
-    int intervalWidth = interval.getWidth();
-    short intervalCount = interval.getCount(segmentWidth);
 
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().count().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
-    OffHeapGorillaDownSampledSegment segment = new OffHeapGorillaDownSampledSegment(256, null);
     encoder =
         new GorillaDownSampledTimeSeriesEncoder(
             false, interval, segmentWidth, downSampler, segment);
-
-    double[] values =
-        new double[] {
-          0.8973950653568595,
-          0.43654855440361706,
-          0.827450779634358,
-          0.3584920510780665,
-          0.9295624657514724,
-          0.9610921547553934,
-          0.6329804921575314,
-          0.34905996592724153,
-          0.5379730703355181,
-          0.8403559626106764,
-          0.30075147324566376,
-          0.15691026481149195,
-          0.7525354276869367,
-          0.942970394430076,
-          0.2401190623680185,
-          0.42611404794594654,
-          0.7615746658524079,
-          0.46418976228229414,
-          0.6942765189361159,
-          0.9690728790734268,
-          0.32890435244089244,
-          0.6098703276841767,
-          0.22878432168195317,
-          0.8844305249065624,
-          0.7157591580282211
-        };
-
-    int segmentTime = 1611288000;
-    double[] rawValues = new double[7200];
-    Arrays.fill(rawValues, Double.NaN);
-    for (int i = 0; i < rawValues.length; i++) {
-      if (i % intervalWidth == 0) {
-        rawValues[i] = values[i % values.length];
-      }
-    }
+    assertEquals(2, encoder.getAggCount());
+    assertEquals(intervalCount, encoder.getIntervalCount());
 
     downSampler.apply(rawValues);
 
@@ -176,9 +153,10 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     double[] expectedAvgs = iterator.next();
     double[] expectedCounts = iterator.next();
 
-    encoder.createSegment(segmentTime);
-
+    encoder.createSegment(SEGMENT_TIMESTAMP);
     encoder.addDataPoints(rawValues);
+
+    assertEquals(intervalCount, encoder.getNumDataPoints());
 
     AggregationLengthIterator aggLengthIterator = encoder.aggIterator();
     aggLengthIterator.next();
@@ -201,4 +179,36 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
 
     assertFalse(aggLengthIterator.hasNext());
   }
+
+  @Test
+  void testSerialization() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().count().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(rawValues);
+
+    int length = encoder.serializationLength();
+    byte[] buffer = new byte[length];
+    encoder.serialize(buffer, 0, length);
+
+    int index = 0;
+    assertEquals(GORILLA_LOSSLESS_SECONDS, buffer[index++]);
+    assertEquals(encodeInterval(interval, segmentWidth), buffer[index++]);
+    assertEquals(aggregator.getId(), buffer[index++]);
+
+    int timestampBitMapSize = intervalCount;
+    int bytes = timestampBitMapSize / 8;
+
+    for (int i = 0; i < bytes; i++) {
+      // assert all bits are set
+      assertEquals(-1, buffer[index++]);
+    }
+
+    // TODO assert the agg values after implementing the on heap downsampled segment.
+  }
+
 }

@@ -27,5 +27,11 @@ public interface DownSampledTimeSeriesEncoder extends TimeSeriesEncoder {
 
   int getAggCount();
 
+  Interval getInterval();
+
+  SegmentWidth getSegmentWidth();
+
+  int getIntervalCount();
+
   AggregationLengthIterator aggIterator();
 }
