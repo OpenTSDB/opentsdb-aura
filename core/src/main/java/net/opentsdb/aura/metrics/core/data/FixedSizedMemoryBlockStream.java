@@ -88,7 +88,10 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
   public void load(final long address) {
     header.init(address, false, blockSizeBytes);
     this.address = address;
-    moveToTail();
+    dataBlock.init(header.getLong(CURRENT_BLOCK_BYTE_INDEX), false, blockSizeLongs);
+    bitIndex = header.getShort(CURRENT_BIT_INDEX_BYTE_INDEX);
+    atTail = true;
+    atHead = false;
   }
 
   @Override
