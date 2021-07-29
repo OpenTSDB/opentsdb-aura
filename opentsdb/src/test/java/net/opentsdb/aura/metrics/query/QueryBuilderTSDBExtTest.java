@@ -17,16 +17,20 @@
 
 package net.opentsdb.aura.metrics.query;
 
+import net.opentsdb.aura.metrics.QueryBuilderTSDBExt;
+import net.opentsdb.aura.metrics.meta.Filter;
 import net.opentsdb.aura.metrics.meta.Query;
 import net.opentsdb.aura.metrics.meta.QueryBuilder;
-import net.opentsdb.aura.metrics.QueryBuilderTSDBExt;
 import net.opentsdb.query.filter.ChainFilter;
 import net.opentsdb.query.filter.ExplicitTagsFilter;
 import net.opentsdb.query.filter.NotFilter;
 import net.opentsdb.query.filter.QueryFilter;
 import net.opentsdb.query.filter.TagValueLiteralOrFilter;
 import net.opentsdb.query.filter.TagValueRegexFilter;
-import org.junit.Test;
+import net.opentsdb.query.filter.TagValueWildcardFilter;
+import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
 
 public class QueryBuilderTSDBExtTest {
 
@@ -73,4 +77,17 @@ public class QueryBuilderTSDBExtTest {
     System.out.println(query);
 
   }
+
+  @Test
+  public void testWildcardFilter() {
+
+    TagValueWildcardFilter wf =
+        TagValueWildcardFilter.newBuilder().setKey("key").setFilter("VAL*").build();
+    Query query = QueryBuilderTSDBExt.newBuilder().fromTSDBQueryFilter(wf).build();
+    Filter auraFilter = query.getFilter();
+    assertEquals(auraFilter.getOperator(), Filter.Operator.OR);
+    assertEquals(auraFilter.getTagKey(), wf.getTagKey());
+    assertEquals(auraFilter.getTagValues()[0], "VAL.*");
+  }
+
 }

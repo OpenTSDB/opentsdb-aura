@@ -104,7 +104,7 @@ public class QueryBuilderTSDBExt extends QueryBuilder {
                 .build();
       } else if (filter instanceof TagValueWildcardFilter) {
         final String filterString = filter.getFilter();
-        String pattern = filterString.toLowerCase().replace("*", ".*");
+        String pattern = filterString.replace("*", ".*");
         return RegexpFilter.newBuilder()
                 .forTag(filter.getTagKey())
                 .withValues(pattern)
