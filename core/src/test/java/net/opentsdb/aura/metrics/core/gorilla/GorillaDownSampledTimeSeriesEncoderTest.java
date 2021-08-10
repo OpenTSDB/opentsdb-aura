@@ -208,7 +208,50 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
       assertEquals(-1, buffer[index++]);
     }
 
-    // TODO assert the agg values after implementing the on heap downsampled segment.
+    downSampler.apply(rawValues);
+    double[] expectedAggValues = downSampler.iterator().next();
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, length);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, onHeapSegment);
+
+    double[] aggValues = new double[expectedAggValues.length];
+    onHeapEncoder.readAggValues(aggValues, aggregator.getId());
+
+    assertArrayEquals(expectedAggValues, aggValues);
   }
 
+  @Test
+  void testOnHeapSegmentAndEncoderCtor() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().count().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(rawValues);
+
+    int length = encoder.serializationLength();
+    byte[] buffer = new byte[length];
+    encoder.serialize(buffer, 0, length);
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, length);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, onHeapSegment);
+
+    assertEquals(SEGMENT_TIMESTAMP, onHeapSegment.getSegmentTime());
+    assertEquals(downSampler.getAggId(), onHeapSegment.getAggs());
+    assertEquals(encodeInterval(interval, segmentWidth), onHeapSegment.getInterval());
+
+    assertEquals(SEGMENT_TIMESTAMP, onHeapEncoder.getSegmentTime());
+    assertEquals(segmentWidth, onHeapEncoder.getSegmentWidth());
+    assertEquals(intervalCount, onHeapEncoder.getIntervalCount());
+    assertEquals(interval, onHeapEncoder.getInterval());
+    assertEquals(downSampler.getAggCount(), onHeapEncoder.getAggCount());
+  }
 }

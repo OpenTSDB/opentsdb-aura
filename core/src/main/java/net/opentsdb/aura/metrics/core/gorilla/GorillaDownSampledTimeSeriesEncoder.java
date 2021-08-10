@@ -27,9 +27,8 @@ import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
 
 import java.util.Arrays;
 
-public class GorillaDownSampledTimeSeriesEncoder
-    extends GorillaSegmentEncoder<OffHeapGorillaDownSampledSegment>
-    implements DownSampledTimeSeriesEncoder {
+public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSegment>
+    extends GorillaSegmentEncoder<T> implements DownSampledTimeSeriesEncoder {
 
   private short intervalCount;
   private Interval interval;
@@ -48,7 +47,7 @@ public class GorillaDownSampledTimeSeriesEncoder
       final Interval interval,
       final SegmentWidth segmentWidth,
       final DownSampler downSampler,
-      final OffHeapGorillaDownSampledSegment segment) {
+      final T segment) {
 
     super(lossy, segment);
     this.interval = interval;
@@ -75,8 +74,8 @@ public class GorillaDownSampledTimeSeriesEncoder
     aggLengthValid = false;
   }
 
-  protected static byte encodeInterval(Interval interval, SegmentWidth segmentSize) {
-    return (byte) (interval.getId() << 3 | segmentSize.getId());
+  protected static byte encodeInterval(Interval interval, SegmentWidth segmentWidth) {
+    return (byte) (interval.getId() << 3 | segmentWidth.getId());
   }
 
   private static int decodeIntervalCount(byte encoded) {

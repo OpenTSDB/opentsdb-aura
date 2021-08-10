@@ -23,7 +23,7 @@ import net.opentsdb.aura.metrics.core.downsample.DownSampledSegment;
 import net.opentsdb.stats.StatsCollector;
 
 public class OffHeapGorillaDownSampledSegment extends OffHeapSegment
-    implements DownSampledSegment, GorillaSegment {
+    implements GorillaDownSampledSegment {
 
   protected static final int INTERVAL_BYTE_INDEX = 22;
   protected static final int AGG_BYTE_INDEX = 23;

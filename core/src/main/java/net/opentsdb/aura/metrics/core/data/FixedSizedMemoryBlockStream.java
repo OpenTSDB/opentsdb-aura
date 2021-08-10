@@ -274,7 +274,7 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
     for (int i = 1; i <= blockIndex; i++) {
       nextAddress = dataBlock.get(0);
       if (nextAddress == 0) {
-        throw new IndexOutOfBoundsException("srcoffset out of range");
+        throw new IndexOutOfBoundsException("src offset out of range");
       }
       dataBlock.init(nextAddress, false, blockSizeLongs);
     }
