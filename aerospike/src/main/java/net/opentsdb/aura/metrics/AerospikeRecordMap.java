@@ -19,7 +19,7 @@ package net.opentsdb.aura.metrics;
 
 import com.aerospike.client.command.Buffer;
 import com.aerospike.client.command.ParticleType;
-import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
+import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaRawSegment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,7 +123,7 @@ public class AerospikeRecordMap {
     sort(0, keysIdx - 1);
   }
 
-  public void encoder(final OnHeapGorillaSegment segment,
+  public void encoder(final OnHeapGorillaRawSegment segment,
                       final int segmentTime,
                       final int idx) {
     int offset = offsets[idx];

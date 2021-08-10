@@ -24,7 +24,7 @@ import net.opentsdb.aura.metrics.core.LongTermStorage;
 import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
+import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaRawSegment;
 import mockit.Expectations;
 import mockit.Injectable;
 import mockit.Mocked;
@@ -66,7 +66,7 @@ public class LTSAerospikeTest {
   @Injectable
   private RawTimeSeriesEncoder timeSeriesEncoder;
   @Mocked
-  private OnHeapGorillaSegment gorillaSegment;
+  private OnHeapGorillaRawSegment gorillaSegment;
   @Mocked
   private GorillaRawTimeSeriesEncoder gorillaRawTimeSeriesEncoder;
   @Injectable
@@ -201,7 +201,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(ts),
+      new OnHeapGorillaRawSegment(withEqual(ts),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -246,7 +246,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -255,7 +255,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + secondsInASegment),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + secondsInASegment),
               withEqual(new byte[] { 1 }),
               withEqual(0),
               withEqual(1));
@@ -301,7 +301,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -310,7 +310,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + secondsInASegment),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + secondsInASegment),
               withEqual(new byte[] { 1 }),
               withEqual(0),
               withEqual(1));
@@ -319,7 +319,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -365,7 +365,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -374,7 +374,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + secondsInASegment),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + secondsInASegment),
               withEqual(new byte[] { 1 }),
               withEqual(0),
               withEqual(1));
@@ -409,7 +409,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -456,7 +456,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + secondsInASegment),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + secondsInASegment),
               withEqual(new byte[] { 1 }),
               withEqual(0),
               withEqual(1));
@@ -502,7 +502,7 @@ public class LTSAerospikeTest {
 
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -574,7 +574,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -584,7 +584,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -630,7 +630,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + secondsInASegment),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + secondsInASegment),
               withEqual(new byte[] { 1 }),
               withEqual(0),
               withEqual(1));
@@ -640,7 +640,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -686,7 +686,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -732,7 +732,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -742,7 +742,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -788,7 +788,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -834,7 +834,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -844,7 +844,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + secondsInASegment),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + secondsInASegment),
               withEqual(new byte[] { 1 }),
               withEqual(0),
               withEqual(1));
@@ -904,7 +904,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 3)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 3)),
               withEqual(new byte[] { 3 }),
               withEqual(0),
               withEqual(1));
@@ -914,7 +914,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 4)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 4)),
               withEqual(new byte[] { 4 }),
               withEqual(0),
               withEqual(1));
@@ -989,7 +989,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 6)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 6)),
               withEqual(new byte[] { 6 }),
               withEqual(0),
               withEqual(1));
@@ -999,7 +999,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 7)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 7)),
               withEqual(new byte[] { 7 }),
               withEqual(0),
               withEqual(1));
@@ -1085,7 +1085,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME),
               withEqual(new byte[] { 0 }),
               withEqual(0),
               withEqual(1));
@@ -1095,7 +1095,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 1)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 1)),
               withEqual(new byte[] { 1 }),
               withEqual(0),
               withEqual(1));
@@ -1105,7 +1105,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 2)),
               withEqual(new byte[] { 2 }),
               withEqual(0),
               withEqual(1));
@@ -1115,7 +1115,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 6)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 6)),
               withEqual(new byte[] { 6 }),
               withEqual(0),
               withEqual(1));
@@ -1125,7 +1125,7 @@ public class LTSAerospikeTest {
     assertTrue(records.hasNext());
     assertNotNull(records.next());
     new Verifications() {{
-      new OnHeapGorillaSegment(withEqual(BASE_TIME + (secondsInASegment * 7)),
+      new OnHeapGorillaRawSegment(withEqual(BASE_TIME + (secondsInASegment * 7)),
               withEqual(new byte[] { 7 }),
               withEqual(0),
               withEqual(1));

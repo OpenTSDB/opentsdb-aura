@@ -21,7 +21,7 @@ import net.opentsdb.aura.metrics.AerospikeRecordMap;
 import net.opentsdb.aura.metrics.BatchRecordIterator;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
+import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaRawSegment;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import gnu.trove.map.TLongObjectMap;
 import gnu.trove.map.hash.TLongObjectHashMap;
@@ -61,7 +61,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
   protected int nextRecord;
 
   protected PooledObject pooledObject;
-  protected OnHeapGorillaSegment segment;
+  protected OnHeapGorillaRawSegment segment;
   protected GorillaRawTimeSeriesEncoder encoder;
 
   // some stats;
@@ -74,7 +74,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
     map = new AerospikeRecordMap();
     groups = new TLongObjectHashMap<AggregatorFinishedTS>();
     grouper = new AerospikeBatchGroupAggregator();
-    segment = new OnHeapGorillaSegment();
+    segment = new OnHeapGorillaRawSegment();
     encoder = new GorillaRawTimeSeriesEncoder(false, null, segment, null);
   }
 

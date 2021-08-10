@@ -580,8 +580,8 @@ public class GorillaRawTimeSeriesEncoderTest {
       encoder.serialize(buffer, 0, serializationLength);
       assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
 
-      OnHeapGorillaSegment onHeapSegment =
-          new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+      OnHeapGorillaRawSegment onHeapSegment =
+          new OnHeapGorillaRawSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
       encoder =
           new GorillaRawTimeSeriesEncoder(false, stats, onHeapSegment, segmentCollector);
       Map<Integer, Double> dps = new TreeMap<>();
@@ -632,8 +632,8 @@ public class GorillaRawTimeSeriesEncoderTest {
       encoder.serialize(buffer, 0, serializationLength);
       assertEquals(TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS, buffer[0]);
 
-      OnHeapGorillaSegment onHeapSegment =
-          new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+      OnHeapGorillaRawSegment onHeapSegment =
+          new OnHeapGorillaRawSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
       encoder = new GorillaRawTimeSeriesEncoder(true, stats, onHeapSegment, segmentCollector);
       Map<Integer, Double> dps = new TreeMap<>();
       encoder.read(
@@ -657,8 +657,8 @@ public class GorillaRawTimeSeriesEncoderTest {
     encoder.serialize(buffer, 0, serializationLength);
     assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
 
-    OnHeapGorillaSegment onHeapSegment =
-        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+    OnHeapGorillaRawSegment onHeapSegment =
+        new OnHeapGorillaRawSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
     encoder.setSegment(onHeapSegment);
     Map<Integer, Double> dps = new TreeMap<>();
     encoder.read(
@@ -689,8 +689,8 @@ public class GorillaRawTimeSeriesEncoderTest {
     encoder.serialize(buffer, 0, serializationLength);
     assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
 
-    OnHeapGorillaSegment onHeapSegment =
-        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+    OnHeapGorillaRawSegment onHeapSegment =
+        new OnHeapGorillaRawSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
     encoder = new GorillaRawTimeSeriesEncoder(false, stats, onHeapSegment, segmentCollector);
     Map<Integer, Double> dps = new TreeMap<>();
     encoder.read(
@@ -713,8 +713,8 @@ public class GorillaRawTimeSeriesEncoderTest {
     assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
     assertArrayEquals(new byte[] {0, 0}, buffer);
 
-    OnHeapGorillaSegment onHeapSegment =
-        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
+    OnHeapGorillaRawSegment onHeapSegment =
+        new OnHeapGorillaRawSegment(SEGMENT_TIMESTAMP, buffer, 0, serializationLength);
     encoder = new GorillaRawTimeSeriesEncoder(false, stats, onHeapSegment, segmentCollector);
 
     Map<Integer, Double> dps = new TreeMap<>();
@@ -751,8 +751,8 @@ public class GorillaRawTimeSeriesEncoderTest {
     int offset = 13;
     encoder.serialize(buffer, offset, serializationLength);
 
-    OnHeapGorillaSegment onHeapSegment =
-        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, offset, serializationLength);
+    OnHeapGorillaRawSegment onHeapSegment =
+        new OnHeapGorillaRawSegment(SEGMENT_TIMESTAMP, buffer, offset, serializationLength);
     encoder = new GorillaRawTimeSeriesEncoder(false, stats, onHeapSegment, segmentCollector);
     Map<Integer, Double> dps = new TreeMap<>();
     encoder.read(
@@ -814,8 +814,8 @@ public class GorillaRawTimeSeriesEncoderTest {
     encoder.serialize(buffer, 0, expectedLength);
     encoder.freeSegment();
 
-    OnHeapGorillaSegment onHeapSegment =
-        new OnHeapGorillaSegment(SEGMENT_TIMESTAMP, buffer, 0, 8567);
+    OnHeapGorillaRawSegment onHeapSegment =
+        new OnHeapGorillaRawSegment(SEGMENT_TIMESTAMP, buffer, 0, 8567);
     encoder = new GorillaRawTimeSeriesEncoder(false, stats, onHeapSegment, segmentCollector);
     double[] array = new double[SECONDS_IN_A_SEGMENT];
     encoder.readAndDedupe(array);

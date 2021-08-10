@@ -23,7 +23,7 @@ import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
+import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaRawSegment;
 import io.ultrabrew.metrics.Counter;
 import io.ultrabrew.metrics.MetricRegistry;
 import io.ultrabrew.metrics.Timer;
@@ -252,7 +252,7 @@ public class LTSAerospike implements LongTermStorage {
                         iterator.remove();
 
                         // TODO - reuse!!!!
-                        OnHeapGorillaSegment segment = new OnHeapGorillaSegment(segmentTimestamp, data, 0, data.length);
+                        OnHeapGorillaRawSegment segment = new OnHeapGorillaRawSegment(segmentTimestamp, data, 0, data.length);
                         segmentTimestamp += secondsInSegment; // important to advance.
 
                         if (mapEntries.isEmpty()) {
