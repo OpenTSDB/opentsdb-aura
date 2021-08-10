@@ -19,6 +19,7 @@ package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.downsample.AggregationLengthIterator;
 import net.opentsdb.aura.metrics.core.downsample.Aggregator;
+import net.opentsdb.aura.metrics.core.downsample.AggregatorIterator;
 import net.opentsdb.aura.metrics.core.downsample.AverageAggregator;
 import net.opentsdb.aura.metrics.core.downsample.CountAggregator;
 import net.opentsdb.aura.metrics.core.downsample.DownSampler;
@@ -153,7 +154,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     double[] expectedAvgs = iterator.next();
     double[] expectedCounts = iterator.next();
 
-    encoder.createSegment(SEGMENT_TIMESTAMP);
+    long address = encoder.createSegment(SEGMENT_TIMESTAMP);
     encoder.addDataPoints(rawValues);
 
     assertEquals(intervalCount, encoder.getNumDataPoints());
@@ -173,9 +174,11 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     assertEquals(CountAggregator.ID, aggLengthIterator.aggID());
     assertEquals(CountAggregator.NAME, aggLengthIterator.aggName());
 
-    //    double[] countValues = new double[expectedCounts.length];
-    //    encoder.readAggValues(countValues, aggLengthIterator.aggID());
-    //    assertArrayEquals(expectedCounts, countValues);
+    encoder.openSegment(address);
+
+    double[] countValues = new double[expectedCounts.length];
+    encoder.readAggValues(countValues, aggLengthIterator.aggID());
+    assertArrayEquals(expectedCounts, countValues);
 
     assertFalse(aggLengthIterator.hasNext());
   }
@@ -209,7 +212,9 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     }
 
     downSampler.apply(rawValues);
-    double[] expectedAggValues = downSampler.iterator().next();
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedAvgs = iterator.next();
+    double[] expectedCounts = iterator.next();
 
     OnHeapGorillaDownSampledSegment onHeapSegment =
         new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, length);
@@ -217,10 +222,14 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
         new GorillaDownSampledTimeSeriesEncoder(
             false, interval, segmentWidth, downSampler, onHeapSegment);
 
-    double[] aggValues = new double[expectedAggValues.length];
-    onHeapEncoder.readAggValues(aggValues, aggregator.getId());
+    double[] aggValues = new double[expectedAvgs.length];
+    double[] countValues = new double[expectedAvgs.length];
 
-    assertArrayEquals(expectedAggValues, aggValues);
+    onHeapEncoder.readAggValues(aggValues, AverageAggregator.ID);
+    onHeapEncoder.readAggValues(countValues, CountAggregator.ID);
+
+    assertArrayEquals(expectedAvgs, aggValues);
+    assertArrayEquals(expectedCounts, countValues);
   }
 
   @Test

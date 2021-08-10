@@ -27,6 +27,8 @@ public class OnHeapGorillaDownSampledSegment implements GorillaDownSampledSegmen
   private int length;
 
   private int bitIndex;
+  private long currentLong;
+  private int byteIndex;
 
   private byte interval;
   private byte aggs;
@@ -89,30 +91,39 @@ public class OnHeapGorillaDownSampledSegment implements GorillaDownSampledSegmen
 
   @Override
   public long read(int bitsToRead) {
+
     if (bitsToRead < 0 && bitsToRead > 64) {
       throw new IllegalArgumentException(
           String.format("Invalid bitsToRead %d. Expected between %d to %d", bitsToRead, 0, 64));
     }
 
-    int longIndex = bitIndex / 64;
-    int bitShift = bitIndex % 64;
+    int bitShift = bitIndex % Long.SIZE;
     long result;
-    int remainingBits = 64 - bitShift;
+    int remainingBits = Long.SIZE - bitShift;
     if (remainingBits > bitsToRead) {
-      result = ByteArrays.getLong(buffer, longIndex * 8) << bitShift >>> 64 - bitsToRead;
+      result = currentLong << bitShift >>> Long.SIZE - bitsToRead;
       bitIndex += bitsToRead;
     } else {
-      result = ByteArrays.getLong(buffer, longIndex * 8) << bitShift >>> bitShift;
-      bitIndex += remainingBits;
+      result = currentLong << bitShift >>> bitShift;
       bitShift += bitsToRead;
-      if (bitShift >= 64) {
-        bitShift -= 64;
-        longIndex++;
+      if (bitShift >= Long.SIZE) {
+        if (byteIndex + Long.BYTES >= startingOffset + length) {
+          currentLong = 0;
+          int shifty = 56;
+          while (byteIndex < startingOffset + length) {
+            currentLong |= ((long) buffer[byteIndex++] & 0xFF) << shifty;
+            shifty -= 8;
+          }
+        }else {
+          currentLong = ByteArrays.getLong(buffer, byteIndex);
+        }
+        byteIndex += Long.BYTES;
+        bitShift -= Long.SIZE;
         if (bitShift != 0) {
-          result =
-              (result << bitShift) | (ByteArrays.getLong(buffer, longIndex * 8) >>> 64 - bitShift);
+          result = (result << bitShift) | (currentLong >>> Long.SIZE - bitShift);
         }
         bitIndex += bitShift;
+        bitIndex += (bitsToRead - bitShift);
       }
     }
     return result;
@@ -145,7 +156,10 @@ public class OnHeapGorillaDownSampledSegment implements GorillaDownSampledSegmen
 
   @Override
   public void moveToHead() {
-    this.bitIndex = (startingOffset + 3) * Byte.SIZE;
+    this.bitIndex = 0;
+    this.byteIndex = startingOffset + 3;
+    this.currentLong = ByteArrays.getLong(buffer, byteIndex);
+    this.byteIndex += Long.BYTES;
   }
 
   @Override

@@ -17,8 +17,6 @@
 
 package net.opentsdb.aura.metrics.core.downsample;
 
-import java.util.Iterator;
-
 public class DownSampler {
 
   private final int interval;

@@ -169,13 +169,24 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
       return 0;
     }
 
-    dataPoints = 0;
-    index = -1;
-    for (int i = 0; i < numPoints; i++) {
-      double v = readNextValue();
-      while (Double.isNaN(valueBuffer[++index]))
-        ;
-      valueBuffer[index] = v;
+    AggregationLengthIterator iterator = aggIterator();
+    while (iterator.hasNext()) {
+      iterator.next();
+      dataPoints = 0;
+      if (aggId == iterator.aggID()) {
+        index = -1;
+        for (int i = 0; i < numPoints; i++) {
+          double v = readNextValue();
+          while (Double.isNaN(valueBuffer[++index]))
+            ;
+          valueBuffer[index] = v;
+        }
+        break;
+      } else {
+        for (int i = 0; i < numPoints; i++) {
+          readNextValue();
+        }
+      }
     }
 
     return numPoints;
