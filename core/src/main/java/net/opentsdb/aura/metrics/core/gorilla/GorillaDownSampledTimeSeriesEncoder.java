@@ -20,6 +20,7 @@ package net.opentsdb.aura.metrics.core.gorilla;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
 import net.opentsdb.aura.metrics.core.downsample.AggregationLengthIterator;
 import net.opentsdb.aura.metrics.core.downsample.AggregatorIterator;
+import net.opentsdb.aura.metrics.core.downsample.CountAggregator;
 import net.opentsdb.aura.metrics.core.downsample.DownSampledTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.downsample.DownSampler;
 import net.opentsdb.aura.metrics.core.downsample.Interval;
@@ -89,7 +90,7 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
     if (aggLengthValid) {
       return numPoints;
     } else {
-      throw new UnsupportedOperationException("Need to decode the timestamp bitmaps");
+      throw new IllegalStateException("Need to decode the timestamp bitmaps");
     }
   }
 
@@ -114,7 +115,7 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
         addTime = false;
       }
 
-      int numBits = addAggregation(aggs);
+      int numBits = addAggregation(aggs, iterator.aggID());
       aggLengths[i++] = numBits;
     }
     aggLengthValid = true;
@@ -170,6 +171,7 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
     }
 
     AggregationLengthIterator iterator = aggIterator();
+    boolean isCount = aggId == CountAggregator.ID;
     while (iterator.hasNext()) {
       iterator.next();
       dataPoints = 0;
@@ -177,8 +179,15 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
         index = -1;
         for (int i = 0; i < numPoints; i++) {
           double v = readNextValue();
-          while (Double.isNaN(valueBuffer[++index]))
-            ;
+          if (isCount) {
+            while (Double.isNaN(valueBuffer[++index])) {
+              valueBuffer[index] = 0;
+            }
+          } else {
+            while (Double.isNaN(valueBuffer[++index]))
+              ;
+          }
+
           valueBuffer[index] = v;
         }
         break;
@@ -242,12 +251,15 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
     return numPoints;
   }
 
-  private int addAggregation(final double[] aggs) {
+  private int addAggregation(final double[] aggs, final byte aggId) {
     dataPoints = 0;
     int bitsWritten = 0;
     for (int i = 0; i < aggs.length; i++) {
-      bitsWritten += appendValue(aggs[i]);
-      lastValue = newValue;
+      double value = aggs[i];
+      if (!Double.isNaN(value) && !(aggId == CountAggregator.ID && value <= 0)) {
+        bitsWritten += appendValue(value);
+        lastValue = newValue;
+      }
     }
     return bitsWritten;
   }

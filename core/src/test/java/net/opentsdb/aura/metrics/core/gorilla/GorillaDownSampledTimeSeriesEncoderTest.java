@@ -17,6 +17,7 @@
 
 package net.opentsdb.aura.metrics.core.gorilla;
 
+import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
 import net.opentsdb.aura.metrics.core.downsample.AggregationLengthIterator;
 import net.opentsdb.aura.metrics.core.downsample.Aggregator;
 import net.opentsdb.aura.metrics.core.downsample.AggregatorIterator;
@@ -24,21 +25,31 @@ import net.opentsdb.aura.metrics.core.downsample.AverageAggregator;
 import net.opentsdb.aura.metrics.core.downsample.CountAggregator;
 import net.opentsdb.aura.metrics.core.downsample.DownSampler;
 import net.opentsdb.aura.metrics.core.downsample.Interval;
+import net.opentsdb.aura.metrics.core.downsample.MaxAggregator;
+import net.opentsdb.aura.metrics.core.downsample.MinAggregator;
 import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
+import net.opentsdb.aura.metrics.core.downsample.SumAggregator;
+import net.opentsdb.aura.metrics.core.downsample.SumOfSquareAggregator;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Random;
 
 import static net.opentsdb.aura.metrics.core.TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
 import static net.opentsdb.aura.metrics.core.gorilla.GorillaDownSampledTimeSeriesEncoder.encodeInterval;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class GorillaDownSampledTimeSeriesEncoderTest {
 
+  private static final long LOSS_MASK = 0xFFFFFFFFFF000000l;
   private static final int SEGMENT_TIMESTAMP = 1611288000;
 
   private static double[] values =
@@ -75,19 +86,12 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
   private static int intervalWidth = interval.getWidth();
   private static short intervalCount = interval.getCount(segmentWidth);
   private static double[] rawValues = new double[segmentWidth.getWidth()];
+  private static Random random = new Random(System.currentTimeMillis());
 
   private OffHeapGorillaDownSampledSegment segment =
       new OffHeapGorillaDownSampledSegment(256);
 
   private GorillaDownSampledTimeSeriesEncoder encoder;
-
-  private short dataPoints;
-  private long newValue;
-  private long lastValue;
-  private byte blockSize;
-  private byte lastValueLeadingZeros;
-  private byte lastValueTrailingZeros;
-  private boolean meaningFullBitsChanged;
 
   @BeforeAll
   static void beforeAl() {
@@ -184,6 +188,38 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
   }
 
   @Test
+  void testOnHeapSegmentAndEncoderCtor() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().count().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(rawValues);
+
+    int length = encoder.serializationLength();
+    byte[] buffer = new byte[length];
+    encoder.serialize(buffer, 0, length);
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, length);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, onHeapSegment);
+
+    assertEquals(SEGMENT_TIMESTAMP, onHeapSegment.getSegmentTime());
+    assertEquals(downSampler.getAggId(), onHeapSegment.getAggs());
+    assertEquals(encodeInterval(interval, segmentWidth), onHeapSegment.getInterval());
+
+    assertEquals(SEGMENT_TIMESTAMP, onHeapEncoder.getSegmentTime());
+    assertEquals(segmentWidth, onHeapEncoder.getSegmentWidth());
+    assertEquals(intervalCount, onHeapEncoder.getIntervalCount());
+    assertEquals(interval, onHeapEncoder.getInterval());
+    assertEquals(downSampler.getAggCount(), onHeapEncoder.getAggCount());
+  }
+
+  @Test
   void testSerialization() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().count().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
@@ -233,8 +269,32 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
   }
 
   @Test
-  void testOnHeapSegmentAndEncoderCtor() {
+  void testSerializationOfEmptySegment() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).avg().count().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+
+    assertThrows(IllegalStateException.class, () -> encoder.getNumDataPoints());
+
+    int length = encoder.serializationLength();
+    byte[] buffer = new byte[length];
+
+    assertEquals(3, length);
+
+    encoder.serialize(buffer, 0, length);
+
+    assertEquals(TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS, buffer[0]);
+    assertEquals(25, buffer[1]);
+    assertEquals(aggregator.getId(), buffer[2]);
+  }
+
+  @Test
+  void testSerializationOfWithBufferOffset() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).count().sum().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
     encoder =
@@ -243,24 +303,376 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     encoder.createSegment(SEGMENT_TIMESTAMP);
     encoder.addDataPoints(rawValues);
 
-    int length = encoder.serializationLength();
-    byte[] buffer = new byte[length];
-    encoder.serialize(buffer, 0, length);
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength * 2];
+    Arrays.fill(buffer, Byte.MAX_VALUE);
+
+    int offset = 21;
+
+    encoder.serialize(buffer, offset, serdeLength);
+
+    downSampler.apply(rawValues);
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedCounts = iterator.next();
+    double[] expectedSums = iterator.next();
 
     OnHeapGorillaDownSampledSegment onHeapSegment =
-        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, length);
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, offset, serdeLength);
     GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
         new GorillaDownSampledTimeSeriesEncoder(
             false, interval, segmentWidth, downSampler, onHeapSegment);
 
-    assertEquals(SEGMENT_TIMESTAMP, onHeapSegment.getSegmentTime());
-    assertEquals(downSampler.getAggId(), onHeapSegment.getAggs());
-    assertEquals(encodeInterval(interval, segmentWidth), onHeapSegment.getInterval());
+    double[] countValues = new double[expectedCounts.length];
+    double[] sumValues = new double[expectedSums.length];
 
-    assertEquals(SEGMENT_TIMESTAMP, onHeapEncoder.getSegmentTime());
-    assertEquals(segmentWidth, onHeapEncoder.getSegmentWidth());
-    assertEquals(intervalCount, onHeapEncoder.getIntervalCount());
-    assertEquals(interval, onHeapEncoder.getInterval());
-    assertEquals(downSampler.getAggCount(), onHeapEncoder.getAggCount());
+    onHeapEncoder.readAggValues(countValues, CountAggregator.ID);
+    onHeapEncoder.readAggValues(sumValues, SumAggregator.ID);
+
+    assertArrayEquals(expectedCounts, countValues);
+    assertArrayEquals(expectedSums, sumValues);
+  }
+
+  @Test
+  void testSerializationBufferTooSmall() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).sum().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(rawValues);
+
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength - 1];
+    Arrays.fill(buffer, Byte.MAX_VALUE);
+
+    assertThrows(
+        ArrayIndexOutOfBoundsException.class, () -> encoder.serialize(buffer, 0, serdeLength));
+  }
+
+  @Test
+  void testSerializationPartialSegment() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).sumOfSquares().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    double[] partialRawValues = new double[rawValues.length / 2];
+    System.arraycopy(rawValues, 0, partialRawValues, 0, partialRawValues.length);
+    encoder.addDataPoints(partialRawValues);
+
+    assertEquals(intervalCount / 2, encoder.getNumDataPoints());
+
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength];
+    encoder.serialize(buffer, 0, serdeLength);
+
+    downSampler.apply(partialRawValues);
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedSumOfCounts = iterator.next();
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, serdeLength);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, onHeapSegment);
+
+    double[] sumOfCounts = new double[expectedSumOfCounts.length];
+
+    onHeapEncoder.readAggValues(sumOfCounts, SumOfSquareAggregator.ID);
+
+    assertArrayEquals(expectedSumOfCounts, sumOfCounts);
+  }
+
+  @Test
+  void testSerializationOfZeros() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).count().sum().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    double[] zeroValues = new double[rawValues.length];
+    Arrays.fill(zeroValues, 0D);
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(rawValues);
+
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength];
+    encoder.serialize(buffer, 0, serdeLength);
+
+    downSampler.apply(rawValues);
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedCounts = iterator.next();
+    double[] expectedSums = iterator.next();
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, serdeLength);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, onHeapSegment);
+
+    double[] countValues = new double[expectedCounts.length];
+    double[] sumValues = new double[expectedSums.length];
+
+    onHeapEncoder.readAggValues(countValues, CountAggregator.ID);
+    onHeapEncoder.readAggValues(sumValues, SumAggregator.ID);
+
+    assertArrayEquals(expectedCounts, countValues);
+    assertArrayEquals(expectedSums, sumValues);
+  }
+
+  @Test
+  void testSerializationSingleValue() {
+    Aggregator aggregator = Aggregator.newBuilder(intervalCount).max().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    double[] singleValue = new double[1];
+    singleValue[0] = rawValues[0];
+    assumeFalse(Double.isNaN(singleValue[0]));
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(singleValue);
+
+    assertEquals(1, encoder.getNumDataPoints());
+
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength];
+    encoder.serialize(buffer, 0, serdeLength);
+
+    downSampler.apply(singleValue);
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedAggValues = iterator.next();
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, serdeLength);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, onHeapSegment);
+
+    double[] maxValues = new double[expectedAggValues.length];
+    onHeapEncoder.readAggValues(maxValues, MaxAggregator.ID);
+
+    assertArrayEquals(expectedAggValues, maxValues);
+  }
+
+  @RepeatedTest(value = 100, name = "{displayName} - {currentRepetition}/{totalRepetitions}")
+  void testSerializationOfLossLessRandomValues() {
+    Aggregator aggregator =
+        Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    double[] randomValues = new double[segmentWidth.getWidth()];
+    Arrays.fill(randomValues, Double.NaN);
+    for (int i = 0; i < randomValues.length; i++) {
+      randomValues[i] = random.nextLong() + random.nextDouble();
+    }
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(randomValues);
+
+    assertEquals(intervalCount, encoder.getNumDataPoints());
+
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength];
+    encoder.serialize(buffer, 0, serdeLength);
+
+    downSampler.apply(randomValues);
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedSumValues = iterator.next();
+    double[] expectedCountValues = iterator.next();
+    double[] expectedAvgValues = iterator.next();
+    double[] expectedMinValues = iterator.next();
+    double[] expectedMaxValues = iterator.next();
+    double[] expectedSumOfSquaresValues = iterator.next();
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, serdeLength);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, onHeapSegment);
+
+    double[] sumValues = new double[expectedSumValues.length];
+    double[] countValues = new double[expectedCountValues.length];
+    double[] avgValues = new double[expectedAvgValues.length];
+    double[] minValues = new double[expectedMinValues.length];
+    double[] maxValues = new double[expectedMaxValues.length];
+    double[] sumOfSquaresValues = new double[expectedSumOfSquaresValues.length];
+
+    onHeapEncoder.readAggValues(sumValues, SumAggregator.ID);
+    onHeapEncoder.readAggValues(countValues, CountAggregator.ID);
+    onHeapEncoder.readAggValues(avgValues, AverageAggregator.ID);
+    onHeapEncoder.readAggValues(minValues, MinAggregator.ID);
+    onHeapEncoder.readAggValues(maxValues, MaxAggregator.ID);
+    onHeapEncoder.readAggValues(sumOfSquaresValues, SumOfSquareAggregator.ID);
+
+    assertArrayEquals(expectedSumValues, sumValues);
+    assertArrayEquals(expectedCountValues, countValues);
+    assertArrayEquals(expectedAvgValues, avgValues);
+    assertArrayEquals(expectedMinValues, minValues);
+    assertArrayEquals(expectedMaxValues, maxValues);
+    assertArrayEquals(expectedSumOfSquaresValues, sumOfSquaresValues);
+  }
+
+  @RepeatedTest(value = 100, name = "{displayName} - {currentRepetition}/{totalRepetitions}")
+  void testSerializationOfLossyRandomValues() {
+    Aggregator aggregator =
+        Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    double[] randomValues = new double[segmentWidth.getWidth()];
+    Arrays.fill(randomValues, Double.NaN);
+    for (int i = 0; i < randomValues.length; i++) {
+      randomValues[i] = random.nextLong() + random.nextDouble();
+    }
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(true, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(randomValues);
+
+    assertEquals(intervalCount, encoder.getNumDataPoints());
+
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength];
+    encoder.serialize(buffer, 0, serdeLength);
+
+    downSampler.apply(randomValues);
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedLossySumValues = toLossy(iterator.next());
+    double[] expectedLossyCountValues = toLossy(iterator.next());
+    double[] expectedLossyAvgValues = toLossy(iterator.next());
+    double[] expectedLossyMinValues = toLossy(iterator.next());
+    double[] expectedLossyMaxValues = toLossy(iterator.next());
+    double[] expectedLossySumOfSquaresValues = toLossy(iterator.next());
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, serdeLength);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            true, interval, segmentWidth, downSampler, onHeapSegment);
+
+    double[] sumValues = new double[expectedLossySumValues.length];
+    double[] countValues = new double[expectedLossyCountValues.length];
+    double[] avgValues = new double[expectedLossyAvgValues.length];
+    double[] minValues = new double[expectedLossyMinValues.length];
+    double[] maxValues = new double[expectedLossyMaxValues.length];
+    double[] sumOfSquaresValues = new double[expectedLossySumOfSquaresValues.length];
+
+    onHeapEncoder.readAggValues(sumValues, SumAggregator.ID);
+    onHeapEncoder.readAggValues(countValues, CountAggregator.ID);
+    onHeapEncoder.readAggValues(avgValues, AverageAggregator.ID);
+    onHeapEncoder.readAggValues(minValues, MinAggregator.ID);
+    onHeapEncoder.readAggValues(maxValues, MaxAggregator.ID);
+    onHeapEncoder.readAggValues(sumOfSquaresValues, SumOfSquareAggregator.ID);
+
+    assertArrayEquals(expectedLossySumValues, sumValues);
+    assertArrayEquals(expectedLossyCountValues, countValues);
+    assertArrayEquals(expectedLossyAvgValues, avgValues);
+    assertArrayEquals(expectedLossyMinValues, minValues);
+    assertArrayEquals(expectedLossyMaxValues, maxValues);
+    assertArrayEquals(expectedLossySumOfSquaresValues, sumOfSquaresValues);
+  }
+
+  @Test
+  void testSerializationOfSparseData() {
+    Aggregator aggregator =
+        Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
+    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
+
+    double[] sparseValues = new double[segmentWidth.getWidth()];
+    Arrays.fill(sparseValues, Double.NaN);
+    sparseValues[39] = random.nextLong() + random.nextDouble();
+
+    sparseValues[239] = random.nextLong() + random.nextDouble();
+
+    sparseValues[240] = random.nextLong() + random.nextDouble();
+    sparseValues[242] = random.nextLong() + random.nextDouble();
+    sparseValues[243] = random.nextLong() + random.nextDouble();
+    sparseValues[244] = random.nextLong() + random.nextDouble();
+
+    sparseValues[7198] = random.nextLong() + random.nextDouble();
+
+    encoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            false, interval, segmentWidth, downSampler, segment);
+    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.addDataPoints(sparseValues);
+
+    assertEquals(4, encoder.getNumDataPoints());
+
+    int serdeLength = encoder.serializationLength();
+    byte[] buffer = new byte[serdeLength];
+    encoder.serialize(buffer, 0, serdeLength);
+
+    downSampler.apply(sparseValues);
+    AggregatorIterator<double[]> iterator = downSampler.iterator();
+    double[] expectedSumValues = iterator.next();
+    double[] expectedCountValues = iterator.next();
+    double[] expectedAvgValues = iterator.next();
+    double[] expectedMinValues = iterator.next();
+    double[] expectedMaxValues = iterator.next();
+    double[] expectedSumOfSquaresValues = iterator.next();
+
+    assumeSparseData(expectedSumValues, sparseValues);
+    assumeSparseData(expectedCountValues, sparseValues);
+    assumeSparseData(expectedAvgValues, sparseValues);
+    assumeSparseData(expectedMinValues, sparseValues);
+    assumeSparseData(expectedMaxValues, sparseValues);
+    assumeSparseData(expectedSumOfSquaresValues, sparseValues);
+
+    OnHeapGorillaDownSampledSegment onHeapSegment =
+        new OnHeapGorillaDownSampledSegment(SEGMENT_TIMESTAMP, buffer, 0, serdeLength);
+    GorillaDownSampledTimeSeriesEncoder onHeapEncoder =
+        new GorillaDownSampledTimeSeriesEncoder(
+            true, interval, segmentWidth, downSampler, onHeapSegment);
+
+    double[] sumValues = new double[expectedSumValues.length];
+    double[] countValues = new double[expectedCountValues.length];
+    double[] avgValues = new double[expectedAvgValues.length];
+    double[] minValues = new double[expectedMinValues.length];
+    double[] maxValues = new double[expectedMaxValues.length];
+    double[] sumOfSquaresValues = new double[expectedSumOfSquaresValues.length];
+
+    onHeapEncoder.readAggValues(sumValues, SumAggregator.ID);
+    onHeapEncoder.readAggValues(countValues, CountAggregator.ID);
+    onHeapEncoder.readAggValues(avgValues, AverageAggregator.ID);
+    onHeapEncoder.readAggValues(minValues, MinAggregator.ID);
+    onHeapEncoder.readAggValues(maxValues, MaxAggregator.ID);
+    onHeapEncoder.readAggValues(sumOfSquaresValues, SumOfSquareAggregator.ID);
+
+    assertArrayEquals(expectedSumValues, sumValues);
+    assertArrayEquals(expectedCountValues, countValues);
+    assertArrayEquals(expectedAvgValues, avgValues);
+    assertArrayEquals(expectedMinValues, minValues);
+    assertArrayEquals(expectedMaxValues, maxValues);
+    assertArrayEquals(expectedSumOfSquaresValues, sumOfSquaresValues);
+  }
+
+  private void assumeSparseData(double[] aggValues, double[] rawValues) {
+    assumeTrue(aggValues.length == rawValues.length / intervalWidth);
+    for (int i = 0; i < rawValues.length; i++) {
+      if (!Double.isNaN(rawValues[i])) {
+        assumeFalse(Double.isNaN(aggValues[i / intervalWidth]));
+      }
+    }
+  }
+
+  private static double[] toLossy(double[] values) {
+    double[] lossyValues = new double[values.length];
+    for (int i = 0; i < values.length; i++) {
+      lossyValues[i] = Double.longBitsToDouble(Double.doubleToRawLongBits(values[i]) & LOSS_MASK);
+    }
+    return lossyValues;
   }
 }
