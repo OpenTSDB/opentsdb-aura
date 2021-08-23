@@ -23,7 +23,9 @@ import io.ultrabrew.metrics.MetricRegistry;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,11 +37,13 @@ public class S3UploaderFactory implements UploaderFactory {
         this.uploaders =  new HashMap<>();
 
         for(int i = 0; i < shardIds.length; i++) {
-
-            final S3Client client = S3Client.builder()
+            S3ClientBuilder s3ClientBuilder = S3Client.builder()
                     .region(builder.region)
-                    .credentialsProvider(builder.awsCredentialsProvider)
-                    .build();
+                    .credentialsProvider(builder.awsCredentialsProvider);
+            if (builder.endpoint != null) {
+                s3ClientBuilder.endpointOverride(builder.endpoint);
+            }
+            final S3Client client = s3ClientBuilder.build();
 
             this.uploaders.put(shardIds[i], new S3Uploader(client, builder.metricRegistry, builder.bucketName, builder.namespace, shardIds[i]));
         }
@@ -56,6 +60,7 @@ public class S3UploaderFactory implements UploaderFactory {
         private String namespace;
         private int[] shardIds;
         private Region region;
+        private URI endpoint;
         private AwsCredentialsProvider awsCredentialsProvider;
         private MetricRegistry metricRegistry;
 
@@ -68,17 +73,18 @@ public class S3UploaderFactory implements UploaderFactory {
             this.namespace = namespace;
             return this;
         }
-
         public Builder region(String region) {
-
-
-
-            this.region = Region.of(region);;
+            this.region = Region.of(region);
             return this;
         }
 
         public Builder numShards(int[] shardIds) {
             this.shardIds = shardIds;
+            return this;
+        }
+
+        public Builder endpoint(URI endpoint) {
+            this.endpoint = endpoint;
             return this;
         }
 
