@@ -93,7 +93,6 @@ public class TSFlusherImp implements TSFlusher {
             // Little locking as we don't really care about the races.
             StringBuilder buf = new StringBuilder();
             int nulls = 0;
-//              for(Map.Entry)
             int i = 0;
             for (Map.Entry<Integer, FlushInfo> m : flushInfos.entrySet()) {
               if (i > 0) {
