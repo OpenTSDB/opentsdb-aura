@@ -27,7 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,7 +50,7 @@ public class TSFlusherImp implements TSFlusher {
   private final ThreadLocal<double[]> tlValues;
   private ThreadLocal<RawTimeSeriesEncoder> encoders;
   private ThreadLocal<DownSampledTimeSeriesEncoder> dsEncoders;
-  private final FlushInfo[] flushInfos;
+  private final Map<Integer, FlushInfo> flushInfos;
   private final TimeSeriesRecordFactory recordFactory;
   private final TimeSeriesEncoderFactory<RawTimeSeriesEncoder> encoderFactory;
   private final TimeSeriesEncoderFactory<DownSampledTimeSeriesEncoder> dsEncoderFactory;
@@ -72,7 +74,7 @@ public class TSFlusherImp implements TSFlusher {
     int secondsInASegment = (int) TimeUnit.HOURS.toSeconds(shardConfig.segmentSizeHour);
     tlTimestamps = ThreadLocal.withInitial(() -> new int[secondsInASegment]);
     tlValues = ThreadLocal.withInitial(() -> new double[secondsInASegment]);
-    flushInfos = new FlushInfo[shardConfig.shardCount];
+    flushInfos = new HashMap<>();
     this.recordFactory = recordFactory;
     this.encoderFactory = encoderFactory;
     this.dsEncoderFactory = dsEncoderFactory;
@@ -91,14 +93,15 @@ public class TSFlusherImp implements TSFlusher {
             // Little locking as we don't really care about the races.
             StringBuilder buf = new StringBuilder();
             int nulls = 0;
-            for (int i = 0; i < flushInfos.length; i++) {
+            int i = 0;
+            for (Map.Entry<Integer, FlushInfo> m : flushInfos.entrySet()) {
               if (i > 0) {
                 buf.append(", ");
               }
-              FlushInfo fi = flushInfos[i];
+              FlushInfo fi = m.getValue();
               if (fi == null) {
                 nulls++;
-                buf.append("[" + i + "] not running. ");
+                buf.append("[" + m.getKey() + "] not running. ");
                 continue;
               }
 
@@ -108,7 +111,7 @@ public class TSFlusherImp implements TSFlusher {
                 if (ts + (int) ((frequency / 1000) * 2) < System.currentTimeMillis() / 1000) {
                   LOGGER.warn(
                       "Flush for shard {}@{} has been running for {} so cancelling",
-                      i,
+                      m.getKey(),
                       fi.baseTimestamp,
                       ((int) (System.currentTimeMillis() / 1000) - ts));
                   // fi.cancel();
@@ -130,7 +133,7 @@ public class TSFlusherImp implements TSFlusher {
                 failed += j.failures;
                 noSegment += j.noSegment;
               }
-              buf.append("[" + i + "] F: ")
+              buf.append("[" + m.getKey() + "] F: ")
                   .append(flushed)
                   .append(" O: ")
                   .append(ooo)
@@ -138,9 +141,10 @@ public class TSFlusherImp implements TSFlusher {
                   .append(failed)
                   .append(" N: ")
                   .append(noSegment);
+              i++;
             }
 
-            if (nulls == flushInfos.length) {
+            if (nulls == flushInfos.size()) {
               buf.setLength(0);
               buf.append("No flush jobs running.");
             }
@@ -165,9 +169,9 @@ public class TSFlusherImp implements TSFlusher {
     final int ts = (int) System.currentTimeMillis() / 1000;
     FlushStatus flushStatus;
     synchronized (flushInfos) {
-      if (flushInfos[shardId] == null) {
+      if (flushInfos.get(shardId) == null) {
         AtomicBoolean inProgress = new AtomicBoolean(true);
-        flushInfos[shardId] = new FlushInfo(shardId, timeSeriesTable, flushTimestamp, inProgress);
+        flushInfos.put(shardId, new FlushInfo(shardId, timeSeriesTable, flushTimestamp, inProgress));
         flushStatus = new TSFlusherStatus(inProgress);
         if (ts > lastStart) {
           lastStart = ts;
@@ -256,7 +260,7 @@ public class TSFlusherImp implements TSFlusher {
       oooGuage.set(ooo, tagSet);
       failureGuage.set(failures, tagSet);
       emptyGuage.set(noSegment, tagSet);
-      flushInfos[shardId] = null;
+      flushInfos.remove(shardId);
       LOGGER.warn("Canceled shard thread: {}@{}", shardId, baseTimestamp);
       this.inProgress.set(false);
     }
@@ -271,7 +275,7 @@ public class TSFlusherImp implements TSFlusher {
       double timeTaken = ((double) System.nanoTime() - (double) start) / (double) 1_000_000;
       totalTimer.stop(start, tagSet);
       synchronized (flushInfos) {
-        flushInfos[shardId] = null;
+        flushInfos.remove(shardId);
       }
       this.inProgress.set(false);
       LOGGER.info("Finished flushing shard [{}] in {}ms", shardId, timeTaken);
