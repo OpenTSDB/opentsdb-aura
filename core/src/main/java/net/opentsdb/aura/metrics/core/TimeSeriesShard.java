@@ -458,21 +458,23 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   public class PurgeJob implements Job {
 
     long start = timeSeriesPurgeTimer.start();
-    LongLongIterator tsIterator = timeSeriesTable.iterator();
+    volatile LongLongHashTable tsTableClone;
+    LongLongIterator tsIterator;
     int currentTimeInSeconds = (int) (System.currentTimeMillis() / 1000);
     int segmentPurgeCount = 0;
     int dpPurgeCount = 0;
     int metaPurgeCount = 0;
     int tsPurgeCount = 0;
     int rescheduleAttempts = 0;
+    int runs = 0;
     final AtomicBoolean isPurgeDone = new AtomicBoolean(false);
+
     void reschedule() {
       if (!queue.offer(this)) {
         rescheduleAttempts++;
         if (rescheduleAttempts > 1024) {
           LOGGER.error("Tried to reschedule a purge on shard " + shardId + " too many times");
-          purgeJob = null;
-          isPurgeDone.set(true);
+          close();
           return;
         }
         scheduledExecutorService.schedule(() -> reschedule(), 1, TimeUnit.SECONDS);
@@ -482,6 +484,24 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
     @Override
     public void run() {
       LOGGER.info("Purge job started for shard: {}", shardId);
+      try {
+        runs++;
+        runPurge();
+      } catch (Throwable t){
+        // Release lock and kill purge
+        LOGGER.error("Purge ran into an error:", t);
+        close();
+      }
+    }
+
+    public void runPurge() {
+      LOGGER.info("Purge job started for shard: {}@{} Runs {} Segments purged {}, Time Series purged {}",
+              shardId, (start / 1_000_000_000),
+              runs, segmentPurgeCount, tsPurgeCount);
+      if (tsTableClone == null) {
+        tsTableClone = (LongLongHashTable) timeSeriesTable.clone();
+        tsIterator = tsTableClone.iterator();
+      }
       long jobStart = System.currentTimeMillis();
       rescheduleAttempts = 0;
       Arrays.fill(docIdBatch, 0l);
@@ -536,8 +556,8 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
             metaCountTable.remove(tagKey);
           }
 
+          timeSeriesTable.remove(tsIterator.key());
           timeSeriesRecord.delete();
-          tsIterator.remove(); // removes the entry from the table
           tsPurgeCount++;
         }
 
@@ -571,6 +591,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
         }
       }
 
+      long timeTaken = System.nanoTime() - start;
       timeSeriesPurgeTimer.stop(start, tagSet);
       timeSeriesPurgeCounter.inc(tsPurgeCount, tagSet);
       timeSeriesCount -= tsPurgeCount;
@@ -584,13 +605,16 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
       encoder.collectMetrics();
 
       LOGGER.info(
-          "Purged {} segments {} timeseries {} meta records for shardId {}",
+          "Purged {} segments {} timeseries {} meta records for shardId {} in {} runs for {} seconds",
           segmentPurgeCount,
           tsPurgeCount,
           metaPurgeCount,
-          shardId);
+          shardId,
+          runs,
+          ((double) timeTaken / 1_000_000_000D));
       purgeJob = null;
       isPurgeDone.set(true);
+      close();
     }
 
 
@@ -606,7 +630,22 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
 
     @Override
     public void close() {
-      //Do nothing
+      if (tsTableClone != null) {
+        if (!isPurgeDone.compareAndSet(false, true)) {
+          if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Purge was already marked finished?",
+                    new RuntimeException("Call stack"));
+          }
+        } else {
+          tsTableClone.close();
+          tsTableClone = null;
+          new RuntimeException().printStackTrace();
+          tsIterator = null;
+        }
+      } else {
+        isPurgeDone.set(true);
+      }
+      purgeJob = null;
     }
 
     @Override
