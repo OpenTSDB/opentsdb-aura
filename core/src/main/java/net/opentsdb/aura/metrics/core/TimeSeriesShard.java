@@ -363,6 +363,11 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   }
 
   @Override
+  public MetricRegistry metricRegistry() {
+    return metricRegistry();
+  }
+
+  @Override
   public void submit(Runnable job) throws InterruptedException {
     queue.put(job);
   }
