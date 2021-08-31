@@ -129,6 +129,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   private final long[] docIdBatch; // = new long[DOCID_BATCH_SIZE]; // L2 cache aligned.
   private final ReadWriteLock purgeLock = new ReentrantReadWriteLock();
   private final Gate purgeFlushGate = new Gate();
+  private final MetricRegistry metricRegistry;
 
   private final LinkedBlockingQueue<JobWrapper> gatedJobsQueue = new LinkedBlockingQueue<>();
 
@@ -158,6 +159,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
     this.tagSet =
         new String[] {"namespace", shardConfig.namespace, "shardId", String.valueOf(shardId)};
     this.flusher = flusher;
+    this.metricRegistry = metricRegistry;
     this.scheduledExecutorService = scheduledExecutorService;
     this.encoder.setTags(tagSet);
     this.memoryInfoReader = memoryInfoReader;
@@ -364,7 +366,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
 
   @Override
   public MetricRegistry metricRegistry() {
-    return metricRegistry();
+    return metricRegistry;
   }
 
   @Override
@@ -616,7 +618,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
           metaPurgeCount,
           shardId,
           runs,
-          ((double) timeTaken / 1_000_000_000D));
+          (timeTaken / 1_000_000_000D));
       purgeJob = null;
       isPurgeDone.set(true);
       close();
@@ -644,7 +646,6 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
         } else {
           tsTableClone.close();
           tsTableClone = null;
-          new RuntimeException().printStackTrace();
           tsIterator = null;
         }
       } else {

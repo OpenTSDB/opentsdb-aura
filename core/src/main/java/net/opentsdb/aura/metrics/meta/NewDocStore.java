@@ -98,7 +98,7 @@ public class NewDocStore implements MetaDataStore, ShardAware {
   private final int[] docIndices; // = new int[DOCID_BATCH_SIZE]; // L2 cache aligned.
   private final int[] indices; // = new int[DOCID_BATCH_SIZE]; // L2 cache aligned.
   private final long[] histo = new long[4];
-  private final String[] tags;
+  private String[] tags;
   private boolean metaQueryEnabled;
 
   public static final NewDocStore newInstance(final TimeSeriesShardIF shard, final boolean metaQueryEnabled) {
@@ -166,6 +166,17 @@ public class NewDocStore implements MetaDataStore, ShardAware {
   @Override
   public void setShard(TimeSeriesShardIF shard) {
     this.shard = shard;
+    tags = new String[] { "shardId", Integer.toString(shard.getId()) };
+    m_rrSizeBytes = shard.metricRegistry().gauge("docStore.bitmaps.size.bytes");
+    m_tagKeys = shard.metricRegistry().gauge("docStore.tagkey.count");
+    m_tagKeyBytes = shard.metricRegistry().gauge("docStore.tagkey.bytes");
+    m_tagValues = shard.metricRegistry().gauge("docStore.tagvalue.count");
+    m_tagValueBytes = shard.metricRegistry().gauge("docStore.tagvalue.bytes");
+    m_metrics = shard.metricRegistry().gauge("docStore.metric.count");
+    m_metricBytes = shard.metricRegistry().gauge("docStore.metric.bytes");
+    m_freeDocs = shard.metricRegistry().gauge("docStore.docIds.free");
+    m_maxDocId = shard.metricRegistry().gauge("docStore.docIds.max");
+    m_tablesCount = shard.metricRegistry().gauge("docStore.table.count");
   }
 
   public void add(final String[] tagKeys, final String[] tagValues, long key) {
@@ -651,20 +662,19 @@ public class NewDocStore implements MetaDataStore, ShardAware {
         histo[3] = Math.max(histo[3], sizeInBytes);
         for (int i = 0; i < n; i++) {
           int index = indices[i];
-          int sz = rr.getSizeInBytes();
           rr.remove(index);
+        }
 
-          if (rr.isEmpty()) {
-            iterator.remove();
-            metrics--;
-            metricBytes -= metric.getKey().length();
-            rrSizeBytes -= sz;
-            deletedMetrics++;
-          } else {
-            rr.runOptimize();
-            int delta = sz - rr.getSizeInBytes();
-            rrSizeBytes -= delta;
-          }
+        if (rr.isEmpty()) {
+          iterator.remove();
+          metrics--;
+          metricBytes -= metric.getKey().length();
+          rrSizeBytes -= sizeInBytes;
+          deletedMetrics++;
+        } else {
+          rr.runOptimize();
+          int delta = sizeInBytes - rr.getSizeInBytes();
+          rrSizeBytes -= delta;
         }
       }
     }
