@@ -17,12 +17,16 @@
 
 package net.opentsdb.aura.metrics.meta;
 
+import io.ultrabrew.metrics.MetricRegistry;
+import mockit.Expectations;
+import mockit.Mocked;
 import net.opentsdb.aura.metrics.core.MemoryInfoReader;
 import net.opentsdb.aura.metrics.core.TimeSeriesShardIF;
 import net.opentsdb.aura.metrics.core.data.InSufficientBufferLengthException;
 import mockit.Injectable;
 import net.opentsdb.data.LowLevelMetricData;
 import net.opentsdb.hashing.HashFunction;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -49,6 +53,8 @@ public class NewDocStoreTest {
   private MemoryInfoReader memoryInfoReader;
   @Injectable
   private TimeSeriesShardIF shard;
+  @Injectable
+  private MetricRegistry registry;
   @Injectable
   private HashFunction hashFunction;
 
@@ -1061,8 +1067,8 @@ public class NewDocStoreTest {
     );
   }
 
-  private static NewDocStore createNewDocStore() {
-    NewDocStore docStore = new NewDocStore(null);
+  private NewDocStore createNewDocStore() {
+    NewDocStore docStore = new NewDocStore(shard);
     String[] tagNames = {"host", "colo", "app"};
     for (int i = 0; i < 100; i++) {
       String[] strs = new String[]{"host-" + i, "colo-" + (i % 2), "app-" + (i % 3)};

@@ -17,6 +17,7 @@
 
 package net.opentsdb.aura.metrics.core;
 
+import mockit.Mocked;
 import net.opentsdb.aura.metrics.meta.MetaDataStoreFactory;
 import net.opentsdb.aura.metrics.meta.NewDocStore;
 import io.ultrabrew.metrics.MetricRegistry;
@@ -51,6 +52,7 @@ public class EphemeralStorageTest {
   @Injectable private TimeSeriesEncoderFactory<RawTimeSeriesEncoder> encoderFactory;
   @Injectable private MetaDataStoreFactory dataStoreFactory;
   @Injectable private ScheduledExecutorService scheduledExecutorService;
+  @Mocked private TimeSeriesShardIF mockShard;
 
   private EphemeralStorage storage;
   private TimeseriesStorageContext context;
@@ -67,10 +69,11 @@ public class EphemeralStorageTest {
 
   @BeforeEach
   void beforeEach() {
+    NewDocStore docStore = new NewDocStore(mockShard);
     new Expectations() {
       {
         dataStoreFactory.create();
-        result = new NewDocStore(null);
+        result = docStore;
       }
     };
     config.segmentSizeHour = 1;

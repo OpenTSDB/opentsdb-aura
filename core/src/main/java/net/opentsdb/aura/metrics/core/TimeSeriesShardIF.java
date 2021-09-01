@@ -17,6 +17,7 @@
 
 package net.opentsdb.aura.metrics.core;
 
+import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.data.InSufficientBufferLengthException;
 import net.opentsdb.aura.metrics.meta.MetaQuery;
 import net.opentsdb.aura.metrics.meta.MetricQuery;
@@ -59,4 +60,5 @@ public interface TimeSeriesShardIF {
 
   void flush();
 
+  MetricRegistry metricRegistry();
 }
