@@ -67,7 +67,7 @@ public class GorillaRawTimeSeriesEncoder extends GorillaSegmentEncoder<GorillaRa
 
   @Override
   public void freeCollectedSegments() {
-    segmentCollector.freeSegments();
+    segmentCount -= segmentCollector.freeSegments();
   }
 
   @Override
