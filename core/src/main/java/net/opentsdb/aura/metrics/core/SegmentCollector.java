@@ -51,7 +51,7 @@ public class SegmentCollector implements LazyStatsCollector {
     garbageQueue.add(segmentAddress, System.currentTimeMillis());
   }
 
-  public void freeSegments() {
+  public int freeSegments() {
     int count = 0;
     long lastMS = 0;
 
@@ -77,6 +77,7 @@ public class SegmentCollector implements LazyStatsCollector {
           "Segments collected for count: {} epoch: {}", count, lastEpoch);
     }
     collectMetrics();
+    return count;
   }
 
   @Override
@@ -89,4 +90,6 @@ public class SegmentCollector implements LazyStatsCollector {
   public void setTags(final String[] tags) {
     this.tags = tags;
   }
+
+
 }
