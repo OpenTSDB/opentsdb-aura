@@ -22,8 +22,8 @@ import net.opentsdb.aura.metrics.core.data.ByteArrays;
 public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
     implements GorillaDownSampledSegment {
 
-  private byte interval;
-  private byte aggs;
+  protected byte interval;
+  protected byte aggs;
 
   public OnHeapGorillaDownSampledSegment(
       int segmentTime, byte[] buffer, int startingOffset, int length) {
@@ -54,10 +54,27 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
   }
 
   @Override
-  public void moveToHead() {
+  public boolean moveToHead() {
     this.bitIndex = 0;
     this.byteIndex = startingOffset + 3;
     this.currentLong = ByteArrays.getLong(buffer, byteIndex);
     this.byteIndex += Long.BYTES;
+    return true;
+  }
+
+  @Override
+  public void serializeBits(byte[] buffer, int offset, int bits) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean moveToAggHead(int intervalCount) {
+    this.bitIndex = intervalCount;
+    int tsLongs = intervalCount / 64;
+    int bytesRead = startingOffset + 3 + (tsLongs * 8);
+    this.currentLong = ByteArrays.getLong(buffer, bytesRead);
+    this.byteIndex = bytesRead + Long.BYTES;
+
+    return true;
   }
 }

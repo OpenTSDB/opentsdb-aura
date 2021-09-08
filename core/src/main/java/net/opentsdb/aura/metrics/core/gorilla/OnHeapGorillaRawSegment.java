@@ -85,7 +85,7 @@ public class OnHeapGorillaRawSegment extends OnHeapGorillaSegment implements Gor
   }
 
   @Override
-  public void moveToHead() {
+  public boolean moveToHead() {
     bitIndex = 0;
     // Number of data points is variable length encoded on either 1 or 2 bytes.
     if ((OffHeapGorillaRawSegment.TWO_BYTE_FLAG & buffer[startingOffset + NUM_POINTS_OFFSET])
@@ -99,11 +99,12 @@ public class OnHeapGorillaRawSegment extends OnHeapGorillaSegment implements Gor
       numDataPoints = buffer[startingOffset + NUM_POINTS_OFFSET];
       byteIndex = startingOffset + 2;
     }
-    if (numDataPoints < 1) {
-      return;
+
+    if(numDataPoints >= 1) {
+      currentLong = ByteArrays.getLong(buffer, byteIndex);
+      byteIndex += Long.BYTES;
     }
-    currentLong = ByteArrays.getLong(buffer, byteIndex);
-    byteIndex += Long.BYTES;
+    return true;
   }
 
   @Override

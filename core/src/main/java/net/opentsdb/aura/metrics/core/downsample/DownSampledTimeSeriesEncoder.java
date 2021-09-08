@@ -34,4 +34,27 @@ public interface DownSampledTimeSeriesEncoder extends TimeSeriesEncoder {
   int getIntervalCount();
 
   AggregationLengthIterator aggIterator();
+
+  int serializeHeader(byte[] buffer, int offset);
+
+//  void serializeHe(byte[] buffer, int offset);
+
+  static byte encodeInterval(Interval interval, SegmentWidth segmentWidth) {
+    return (byte) (interval.getId() << 3 | segmentWidth.getId());
+  }
+
+  static int decodeIntervalCount(byte encoded) {
+    int intervalInSeconds = decodeInterval(encoded).getWidth();
+    int secondsInRawSegment = decodeSegmentWidth(encoded).getWidth();
+    return secondsInRawSegment / intervalInSeconds;
+  }
+
+  static Interval decodeInterval(byte encoded) {
+    return Interval.getById((byte) (encoded >>> 3));
+  }
+
+  static SegmentWidth decodeSegmentWidth(byte encoded) {
+    return SegmentWidth.getById((byte) (encoded & 0b111));
+  }
+
 }

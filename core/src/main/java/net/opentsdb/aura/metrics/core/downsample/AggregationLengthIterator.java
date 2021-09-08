@@ -20,5 +20,14 @@ package net.opentsdb.aura.metrics.core.downsample;
 public interface AggregationLengthIterator extends AggregatorIterator<Void> {
 
   /** @return agg length in bits. */
-  int aggLength();
+  int aggLengthInBits();
+
+  default int aggLengthInBytes() {
+    return (int) (Math.ceil(aggLengthInBits() / 8D));
+  }
+
+  void serialize(byte[] buffer, int offset);
+
+//  void readAggValue(double[] buffer);
+
 }

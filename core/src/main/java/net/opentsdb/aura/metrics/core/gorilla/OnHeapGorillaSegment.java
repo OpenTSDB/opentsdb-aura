@@ -117,5 +117,7 @@ public abstract class OnHeapGorillaSegment {
     return result;
   }
 
-  public void moveToTail() {}
+  public boolean moveToTail() {
+    return false;
+  }
 }

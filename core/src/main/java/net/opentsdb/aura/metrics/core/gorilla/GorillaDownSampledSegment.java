@@ -20,4 +20,47 @@ package net.opentsdb.aura.metrics.core.gorilla;
 import net.opentsdb.aura.metrics.core.downsample.DownSampledSegment;
 
 public interface GorillaDownSampledSegment extends GorillaSegment, DownSampledSegment {
+
+  void serializeBits(byte[] buffer, int offset, int bits);
+
+  boolean moveToAggHead(int intervalCount);
+
+  default int decodeTimestampBits(byte[] buffer) {
+    int intervalCount = buffer.length;
+    int longs = intervalCount / 64;
+    int leftOver = intervalCount % 64;
+    int offset = 0;
+    int index = 0;
+    int numPoints = 0;
+
+    for (int i = 0; i < longs; i++) {
+      long bitMap = read(64);
+      while (++offset <= 64) {
+        boolean isBitSet = (bitMap & (1l << (64 - offset))) != 0;
+        if (isBitSet) {
+          buffer[index++] = 1;
+          numPoints++;
+        } else {
+          buffer[index++] = 0;
+        }
+      }
+      offset = 0;
+    }
+
+    if (leftOver > 0) {
+      long bitMap = read(leftOver);
+      bitMap = bitMap << 64 - leftOver;
+      while (++offset <= leftOver) {
+        boolean isBitSet = (bitMap & (1l << (64 - offset))) != 0;
+        if (isBitSet) {
+          buffer[index++] = 1;
+          numPoints++;
+        } else {
+          buffer[index++] = 0;
+        }
+      }
+    }
+    return numPoints;
+  }
+
 }

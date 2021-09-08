@@ -26,4 +26,5 @@ public interface AggregatorIterator<T> extends Iterator<T> {
   String aggName();
 
   void reset();
+
 }
