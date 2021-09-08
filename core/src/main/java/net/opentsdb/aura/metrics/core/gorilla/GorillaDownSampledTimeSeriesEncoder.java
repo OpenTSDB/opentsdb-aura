@@ -183,6 +183,44 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
     return numPoints;
   }
 
+  //  private int decodeTimeStamps(final double[] valueBuffer) {
+  //
+  //    int longs = intervalCount / 64;
+  //    int leftOver = intervalCount % 64;
+  //    int offset = 0;
+  //    int index = 0;
+  //    int numPoints = 0;
+  //
+  //    for (int i = 0; i < longs; i++) {
+  //      long bitMap = segment.read(64);
+  //      while (++offset <= 64) {
+  //        boolean isBitSet = (bitMap & (1l << (64 - offset))) != 0;
+  //        if (isBitSet) {
+  //          valueBuffer[index++] = 0.0;
+  //          numPoints++;
+  //        } else {
+  //          valueBuffer[index++] = Double.NaN;
+  //        }
+  //      }
+  //      offset = 0;
+  //    }
+  //
+  //    if (leftOver > 0) {
+  //      long bitMap = segment.read(leftOver);
+  //      bitMap = bitMap << 64 - leftOver;
+  //      while (++offset <= leftOver) {
+  //        boolean isBitSet = (bitMap & (1l << (64 - offset))) != 0;
+  //        if (isBitSet) {
+  //          valueBuffer[index++] = 0.0;
+  //          numPoints++;
+  //        } else {
+  //          valueBuffer[index++] = Double.NaN;
+  //        }
+  //      }
+  //    }
+  //    return numPoints;
+  //  }
+
   @Override
   public int getAggCount() {
     return aggCount;
@@ -348,10 +386,16 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
       return aggIterator.aggName();
     }
 
+    //    @Override
+    //    public void readAggValue(double[] buffer) {
+    //
+    //    }
+
     @Override
     public void reset() {
       aggIterator.reset();
       index = -1;
+      //      segment.moveToHead();
     }
 
     @Override
