@@ -69,12 +69,26 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
 
   @Override
   public boolean moveToAggHead(int intervalCount) {
-    this.bitIndex = intervalCount;
-    int tsLongs = intervalCount / 64;
+    int bits = intervalCount;
+    int bitShift = bits % 8;
+    if (bitShift > 0) {
+      // byte alignment
+      bits += (8 - bitShift);
+    }
+    this.bitIndex = bits;
+    int tsLongs = bits / 64;
     int bytesRead = startingOffset + 3 + (tsLongs * 8);
     this.currentLong = ByteArrays.getLong(buffer, bytesRead);
     this.byteIndex = bytesRead + Long.BYTES;
 
     return true;
+  }
+
+  @Override
+  public void alignToNextByte() {
+    int bitShift = bitIndex % 8;
+    if (bitShift > 0) {
+      read(8 - bitShift);
+    }
   }
 }

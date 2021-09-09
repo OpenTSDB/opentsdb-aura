@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Iterator;
 
 import static net.opentsdb.aura.metrics.core.downsample.AggregatorType.sum;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -99,6 +100,22 @@ public class AggregatorTest {
   }
 
   @Test
+  void minAggregatorWithNegativeValues() {
+    Aggregator aggregator = Aggregator.newBuilder(3).min().build();
+
+    double[] rawValues =
+        new double[] {-7.8610975558955776E18, 4.739319893824937E18, -4.3908735418470799E18};
+    aggregator.reset();
+    for (int i = 0; i < rawValues.length; i++) {
+      aggregator.apply(rawValues[i]);
+      aggregator.accumulate(i);
+    }
+
+    double[] max = aggregator.iterator().next();
+    assertArrayEquals(rawValues, max);
+  }
+
+  @Test
   void maxAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).max().build();
 
@@ -110,6 +127,22 @@ public class AggregatorTest {
 
     double[] max = aggregator.iterator().next();
     assertMaxEquals(max, intervalCount, intervalWidth);
+  }
+
+  @Test
+  void maxAggregatorWithNegativeValues() {
+    Aggregator aggregator = Aggregator.newBuilder(3).max().build();
+
+    double[] rawValues =
+        new double[] {-7.8610975558955776E18, 4.739319893824937E18, -4.3908735418470799E18};
+    aggregator.reset();
+    for (int i = 0; i < rawValues.length; i++) {
+      aggregator.apply(rawValues[i]);
+      aggregator.accumulate(i);
+    }
+
+    double[] max = aggregator.iterator().next();
+    assertArrayEquals(rawValues, max);
   }
 
   @Test

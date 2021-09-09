@@ -74,9 +74,16 @@ public class OffHeapGorillaDownSampledSegment extends OffHeapSegment
   }
 
   @Override
+  public void alignToNextByte() {
+    int bitShift = bitIndex % 8;
+    bitIndex += (8 - bitShift);
+  }
+
+  @Override
   public boolean moveToAggHead(int intervalCount) {
-    if(moveToHead()) {
+    if (moveToHead()) {
       bitIndex += intervalCount;
+      alignToNextByte();
       return true;
     }
     return false;
@@ -109,7 +116,6 @@ public class OffHeapGorillaDownSampledSegment extends OffHeapSegment
     int bitsToCopy = 64 - bitShift;
     if (bitsToCopy <= bitsRemaining) {
       long l = dataBlock.get(longIndex++) << bitShift >>> bitShift;
-//      int byteShift = (int) Math.ceil(bitShift / 8D);
       int byteShift = bitShift / 8;
       ByteArrays.putLong(l, byteShift, buffer, offset);
 

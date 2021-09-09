@@ -130,7 +130,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
 
     AggregationLengthIterator aggLengthIterator = encoder.aggIterator();
     aggLengthIterator.next();
-    assertEquals(16218, aggLengthIterator.aggLengthInBits());
+    assertEquals(16224, aggLengthIterator.aggLengthInBits());
     assertEquals(AverageAggregator.ID, aggLengthIterator.aggID());
     assertEquals(AverageAggregator.NAME, aggLengthIterator.aggName());
     assertFalse(aggLengthIterator.hasNext());
@@ -167,7 +167,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
 
     AggregationLengthIterator aggLengthIterator = encoder.aggIterator();
     aggLengthIterator.next();
-    assertEquals(16218, aggLengthIterator.aggLengthInBits());
+    assertEquals(16224, aggLengthIterator.aggLengthInBits());
     assertEquals(AverageAggregator.ID, aggLengthIterator.aggID());
     assertEquals(AverageAggregator.NAME, aggLengthIterator.aggName());
 
@@ -176,7 +176,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     assertArrayEquals(expectedAvgs, aggValues);
 
     aggLengthIterator.next();
-    assertEquals(303, aggLengthIterator.aggLengthInBits());
+    assertEquals(304, aggLengthIterator.aggLengthInBits());
     assertEquals(CountAggregator.ID, aggLengthIterator.aggID());
     assertEquals(CountAggregator.NAME, aggLengthIterator.aggName());
 
@@ -586,7 +586,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     assertArrayEquals(expectedLossySumOfSquaresValues, sumOfSquaresValues);
   }
 
-  @Test
+  @RepeatedTest(value = 10, name = "{displayName} - {currentRepetition}/{totalRepetitions}")
   void testSerializationOfSparseData() {
     Aggregator aggregator =
         Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();

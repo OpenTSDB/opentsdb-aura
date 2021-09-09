@@ -102,24 +102,6 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
     tsBitsRead = false;
   }
 
-  //  protected static byte encodeInterval(Interval interval, SegmentWidth segmentWidth) {
-  //    return (byte) (interval.getId() << 3 | segmentWidth.getId());
-  //  }
-  //
-  //  protected static int decodeIntervalCount(byte encoded) {
-  //    int intervalInSeconds = decodeInterval(encoded).getWidth();
-  //    int secondsInRawSegment = decodeSegmentWidth(encoded).getWidth();
-  //    return secondsInRawSegment / intervalInSeconds;
-  //  }
-  //
-  //  protected static Interval decodeInterval(byte encoded) {
-  //    return Interval.getById((byte) (encoded >>> 3));
-  //  }
-  //
-  //  protected static SegmentWidth decodeSegmentWidth(byte encoded) {
-  //    return SegmentWidth.getById((byte) (encoded & 0b111));
-  //  }
-
   @Override
   public int getNumDataPoints() {
     if (tsBitsSet) {
@@ -194,49 +176,12 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
         for (int i = 0; i < numPoints; i++) {
           readNextValue();
         }
+        segment.alignToNextByte();
       }
     }
 
     return numPoints;
   }
-
-  //  private int decodeTimeStamps(final double[] valueBuffer) {
-  //
-  //    int longs = intervalCount / 64;
-  //    int leftOver = intervalCount % 64;
-  //    int offset = 0;
-  //    int index = 0;
-  //    int numPoints = 0;
-  //
-  //    for (int i = 0; i < longs; i++) {
-  //      long bitMap = segment.read(64);
-  //      while (++offset <= 64) {
-  //        boolean isBitSet = (bitMap & (1l << (64 - offset))) != 0;
-  //        if (isBitSet) {
-  //          valueBuffer[index++] = 0.0;
-  //          numPoints++;
-  //        } else {
-  //          valueBuffer[index++] = Double.NaN;
-  //        }
-  //      }
-  //      offset = 0;
-  //    }
-  //
-  //    if (leftOver > 0) {
-  //      long bitMap = segment.read(leftOver);
-  //      bitMap = bitMap << 64 - leftOver;
-  //      while (++offset <= leftOver) {
-  //        boolean isBitSet = (bitMap & (1l << (64 - offset))) != 0;
-  //        if (isBitSet) {
-  //          valueBuffer[index++] = 0.0;
-  //          numPoints++;
-  //        } else {
-  //          valueBuffer[index++] = Double.NaN;
-  //        }
-  //      }
-  //    }
-  //    return numPoints;
-  //  }
 
   @Override
   public int getAggCount() {
@@ -280,7 +225,11 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
 
       if (offset == 64 || i == lastIndex) {
         if (offset < 64) {
-          bitMap = bitMap >>> 64 - offset;
+          int remainingBits = 64 - offset;
+          int bitShift = remainingBits % 8;
+          remainingBits -= bitShift; // byte aligned.
+          bitMap = bitMap >>> remainingBits;
+          offset += bitShift;
         }
         segment.write(bitMap, offset);
 
@@ -300,6 +249,14 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
         bitsWritten += appendValue(value);
         lastValue = newValue;
       }
+    }
+
+    // Byte alignment
+    int bitShift = bitsWritten % 8;
+    if (bitShift > 0) {
+      int bitsToAlign = 8 - bitShift;
+      segment.write(0, bitsToAlign);
+      bitsWritten += bitsToAlign;
     }
     return bitsWritten;
   }
@@ -386,16 +343,10 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
       return aggIterator.aggName();
     }
 
-    //    @Override
-    //    public void readAggValue(double[] buffer) {
-    //
-    //    }
-
     @Override
     public void reset() {
       aggIterator.reset();
       index = -1;
-      //      segment.moveToHead();
     }
 
     @Override

@@ -59,8 +59,16 @@ public interface GorillaDownSampledSegment extends GorillaSegment, DownSampledSe
           buffer[index++] = 0;
         }
       }
+
+      // Byte alignment
+      int remainingBits = 64 - leftOver;
+      int bitsToAlign = remainingBits % 8;
+      if (bitsToAlign > 0) {
+        read(bitsToAlign);
+      }
     }
     return numPoints;
   }
 
+  void alignToNextByte();
 }

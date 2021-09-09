@@ -27,11 +27,15 @@ public class MaxAggregator extends Aggregator {
   }
 
   public MaxAggregator(final int numPoints, final Aggregator aggregator) {
-    super(Double.MIN_VALUE, ID, NAME, numPoints, aggregator);
+    super(Double.NaN, ID, NAME, numPoints, aggregator);
   }
 
   @Override
   public void doApply(final double value) {
+    if(Double.isNaN(this.value)) {
+      this.value = value;
+      return;
+    }
     if (value > this.value) {
       this.value = value;
     }
