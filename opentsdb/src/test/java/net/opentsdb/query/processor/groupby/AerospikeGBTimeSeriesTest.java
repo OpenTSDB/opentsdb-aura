@@ -32,6 +32,7 @@ import net.opentsdb.aura.metrics.storage.AuraMetricsNumericArrayIterator;
 import net.opentsdb.common.Const;
 import net.opentsdb.core.DefaultRegistry;
 import net.opentsdb.core.MockTSDB;
+import net.opentsdb.data.SecondTimeStamp;
 import net.opentsdb.data.TimeSeriesStringId;
 import net.opentsdb.data.TimeSeriesValue;
 import net.opentsdb.data.TypedTimeSeriesIterator;
@@ -1377,6 +1378,8 @@ public class AerospikeGBTimeSeriesTest {
             .setMetric(MetricLiteralFilter.newBuilder()
                     .setMetric("sys.cpu.usr")
                     .build())
+            .setStartTimeStamp(new SecondTimeStamp(start))
+            .setEndTimeStamp(new SecondTimeStamp(end))
             .setPushDownNodes(pushdowns)
             .setId("m1")
             .build();

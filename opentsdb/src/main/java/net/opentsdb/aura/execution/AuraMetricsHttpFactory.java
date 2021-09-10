@@ -390,10 +390,10 @@ public class AuraMetricsHttpFactory
       TimeStamp timestamp = null;
       // check for time shifts
       if (config.timeShifts() != null) {
-        timestamp = context.query().startTime().getCopy();
+        timestamp = config.startTimestamp().getCopy();
         timestamp.subtract((TemporalAmount) config.timeShifts().getValue());
       } else {
-        timestamp = context.query().startTime();
+        timestamp = config.startTimestamp();
       }
 
       final String namespace =
@@ -448,14 +448,14 @@ public class AuraMetricsHttpFactory
           if (health_entry.status() != HealthStatus.UNKNOWN
               && health_entry.status() != HealthStatus.DOWN
               && !health_entry.isOverriden()) {
-            if ((now - context.query().startTime().epoch())
+            if ((now - config.startTimestamp().epoch())
                 <= (health_entry.uptime() - health_checker.uptimeFudge())) {
               // in the time so far so good. Check heartbeat
               final NamespaceHealth ns_health = health_entry.namespaceHealth(namespace);
               if (ns_health != null) {
                 had_heartbeat = true;
                 if (ns_health.earliest() > 0
-                    && (now - context.query().startTime().epoch())
+                    && (now - config.startTimestamp().epoch())
                         <= (ns_health.earliest() - health_checker.uptimeFudge())) {
                   // WOOT! Matched!
                   if (LOG.isTraceEnabled()) {
@@ -478,7 +478,7 @@ public class AuraMetricsHttpFactory
           } else if (health_entry.isOverriden() || 
                      health_entry.status() == HealthStatus.GOOD) {
             if (tsdb.getConfig().getBoolean(getConfigKey(USE_UPTIME_KEY))) {
-              if ((now - context.query().startTime().epoch())
+              if ((now - config.startTimestamp().epoch())
                   <= (health_entry.uptime() - health_checker.uptimeFudge())) {
                 possible_host = host;
                 break;

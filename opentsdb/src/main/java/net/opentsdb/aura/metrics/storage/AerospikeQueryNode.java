@@ -154,12 +154,12 @@ public class AerospikeQueryNode extends AbstractQueryNode implements TimeSeriesD
                       }
 
                       // compute query timestamps.
-                      segmentsStart = (int) pipelineContext().query().startTime().epoch();
+                      segmentsStart = (int) config.startTimestamp().epoch();
                       segmentsStart = segmentsStart - (segmentsStart % secondsInSegment);
 
-                      segmentsEnd = (int) pipelineContext().query().endTime().epoch();
+                      segmentsEnd = (int) config.endTimestamp().epoch();
                       segmentsEnd = segmentsEnd - (segmentsEnd % secondsInSegment);
-                      if (segmentsEnd < (int) pipelineContext().query().endTime().epoch()) {
+                      if (segmentsEnd < (int) config.endTimestamp().epoch()) {
                         segmentsEnd += secondsInSegment; // always exclusive and may be in the future.
                       }
 
@@ -209,16 +209,16 @@ public class AerospikeQueryNode extends AbstractQueryNode implements TimeSeriesD
       int start;
       int end;
       if (config.timeShifts() != null) {
-        TimeStamp ts = semanticQuery.startTime().getCopy();
+        TimeStamp ts = config.startTimestamp().getCopy();
         ts.subtract((TemporalAmount) config.timeShifts().getValue());
         start = (int) ts.epoch();
 
-        ts = semanticQuery.endTime().getCopy();
+        ts = config.endTimestamp().getCopy();
         ts.subtract((TemporalAmount) config.timeShifts().getValue());
         end = (int) ts.epoch();
       } else {
-        start = (int) semanticQuery.startTime().epoch();
-        end = (int) semanticQuery.endTime().epoch();
+        start = (int) config.startTimestamp().epoch();
+        end = (int) config.endTimestamp().epoch();
       }
 
       // TODO - this is where we run the meta query.

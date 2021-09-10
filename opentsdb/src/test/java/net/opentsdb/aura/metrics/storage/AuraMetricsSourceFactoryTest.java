@@ -70,8 +70,8 @@ public class AuraMetricsSourceFactoryTest {
     FACTORY.setTimeSeriesStorage(mock(TimeSeriesStorageIf.class));
     SINK = mock(QueryNode.class);
     TSDB.registry = new DefaultRegistry(TSDB);
-    (TSDB.registry).initialize(true);
-    (TSDB.registry).registerPlugin(
+    TSDB.registry.initialize(true);
+    TSDB.registry.registerPlugin(
         TimeSeriesDataSourceFactory.class, null, FACTORY);
 
     NUMERIC_CONFIG = (NumericInterpolatorConfig)
@@ -298,12 +298,9 @@ public class AuraMetricsSourceFactoryTest {
     planner.plan(null).join();
 
     Assert.assertEquals(1, planner.sources().size());
-    Assert.assertEquals(3, planner.graph().nodes().size());
+    Assert.assertEquals(2, planner.graph().nodes().size());
     Assert.assertTrue(planner.graph().hasEdgeConnecting(
         SINK,
-        planner.nodeForId("m1-timeShift")));
-    Assert.assertTrue(planner.graph().hasEdgeConnecting(
-        planner.nodeForId("m1-timeShift"),
         planner.nodeForId("m1")));
   }
 
@@ -339,12 +336,9 @@ public class AuraMetricsSourceFactoryTest {
     planner.plan(null).join();
 
     Assert.assertEquals(1, planner.sources().size());
-    Assert.assertEquals(3, planner.graph().nodes().size());
+    Assert.assertEquals(2, planner.graph().nodes().size());
     Assert.assertTrue(planner.graph().hasEdgeConnecting(
         SINK,
-        planner.nodeForId("m1-timeShift")));
-    Assert.assertTrue(planner.graph().hasEdgeConnecting(
-        planner.nodeForId("m1-timeShift"),
         planner.nodeForId("m1")));
     QueryNode node = planner.nodeForId("m1");
     Assert.assertEquals(1, ((TimeSeriesDataSourceConfig) node.config()).getPushDownNodes().size());
@@ -391,15 +385,12 @@ public class AuraMetricsSourceFactoryTest {
     planner.plan(null).join();
 
     Assert.assertEquals(1, planner.sources().size());
-    Assert.assertEquals(4, planner.graph().nodes().size());
+    Assert.assertEquals(3, planner.graph().nodes().size());
     Assert.assertTrue(planner.graph().hasEdgeConnecting(
         SINK,
         planner.nodeForId("gb")));
     Assert.assertTrue(planner.graph().hasEdgeConnecting(
         planner.nodeForId("gb"),
-        planner.nodeForId("m1-timeShift")));
-    Assert.assertTrue(planner.graph().hasEdgeConnecting(
-        planner.nodeForId("m1-timeShift"),
         planner.nodeForId("m1")));
     QueryNode node = planner.nodeForId("m1");
     Assert.assertEquals(1, ((TimeSeriesDataSourceConfig) node.config()).getPushDownNodes().size());
@@ -451,15 +442,12 @@ public class AuraMetricsSourceFactoryTest {
     planner.plan(null).join();
 
     Assert.assertEquals(1, planner.sources().size());
-    Assert.assertEquals(4, planner.graph().nodes().size());
+    Assert.assertEquals(3, planner.graph().nodes().size());
     Assert.assertTrue(planner.graph().hasEdgeConnecting(
         SINK,
         planner.nodeForId("gb")));
     Assert.assertTrue(planner.graph().hasEdgeConnecting(
         planner.nodeForId("gb"),
-        planner.nodeForId("m1-timeShift")));
-    Assert.assertTrue(planner.graph().hasEdgeConnecting(
-        planner.nodeForId("m1-timeShift"),
         planner.nodeForId("m1")));
     QueryNode node = planner.nodeForId("m1");
     Assert.assertEquals(2, ((TimeSeriesDataSourceConfig) node.config()).getPushDownNodes().size());

@@ -31,6 +31,7 @@ import net.opentsdb.data.TimeSeriesValue;
 import net.opentsdb.data.TypedTimeSeriesIterator;
 import net.opentsdb.data.types.numeric.MutableNumericValue;
 import net.opentsdb.data.types.numeric.NumericType;
+import net.opentsdb.query.TimeSeriesDataSourceConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -186,8 +187,8 @@ public class AerospikeRawTimeSeries implements TimeSeries {
     double[] values;
     int idx;
     int base_timestamp;
-    int queryEnd = (int) result.source().pipelineContext().query().endTime().epoch();
-    int queryStart = (int) result.source().pipelineContext().query().startTime().epoch();
+    int queryStart = (int) ((TimeSeriesDataSourceConfig) result.source().config()).startTimestamp().epoch();
+    int queryEnd = (int) ((TimeSeriesDataSourceConfig) result.source().config()).endTimestamp().epoch();
 
     LocalIterator() {
       records = ((AerospikeQueryNode) result.source()).asClient()

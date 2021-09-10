@@ -119,7 +119,8 @@ public class AuraMetricsSourceFactory extends BaseTSDBPlugin
     @Override
     public boolean supportsPushdown(
         final Class<? extends QueryNodeConfig> operation) {
-      if (operation == DownsampleConfig.class ||
+      if (operation == TimeShiftConfig.class ||
+          operation == DownsampleConfig.class ||
           operation == RateConfig.class) {
         return true;
       }
@@ -141,24 +142,7 @@ public class AuraMetricsSourceFactory extends BaseTSDBPlugin
         // all done.
         return;
       }
-      
-      List<QueryNodeConfig> pushDownNodes = config.getPushDownNodes();
-      for (QueryNodeConfig pushdowns : pushDownNodes) {
-        if (pushdowns instanceof TimeShiftConfig) {
-          return;
-        }
-      }
-
-      if ((config).timeShifts() != null) {
-        if (recursiveAddTimeShift(planner, config, config)) {
-          TimeSeriesDataSourceConfig.Builder rebuilt_builder =
-              (Builder) config.toBuilder();
-          ((BaseTimeSeriesDataSourceConfig.Builder) rebuilt_builder)
-            .setHasBeenSetup(true);
-          QueryNodeConfig rebuilt = rebuilt_builder.build();
-          planner.replace(config, rebuilt);
-        }
-      }
+      planner.baseSetupGraph(context, config);
     }
 
     @Override
@@ -233,60 +217,6 @@ public class AuraMetricsSourceFactory extends BaseTSDBPlugin
     @Override
     public RollupConfig rollupConfig() {
       return rollupConfig;
-    }
-
-    boolean recursiveAddTimeShift(final QueryPlanner planner, 
-                                  final TimeSeriesDataSourceConfig config, 
-                                  final QueryNodeConfig current) {
-      if (planner.configGraph().predecessors(current).isEmpty()) {
-        // either everything is pushed down or we only have a shift query.
-        final BaseQueryNodeConfig shift_config =
-            TimeShiftConfig.newBuilder()
-                .setTimeshiftInterval(config.getTimeShiftInterval())
-                .setId(config.getId() + "-timeShift")
-                .build();
-        
-        final Set<QueryNodeConfig> predecessors = Sets.newHashSet(
-            planner.configGraph().predecessors(current));
-        for (final QueryNodeConfig predecessor : predecessors) {
-          planner.addEdge(predecessor, shift_config);
-          planner.removeEdge(predecessor, current);
-        }
-        planner.addEdge(shift_config, current);
-        if (((DefaultQueryPlanner) planner).sinkFilters().containsKey(current.getId())) {
-          ((DefaultQueryPlanner) planner).sinkFilters().remove(current.getId());
-          ((DefaultQueryPlanner) planner).sinkFilters().put(shift_config.getId(), null);
-        }
-        return true;
-      }
-      
-      for (final QueryNodeConfig upstream : planner.configGraph().predecessors(current)) {
-        if (!supportsPushdown(upstream.getClass())) {
-          final BaseQueryNodeConfig shift_config =
-              TimeShiftConfig.newBuilder()
-                  .setTimeshiftInterval(config.getTimeShiftInterval())
-                  .setId(config.getId() + "-timeShift")
-                  .build();
-          
-          final Set<QueryNodeConfig> predecessors = Sets.newHashSet(
-              planner.configGraph().predecessors(current));
-          for (final QueryNodeConfig predecessor : predecessors) {
-            planner.addEdge(predecessor, shift_config);
-            planner.removeEdge(predecessor, current);
-          }
-          planner.addEdge(shift_config, current);
-          if (((DefaultQueryPlanner) planner).sinkFilters().containsKey(current.getId())) {
-            ((DefaultQueryPlanner) planner).sinkFilters().remove(current.getId());
-            ((DefaultQueryPlanner) planner).sinkFilters().put(shift_config.getId(), null);
-          }
-          return true;
-        }
-        
-        if (recursiveAddTimeShift(planner, config, upstream)) {
-          return true;
-        }
-      }
-      return false;
     }
 
   public void setTimeSeriesStorage(TimeSeriesStorageIf timeSeriesStorage) {
