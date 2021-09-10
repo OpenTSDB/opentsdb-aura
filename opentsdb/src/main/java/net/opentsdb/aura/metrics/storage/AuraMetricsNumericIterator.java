@@ -28,6 +28,7 @@ import net.opentsdb.data.TypedTimeSeriesIterator;
 import net.opentsdb.data.types.numeric.MutableNumericValue;
 import net.opentsdb.data.types.numeric.NumericType;
 import net.opentsdb.query.QueryNode;
+import net.opentsdb.query.TimeSeriesDataSourceConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +50,7 @@ public class AuraMetricsNumericIterator implements TypedTimeSeriesIterator<Numer
   private int segmentTime;
   private final int segmentCount;
   private final int secondsInSegment;
+  private final int shiftSeconds;
 
   TimeSeriesRecord timeSeriesRecord;
   RawTimeSeriesEncoder timeSeriesEncoder;
@@ -67,7 +69,9 @@ public class AuraMetricsNumericIterator implements TypedTimeSeriesIterator<Numer
     if (AuraMetricsNumericArrayIterator.threadLocalAccs == null) {
       synchronized (AuraMetricsNumericIterator.class) {
         if (AuraMetricsNumericArrayIterator.threadLocalAccs == null) {
-          AuraMetricsNumericArrayIterator.threadLocalAccs = ThreadLocal.withInitial(() -> new AuraMetricsNumericArrayIterator.Accumulator(secondsInSegment));
+          AuraMetricsNumericArrayIterator.threadLocalAccs =
+                  ThreadLocal.withInitial(() ->
+                          new AuraMetricsNumericArrayIterator.Accumulator(secondsInSegment));
         }
       }
     }
@@ -76,14 +80,18 @@ public class AuraMetricsNumericIterator implements TypedTimeSeriesIterator<Numer
     dp = new MutableNumericValue();
     next_dp = new MutableNumericValue();
 
-    query_start = (int) node.pipelineContext().query().startTime().epoch();
-    query_end = (int) node.pipelineContext().query().endTime().epoch();
+    // TODO - config start/end times
+    final TimeSeriesDataSourceConfig cfg = (TimeSeriesDataSourceConfig) node.config();
+    query_start = (int) cfg.startTimestamp().epoch();
+    query_end = (int) cfg.endTimestamp().epoch();
     this.segmentCount = segmentCount;
+    shiftSeconds = ((AuraMetricsQueryNode) node).shiftSeconds();
 
     // find the first value within query range.
     this.segmentTime = firstSegmentTime;
     while (segmentIndex < segmentCount) {
-      if ((segmentTime + secondsInSegment) > query_start && (segmentTime + secondsInSegment) <= query_end) {
+      if ((segmentTime + secondsInSegment) > query_start - shiftSeconds &&
+           segmentTime <= query_end - shiftSeconds) {
         break;
       }
       segmentTime += secondsInSegment;
@@ -137,7 +145,7 @@ public class AuraMetricsNumericIterator implements TypedTimeSeriesIterator<Numer
         } else {
           initialized = true;
         }
-        if (segmentTime >= query_end) { // query end time is exclusive
+        if (segmentTime >= query_end - shiftSeconds) { // query end time is exclusive
           return false;
         }
 
@@ -146,7 +154,7 @@ public class AuraMetricsNumericIterator implements TypedTimeSeriesIterator<Numer
           timeSeriesEncoder.openSegment(segmentAddress);
           if (segmentTime == timeSeriesEncoder.getSegmentTime()) {
             accumulator.reset();
-            accumulator.baseTimeStamp = segmentTime;
+            accumulator.baseTimeStamp = segmentTime + shiftSeconds;
             dpsInSegment = timeSeriesEncoder.readAndDedupe(accumulator.values);
             dpsRead = 0;
             i = 0;

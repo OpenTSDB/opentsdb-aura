@@ -182,12 +182,12 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
                       }
 
                       // compute query timestamps.
-                      segmentsStart = (int) pipelineContext().query().startTime().epoch();
+                      segmentsStart = (int) config.startTimestamp().epoch();
                       segmentsStart = segmentsStart - (segmentsStart % client.secondsInRecord());
 
-                      segmentsEnd = (int) pipelineContext().query().endTime().epoch();
+                      segmentsEnd = (int) config.endTimestamp().epoch();
                       segmentsEnd = segmentsEnd - (segmentsEnd % client.secondsInRecord());
-                      if (segmentsEnd < (int) pipelineContext().query().endTime().epoch()) {
+                      if (segmentsEnd < (int) config.endTimestamp().epoch()) {
                         segmentsEnd += client.secondsInRecord(); // always exclusive and may be in the future.
                       }
 
@@ -230,16 +230,16 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
     int start;
     int end;
     if (config.timeShifts() != null) {
-      TimeStamp ts = semanticQuery.startTime().getCopy();
+      TimeStamp ts = config.startTimestamp().getCopy();
       ts.subtract((TemporalAmount) config.timeShifts().getValue());
       start = (int) ts.epoch();
 
-      ts = semanticQuery.endTime().getCopy();
+      ts = config.endTimestamp().getCopy();
       ts.subtract((TemporalAmount) config.timeShifts().getValue());
       end = (int) ts.epoch();
     } else {
-      start = (int) semanticQuery.startTime().epoch();
-      end = (int) semanticQuery.endTime().epoch();
+      start = (int) config.startTimestamp().epoch();
+      end = (int) config.endTimestamp().epoch();
     }
 
     long mystStart = System.nanoTime();

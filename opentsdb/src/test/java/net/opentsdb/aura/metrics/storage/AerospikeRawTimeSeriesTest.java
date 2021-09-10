@@ -21,6 +21,7 @@ import net.opentsdb.aura.metrics.LTSAerospike;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
 import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
+import net.opentsdb.data.SecondTimeStamp;
 import net.opentsdb.data.TimeSeriesValue;
 import net.opentsdb.data.TypedTimeSeriesIterator;
 import net.opentsdb.data.types.numeric.NumericType;
@@ -43,22 +44,11 @@ import static org.testng.Assert.*;
 
 public class AerospikeRawTimeSeriesTest {
 
-  static TimeSeriesDataSourceConfig timeSeriesDataSourceConfig;
   AerospikeQueryResult result;
   AerospikeQueryNode node;
   QueryPipelineContext context;
   MetaTimeSeriesQueryResult.GroupResult gr;
   LTSAerospike asClient;
-
-  @BeforeClass
-  public static void beforeClass() throws Exception {
-    timeSeriesDataSourceConfig = DefaultTimeSeriesDataSourceConfig.newBuilder()
-            .setMetric(MetricLiteralFilter.newBuilder()
-                    .setMetric("sys.cpu.usr")
-                    .build())
-            .setId("m1")
-            .build();
-  }
 
   @BeforeMethod
   public void before() throws Exception {
@@ -76,13 +66,7 @@ public class AerospikeRawTimeSeriesTest {
 
   @Test
   public void noData() throws Exception {
-    SemanticQuery query =
-            SemanticQuery.newBuilder()
-                    .setMode(QueryMode.SINGLE)
-                    .addExecutionGraphNode(timeSeriesDataSourceConfig)
-                    .setStart("1614556800")
-                    .setEnd("1614578400")
-                    .build();
+    SemanticQuery query = setupQuery(1614556800, 1614578400);
     when(context.query()).thenReturn(query);
     when(node.getSegmentsStart()).thenReturn(1614556800);
     when(node.getSegmentsEnd()).thenReturn(1614556800 + (3600 * 6));
@@ -96,13 +80,7 @@ public class AerospikeRawTimeSeriesTest {
 
   @Test
   public void fullSegments() throws Exception {
-    SemanticQuery query =
-            SemanticQuery.newBuilder()
-                    .setMode(QueryMode.SINGLE)
-                    .addExecutionGraphNode(timeSeriesDataSourceConfig)
-                    .setStart("1614556800")
-                    .setEnd("1614578400")
-                    .build();
+    SemanticQuery query = setupQuery(1614556800, 1614578400);
     when(context.query()).thenReturn(query);
     when(node.getSegmentsStart()).thenReturn(1614556800);
     when(node.getSegmentsEnd()).thenReturn(1614556800 + (3600 * 6));
@@ -143,13 +121,7 @@ public class AerospikeRawTimeSeriesTest {
 
   @Test
   public void gapInMiddle() throws Exception {
-    SemanticQuery query =
-            SemanticQuery.newBuilder()
-                    .setMode(QueryMode.SINGLE)
-                    .addExecutionGraphNode(timeSeriesDataSourceConfig)
-                    .setStart("1614556800")
-                    .setEnd("1614578400")
-                    .build();
+    SemanticQuery query = setupQuery(1614556800, 1614578400);
     when(context.query()).thenReturn(query);
     when(node.getSegmentsStart()).thenReturn(1614556800);
     when(node.getSegmentsEnd()).thenReturn(1614556800 + (3600 * 6));
@@ -208,4 +180,21 @@ public class AerospikeRawTimeSeriesTest {
     return encoder;
   }
 
+  SemanticQuery setupQuery(long start, long end) {
+    TimeSeriesDataSourceConfig cfg = DefaultTimeSeriesDataSourceConfig.newBuilder()
+            .setMetric(MetricLiteralFilter.newBuilder()
+                    .setMetric("sys.cpu.usr")
+                    .build())
+            .setStartTimeStamp(new SecondTimeStamp(start))
+            .setEndTimeStamp(new SecondTimeStamp(end))
+            .setId("m1")
+            .build();
+    when(node.config()).thenReturn(cfg);
+    return SemanticQuery.newBuilder()
+            .setMode(QueryMode.SINGLE)
+            .addExecutionGraphNode(cfg)
+            .setStart(Long.toString(start))
+            .setEnd(Long.toString(end))
+            .build();
+  }
 }

@@ -135,6 +135,9 @@ public class OffHeapTimeSeriesRecord implements TimeSeriesRecord {
   @Override
   public long getSegmentAddress(int segmentTime) {
     int segmentIndex = getSegmentIndex(segmentTime);
+    if (segmentIndex < 0) {
+      return 0;
+    }
     return getSegmentAddressAtIndex(segmentIndex);
   }
 

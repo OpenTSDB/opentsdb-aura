@@ -309,23 +309,24 @@ public class AuraMetricsNumericArrayIterator implements
     TimeSeriesStorageIf timeSeriesStorage = ((AuraMetricsSourceFactory) node.factory()).timeSeriesStorage();
     int secondsInSegment = timeSeriesStorage.secondsInSegment();
 
+    int shiftSeconds = ((AuraMetricsQueryNode) node).shiftSeconds();
     int segmentTime = firstSegmentTime;
     int segmentIndex = 0;
     while(segmentIndex < segmentCount) {
-      if (segmentTime == firstSegmentTime && startTime < segmentTime) {
+      if (segmentTime == firstSegmentTime && startTime - shiftSeconds < segmentTime) {
         // skipIntervals
-        int intervalsToSkip = (segmentTime - startTime) / interval;
+        int intervalsToSkip = (segmentTime - (startTime - shiftSeconds)) / interval;
         intervalIndex += intervalsToSkip;
       }
 
       int startIndex = 0;
       int stopIndex = secondsInSegment; // exclusive
 
-      if (segmentTime < startTime) {
-        startIndex = startTime - segmentTime;
+      if (segmentTime < startTime - shiftSeconds) {
+        startIndex = (startTime - shiftSeconds) - segmentTime;
       }
-      if ((segmentTime + secondsInSegment) >= endTime) {
-        stopIndex = endTime - segmentTime;
+      if ((segmentTime + secondsInSegment) >= endTime - shiftSeconds) {
+        stopIndex = (endTime - shiftSeconds) - segmentTime;
       }
 
       if (startIndex >= stopIndex) {
@@ -419,7 +420,7 @@ public class AuraMetricsNumericArrayIterator implements
           }
           for (; startIndex < stopIndex; startIndex++) {
             double value = values[startIndex];
-            int timeStamp = segmentTime + startIndex;
+            int timeStamp = segmentTime + shiftSeconds + startIndex;
             // skip those outside of the query range.
             if (timeStamp < startTime) {
               continue;

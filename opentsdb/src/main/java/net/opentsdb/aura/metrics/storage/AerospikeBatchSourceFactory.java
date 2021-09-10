@@ -171,23 +171,7 @@ public class AerospikeBatchSourceFactory extends BaseTSDBPlugin
       return;
     }
 
-    List<QueryNodeConfig> pushDownNodes = config.getPushDownNodes();
-    for (QueryNodeConfig pushdowns : pushDownNodes) {
-      if (pushdowns instanceof TimeShiftConfig) {
-        return;
-      }
-    }
-
-    if ((config).timeShifts() != null) {
-      if (recursiveAddTimeShift(planner, config, config)) {
-        TimeSeriesDataSourceConfig.Builder rebuilt_builder =
-                (TimeSeriesDataSourceConfig.Builder) config.toBuilder();
-        ((BaseTimeSeriesDataSourceConfig.Builder) rebuilt_builder)
-                .setHasBeenSetup(true);
-        QueryNodeConfig rebuilt = rebuilt_builder.build();
-        planner.replace(config, rebuilt);
-      }
-    }
+    planner.baseSetupGraph(context, config);
   }
 
   @Override

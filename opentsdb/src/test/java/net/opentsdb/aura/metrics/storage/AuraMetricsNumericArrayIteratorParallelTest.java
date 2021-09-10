@@ -17,174 +17,26 @@
 
 package net.opentsdb.aura.metrics.storage;
 
-import net.opentsdb.aura.metrics.core.Flusher;
-import net.opentsdb.aura.metrics.core.LongRunningStorage;
-import net.opentsdb.aura.metrics.core.MemoryInfoReader;
-import net.opentsdb.aura.metrics.core.OffHeapTimeSeriesRecordFactory;
-import net.opentsdb.aura.metrics.core.ShardConfig;
-import net.opentsdb.aura.metrics.core.StorageMode;
 import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.TimeSeriesEncoderFactory;
-import net.opentsdb.aura.metrics.core.TimeSeriesRecord;
-import net.opentsdb.aura.metrics.core.TimeSeriesRecordFactory;
-import net.opentsdb.aura.metrics.core.TimeSeriesShardIF;
-import net.opentsdb.aura.metrics.core.TimeSeriesStorageIf;
-import net.opentsdb.aura.metrics.core.TimeSeriesShard;
-import net.opentsdb.aura.metrics.core.TimeseriesStorageContext;
-import net.opentsdb.aura.metrics.core.XxHash;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaSegmentFactory;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.gorilla.GorillaTimeSeriesEncoderFactory;
-import net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaSegmentFactory;
-import net.opentsdb.aura.metrics.meta.NewDocStore;
-import net.opentsdb.aura.metrics.meta.SharedMetaResult;
-import io.ultrabrew.metrics.MetricRegistry;
-import net.opentsdb.core.DefaultRegistry;
-import net.opentsdb.core.MockTSDB;
-import net.opentsdb.data.types.numeric.NumericType;
 import net.opentsdb.data.types.numeric.aggregators.ArrayAverageFactory;
 import net.opentsdb.data.types.numeric.aggregators.ArraySumFactory;
-import net.opentsdb.hashing.HashFunction;
-import net.opentsdb.query.QueryFillPolicy;
-import net.opentsdb.query.QueryPipelineContext;
-import net.opentsdb.query.interpolation.types.numeric.NumericInterpolatorConfig;
-import net.opentsdb.query.pojo.FillPolicy;
 import net.opentsdb.query.processor.downsample.DownsampleConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class AuraMetricsNumericArrayIteratorParallelTest {
-
-  private static NumericInterpolatorConfig NUMERIC_CONFIG;
-  private static AuraMetricsQueryResult RESULT;
-  private static MockTSDB TSDB;
-  private static AuraMetricsQueryNode NODE;
-  private static TimeSeriesShardIF shard;
-  private static TimeSeriesEncoderFactory<GorillaRawTimeSeriesEncoder> encoderFactory;
-  private static RawTimeSeriesEncoder encoder;
-  private static TimeSeriesRecordFactory timeSeriesRecordFactory;
-  private static TimeSeriesRecord timeSeriesRecord;
-  private static TimeseriesStorageContext storageContext;
-  private static AuraMetricsSourceFactory SOURCE_FACTORY;
-  private static TimeSeriesStorageIf TIME_SERIES_STORAGE;
-  private static List<Long> segmentAddressList = new ArrayList<>();
-  private static List<Integer> segmentTimeList = new ArrayList<>();
-  private static long tsPointer;
-  private int base;
+public class AuraMetricsNumericArrayIteratorParallelTest extends BaseAMNumericArrayTest {
   private static ArraySumFactory FACTORY;
 
   @BeforeClass
-  public void beforeClass() {
-    System.setProperty("tmpfs.dir", new File("target/tmp/memdir").getAbsolutePath());
-
-    NUMERIC_CONFIG =
-        (NumericInterpolatorConfig)
-            NumericInterpolatorConfig.newBuilder()
-                .setFillPolicy(FillPolicy.NOT_A_NUMBER)
-                .setRealFillPolicy(QueryFillPolicy.FillWithRealPolicy.PREFER_NEXT)
-                .setDataType(NumericType.TYPE.toString())
-                .build();
-
-    RESULT = mock(AuraMetricsQueryResult.class);
-
-    TSDB = new MockTSDB();
-    TSDB.registry = new DefaultRegistry(TSDB);
-    TSDB.registry.initialize(true);
-
-    NODE = mock(AuraMetricsQueryNode.class);
-    QueryPipelineContext context = mock(QueryPipelineContext.class);
-    when(context.tsdb()).thenReturn(TSDB);
-    when(NODE.pipelineContext()).thenReturn(context);
-
-    ShardConfig shardConfig = new ShardConfig();
-    shardConfig.segmentSizeHour = 1;
-    shardConfig.metaStoreCapacity = 10;
-
-    MetricRegistry registry = new MetricRegistry();
-    GorillaSegmentFactory segmentFactory =
-        new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
-    encoderFactory =
-        new GorillaTimeSeriesEncoderFactory(
-            false,
-            shardConfig.garbageQSize,
-            shardConfig.segmentCollectionDelayMinutes,
-            registry,
-            segmentFactory);
-
-    int segmentsInATimeSeries =
-        StorageMode.LONG_RUNNING.getSegmentsPerTimeseries(
-            shardConfig.retentionHour, shardConfig.segmentSizeHour);
-    int secondsInASegment = (int) TimeUnit.HOURS.toSeconds(1);
-
-    timeSeriesRecordFactory =
-        new OffHeapTimeSeriesRecordFactory(segmentsInATimeSeries, secondsInASegment);
-
-    AuraMetricsNumericArrayIterator.timeSeriesEncoderFactory = encoderFactory;
-    AuraMetricsNumericArrayIterator.timeSeriesRecordFactory = timeSeriesRecordFactory;
-
-    encoder = encoderFactory.create();
-    MemoryInfoReader memoryInfoReader = mock(MemoryInfoReader.class);
-    HashFunction hashFunction = new XxHash();
-    NewDocStore docStore =
-        new NewDocStore(
-            shardConfig.metaStoreCapacity,
-            shardConfig.metaPurgeBatchSize,
-            null,
-            hashFunction,
-            mock(SharedMetaResult.class),
-            false);
-    Flusher flusher = mock(Flusher.class);
-    when(flusher.frequency()).thenReturn(30_000L);
-    storageContext = new LongRunningStorage.LongRunningStorageContext(shardConfig);
-    shard =
-        new TimeSeriesShard(
-            0,
-            shardConfig,
-            storageContext,
-            encoder,
-            docStore,
-            memoryInfoReader,
-            registry,
-            LocalDateTime.now(),
-            hashFunction,
-            flusher,
-            mock(ScheduledExecutorService.class));
-
-    long now = System.currentTimeMillis() / 1000;
-    base = (int) (now - (now % TimeUnit.HOURS.toSeconds(2)));
-
-    long segmentAddress = encoder.createSegment(base);
-    segmentAddressList.add(segmentAddress);
-    segmentTimeList.add(base);
-    double value = 5.0;
-    for (int i = 0; i < 60; i++) {
-      encoder.addDataPoint((base + (60 * i)), value);
-    }
-
-    timeSeriesRecord = timeSeriesRecordFactory.create();
-    tsPointer =
-        AuraMetricsNumericArrayIteratorParallelTest.timeSeriesRecord.create(
-            0, 0, (byte) 0, 0, 0.0, base, segmentAddress);
-
+  public void beforeClassLocal() {
+    setupConstantData(5.0);
     FACTORY = new ArraySumFactory();
-    SOURCE_FACTORY = new AuraMetricsSourceFactory();
-    TIME_SERIES_STORAGE = mock(TimeSeriesStorageIf.class);
-    when(TIME_SERIES_STORAGE.secondsInSegment()).thenReturn(3600);
-    SOURCE_FACTORY.setTimeSeriesStorage(TIME_SERIES_STORAGE);
-    when(TIME_SERIES_STORAGE.numShards()).thenReturn(1);
-    when(NODE.factory()).thenReturn(SOURCE_FACTORY);
   }
 
   @Test
@@ -194,12 +46,12 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
         DownsampleConfig.newBuilder()
             .setAggregator("sum")
             .setInterval(interval + "m")
-            .setStart(String.valueOf(base))
-            .setEnd(String.valueOf(base + 3600))
+            .setStart(String.valueOf(base_ts))
+            .setEnd(String.valueOf(base_ts + 3600))
             .addInterpolatorConfig(NUMERIC_CONFIG)
             .setId("ds")
             .build();
-    long segmentTimes = storageContext.getSegmentTimes(base, base + 3600);
+    long segmentTimes = storageContext.getSegmentTimes(base_ts, base_ts + 3600);
     int firstSegmentTime = storageContext.getFirstSegmentTime(segmentTimes);
     int segmentCount = storageContext.getSegmentCount(segmentTimes);
     AuraMetricsNumericArrayIterator iterator =
@@ -225,12 +77,12 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
         DownsampleConfig.newBuilder()
             .setAggregator("avg")
             .setInterval(interval + "m")
-            .setStart(String.valueOf((base + 322)))
-            .setEnd(String.valueOf((base + (3600 - 685))))
+            .setStart(String.valueOf((base_ts + 322)))
+            .setEnd(String.valueOf((base_ts + (3600 - 685))))
             .addInterpolatorConfig(NUMERIC_CONFIG)
             .setId("ds")
             .build();
-    long segmentTimes = storageContext.getSegmentTimes(base + 322, base + (3600 - 685));
+    long segmentTimes = storageContext.getSegmentTimes(base_ts + 322, base_ts + (3600 - 685));
     int firstSegmentTime = storageContext.getFirstSegmentTime(segmentTimes);
     int segmentCount = storageContext.getSegmentCount(segmentTimes);
     AuraMetricsNumericArrayIterator iterator =
@@ -254,8 +106,8 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
         DownsampleConfig.newBuilder()
             .setAggregator("sum")
             .setInterval(interval + "m")
-            .setStart(String.valueOf(base))
-            .setEnd(String.valueOf(base + 3600))
+            .setStart(String.valueOf(base_ts))
+            .setEnd(String.valueOf(base_ts + 3600))
             .addInterpolatorConfig(NUMERIC_CONFIG)
             .setId("ds")
             .build();
@@ -263,14 +115,14 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
     List<Integer> segTimes = new ArrayList<>();
     List<Long> segAddresses = new ArrayList<>();
 
-    int segmentTime = base - (3600 * 2);
+    int segmentTime = base_ts - (3600 * 2);
     segTimes.add(segmentTime);
     long segmentAddress = encoder.createSegment(segmentTime);
     segAddresses.add(segmentAddress);
 
     long tsPointer = timeSeriesRecord.create(0, 0, (byte) 0, 0, 0.0, segmentTime, segmentAddress);
 
-    segmentTime = base - 3600;
+    segmentTime = base_ts - 3600;
     segTimes.add(segmentTime);
     segmentAddress = encoder.createSegment(segmentTime);
     segAddresses.add(segmentAddress);
@@ -288,7 +140,7 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
       segAddresses.add(segAddress);
     }
 
-    long segmentTimes = storageContext.getSegmentTimes(base, base + 3600);
+    long segmentTimes = storageContext.getSegmentTimes(base_ts, base_ts + 3600);
     int firstSegmentTime = storageContext.getFirstSegmentTime(segmentTimes);
     int segmentCount = storageContext.getSegmentCount(segmentTimes);
     AuraMetricsNumericArrayIterator iterator =
@@ -315,8 +167,8 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
         DownsampleConfig.newBuilder()
             .setAggregator("sum")
             .setInterval(interval + "m")
-            .setStart(String.valueOf(base))
-            .setEnd(String.valueOf(base + 3600))
+            .setStart(String.valueOf(base_ts))
+            .setEnd(String.valueOf(base_ts + 3600))
             .addInterpolatorConfig(NUMERIC_CONFIG)
             .setId("ds")
             .build();
@@ -341,17 +193,17 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
       }
     }
 
-    int segmentTime = base + 3600;
+    int segmentTime = base_ts + 3600;
     segmentTimeList.add(segmentTime);
     long segmentAddress = encoder.createSegment(segmentTime);
     segmentAddresses.add(segmentAddress);
 
-    segmentTime = base + (3600 * 2);
+    segmentTime = base_ts + (3600 * 2);
     segmentTimeList.add(segmentTime);
     segmentAddress = encoder.createSegment(segmentTime);
     segmentAddresses.add(segmentAddress);
 
-    long segmentTimes = storageContext.getSegmentTimes(base, base + 3600);
+    long segmentTimes = storageContext.getSegmentTimes(base_ts, base_ts + 3600);
     int firstSegmentTime = storageContext.getFirstSegmentTime(segmentTimes);
     int segmentCount = storageContext.getSegmentCount(segmentTimes);
     AuraMetricsNumericArrayIterator iterator =
@@ -378,15 +230,15 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
         DownsampleConfig.newBuilder()
             .setAggregator("sum")
             .setInterval(interval + "m")
-            .setStart(String.valueOf(base - 1800))
-            .setEnd(String.valueOf(base + 1800))
+            .setStart(String.valueOf(base_ts - 1800))
+            .setEnd(String.valueOf(base_ts + 1800))
             .addInterpolatorConfig(NUMERIC_CONFIG)
             .setId("ds")
             .build();
 
     List<Integer> segmentTimeList = new ArrayList<>();
     List<Long> segmentAddresses = new ArrayList<>();
-    int segmentTime = base - 3600;
+    int segmentTime = base_ts - 3600;
     segmentTimeList.add(segmentTime);
     long segmentAddress = encoder.createSegment(segmentTime);
     segmentAddresses.add(segmentAddress);
@@ -402,7 +254,7 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
       timeSeriesRecord.setSegmentAddress(segTime, segAddress);
     }
 
-    long segmentTimes = storageContext.getSegmentTimes(base - 1800, base + 1800);
+    long segmentTimes = storageContext.getSegmentTimes(base_ts - 1800, base_ts + 1800);
     int firstSegmentTime = storageContext.getFirstSegmentTime(segmentTimes);
     int segmentCount = storageContext.getSegmentCount(segmentTimes);
     AuraMetricsNumericArrayIterator iterator =
@@ -429,27 +281,27 @@ public class AuraMetricsNumericArrayIteratorParallelTest {
 
   @Test
   public void testDownSampleAvgGroupByAvg() {
-    long segmentAddress = encoder.createSegment(base);
+    long segmentAddress = encoder.createSegment(base_ts);
 
     double[] values = new double[] {1.0, 5.0, 10.0};
-    encoder.addDataPoint(base, values[0]);
+    encoder.addDataPoint(base_ts, values[0]);
 
     for (int i = 1; i < 360; i++) {
-      encoder.addDataPoint((base + (10 * i)), values[i % 3]);
+      encoder.addDataPoint((base_ts + (10 * i)), values[i % 3]);
     }
 
-    long tsPointer = timeSeriesRecord.create(0, 0, (byte) 0, 0, 0.0, base, segmentAddress);
+    long tsPointer = timeSeriesRecord.create(0, 0, (byte) 0, 0, 0.0, base_ts, segmentAddress);
 
     DownsampleConfig config =
         DownsampleConfig.newBuilder()
             .setAggregator("avg")
             .setInterval("1m")
-            .setStart(String.valueOf(base))
-            .setEnd(String.valueOf(base + 3600))
+            .setStart(String.valueOf(base_ts))
+            .setEnd(String.valueOf(base_ts + 3600))
             .addInterpolatorConfig(NUMERIC_CONFIG)
             .setId("ds")
             .build();
-    long segmentTimes = storageContext.getSegmentTimes(base, base + 3600);
+    long segmentTimes = storageContext.getSegmentTimes(base_ts, base_ts + 3600);
     int firstSegmentTime = storageContext.getFirstSegmentTime(segmentTimes);
     int segmentCount = storageContext.getSegmentCount(segmentTimes);
     AuraMetricsNumericArrayIterator iterator =

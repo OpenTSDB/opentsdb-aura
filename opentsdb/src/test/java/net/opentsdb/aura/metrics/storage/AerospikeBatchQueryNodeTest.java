@@ -34,9 +34,9 @@ import net.opentsdb.query.TimeSeriesDataSourceConfig;
 import net.opentsdb.query.filter.MetricLiteralFilter;
 import net.opentsdb.query.interpolation.types.numeric.NumericInterpolatorConfig;
 import net.opentsdb.query.pojo.FillPolicy;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -90,7 +90,7 @@ public class AerospikeBatchQueryNodeTest {
     TSDB.getConfig().register(AerospikeBatchSourceFactory.AS_JOBS_PER_QUERY, JOBS_PER_QUERY, true, "UT");
   }
 
-  @Before
+  @BeforeMethod
   public void before() throws Exception {
     context = mock(QueryPipelineContext.class);
     when(context.tsdb()).thenReturn(TSDB);

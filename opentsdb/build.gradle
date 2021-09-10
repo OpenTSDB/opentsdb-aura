@@ -25,10 +25,17 @@ dependencies {
     api project(':core')
     implementation project(':aerospike')
     implementation project(':meta-grpc-client')
+    implementation project(':aws')
 
     implementation group: 'net.opentsdb', name: 'opentsdb-common', version: opentsdbVersion
     implementation group: 'net.opentsdb', name: 'opentsdb-core', version: opentsdbVersion
     implementation group: 'net.opentsdb', name: 'opentsdb-executors-http', version: opentsdbVersion
+    implementation group: 'net.opentsdb', name: 'opentsdb-servlet', version: opentsdbVersion
+    implementation group: 'net.opentsdb', name: 'opentsdb-ultrabrew', version: opentsdbVersion
+
+    // temp
+    implementation group: 'com.yahoo.athenz', name: 'athenz-cert-refresher', version: '1.10.14'
+    implementation group: 'software.amazon.awssdk', name: 'sts', version: '2.15.61'
 
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     testImplementation group: 'org.testng', name: 'testng', version: '6.14.3'
@@ -44,6 +51,7 @@ test {
     }
 
     testLogging {
-        events "passed", "skipped", "failed"
+        events "failed"
+        exceptionFormat "full"
     }
 }

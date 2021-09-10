@@ -45,8 +45,11 @@ import net.opentsdb.data.SecondTimeStamp;
 import net.opentsdb.data.TimeSeriesValue;
 import net.opentsdb.data.types.numeric.NumericType;
 import net.opentsdb.hashing.HashFunction;
+import net.opentsdb.query.DefaultTimeSeriesDataSourceConfig;
 import net.opentsdb.query.QueryPipelineContext;
+import net.opentsdb.query.TimeSeriesDataSourceConfig;
 import net.opentsdb.query.TimeSeriesQuery;
+import net.opentsdb.query.filter.MetricLiteralFilter;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -89,6 +92,8 @@ public class AuraMetricsNumericIteratorTest {
     ShardConfig shardConfig = new ShardConfig();
     shardConfig.segmentSizeHour = 1;
     shardConfig.metaStoreCapacity = 10;
+    shardConfig.metricTableSize = 10;
+    shardConfig.tagTableSize = 10;
 
     MetricRegistry registry = new MetricRegistry();
     GorillaSegmentFactory segmentFactory =
@@ -533,9 +538,14 @@ public class AuraMetricsNumericIteratorTest {
   }
 
   private void setQueryTimes(long start, long end) {
-    TimeSeriesQuery query = mock(TimeSeriesQuery.class);
-    when(query.startTime()).thenReturn(new SecondTimeStamp(start));
-    when(query.endTime()).thenReturn(new SecondTimeStamp(end));
-    when(node.pipelineContext().query()).thenReturn(query);
+    TimeSeriesDataSourceConfig config = (TimeSeriesDataSourceConfig)
+            DefaultTimeSeriesDataSourceConfig.newBuilder()
+                    .setMetric(MetricLiteralFilter.newBuilder()
+                            .setMetric("sys.cpu.user").build())
+                    .setStartTimeStamp(new SecondTimeStamp(start))
+                    .setEndTimeStamp(new SecondTimeStamp(end))
+                    .setId("foo")
+                    .build();
+    when(node.config()).thenReturn(config);
   }
 }

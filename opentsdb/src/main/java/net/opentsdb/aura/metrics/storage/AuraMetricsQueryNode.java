@@ -39,6 +39,7 @@ import net.opentsdb.stats.Span;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAmount;
 
 public class AuraMetricsQueryNode extends AbstractQueryNode implements TimeSeriesDataSource {
@@ -51,6 +52,7 @@ public class AuraMetricsQueryNode extends AbstractQueryNode implements TimeSerie
   private TimeseriesStorageContext storageContext;
   private TimeSeriesRecord timeSeriesRecord;
   private boolean queryIncludesNamespace;
+  private int shiftSeconds;
 
   public AuraMetricsQueryNode(
       final AuraMetricsSourceFactory factory,
@@ -58,7 +60,8 @@ public class AuraMetricsQueryNode extends AbstractQueryNode implements TimeSerie
       final TimeSeriesDataSourceConfig config,
       final RollupConfig rollupConfig,
       final TimeSeriesStorageIf timeSeriesStorage,
-      final TimeSeriesRecord timeSeriesRecord, final boolean queryIncludesNamespace) {
+      final TimeSeriesRecord timeSeriesRecord,
+      final boolean queryIncludesNamespace) {
     super(factory, context);
     this.config = config;
     this.rollupConfig = rollupConfig;
@@ -66,6 +69,9 @@ public class AuraMetricsQueryNode extends AbstractQueryNode implements TimeSerie
     this.timeSeriesRecord = timeSeriesRecord;
     this.queryIncludesNamespace = queryIncludesNamespace;
     this.storageContext = timeSeriesStorage.getContext();
+    if (config.timeShifts() != null) {
+      shiftSeconds = (int) ((TemporalAmount) config.timeShifts().getValue()).get(ChronoUnit.SECONDS);
+    }
   }
 
   @Override
@@ -126,20 +132,19 @@ public class AuraMetricsQueryNode extends AbstractQueryNode implements TimeSerie
 //            }
 //          });
     } else {
-      TimeSeriesQuery semanticQuery = queryResult.source().pipelineContext().query();
       int start;
       int end;
       if (config.timeShifts() != null) {
-        TimeStamp ts = semanticQuery.startTime().getCopy();
+        TimeStamp ts = config.startTimestamp().getCopy();
         ts.subtract((TemporalAmount) config.timeShifts().getValue());
         start = (int) ts.epoch();
 
-        ts = semanticQuery.endTime().getCopy();
+        ts = config.endTimestamp().getCopy();
         ts.subtract((TemporalAmount) config.timeShifts().getValue());
         end = (int) ts.epoch();
       } else {
-        start = (int) semanticQuery.startTime().epoch();
-        end = (int) semanticQuery.endTime().epoch();
+        start = (int) config.startTimestamp().epoch();
+        end = (int) config.endTimestamp().epoch();
       }
 
       long segmentTimes =
@@ -198,5 +203,9 @@ public class AuraMetricsQueryNode extends AbstractQueryNode implements TimeSerie
   @Override
   public void onError(Throwable t) {
     sendUpstream(t);
+  }
+
+  int shiftSeconds() {
+    return shiftSeconds;
   }
 }

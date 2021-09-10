@@ -202,9 +202,15 @@ public class AuraMetricsTimeSeriesTest {
     when(result.source()).thenReturn(node);
 
     TimeSeriesQuery query = mock(TimeSeriesQuery.class);
-    when(query.startTime()).thenReturn(new SecondTimeStamp(BASE_TS));
-    when(query.endTime()).thenReturn(new SecondTimeStamp(BASE_TS + 3600));
-    when(node.pipelineContext().query()).thenReturn(query);
+    TimeSeriesDataSourceConfig config = DefaultTimeSeriesDataSourceConfig.newBuilder()
+            .setMetric(MetricLiteralFilter.newBuilder()
+                    .setMetric("sys.cpu.user")
+                    .build())
+            .setStartTimeStamp(new SecondTimeStamp(BASE_TS))
+            .setEndTimeStamp(new SecondTimeStamp(BASE_TS + 3600))
+            .setId("m1")
+            .build();
+    when(node.config()).thenReturn(config);
   }
 
   @Test
@@ -213,6 +219,8 @@ public class AuraMetricsTimeSeriesTest {
             DefaultTimeSeriesDataSourceConfig.newBuilder()
                     .setMetric(MetricLiteralFilter.newBuilder()
                             .setMetric("sys.cpu.user").build())
+                    .setStartTimeStamp(new SecondTimeStamp(BASE_TS))
+                    .setEndTimeStamp(new SecondTimeStamp(BASE_TS + 3600))
                     .setId("foo")
                     .build();
     when(node.config()).thenReturn(config);
@@ -238,6 +246,8 @@ public class AuraMetricsTimeSeriesTest {
                     .setInterval("1s")
                     .setId("rate")
                     .build())
+            .setStartTimeStamp(new SecondTimeStamp(BASE_TS))
+            .setEndTimeStamp(new SecondTimeStamp(BASE_TS + 3600))
             .setId("foo")
             .build();
     when(node.config()).thenReturn(config);
@@ -268,6 +278,8 @@ public class AuraMetricsTimeSeriesTest {
                     .addInterpolatorConfig(NUMERIC_CONFIG)
                     .setId("ds")
                     .build())
+            .setStartTimeStamp(new SecondTimeStamp(BASE_TS))
+            .setEndTimeStamp(new SecondTimeStamp(BASE_TS + 3600))
             .setId("foo")
             .build();
     when(node.config()).thenReturn(config);
@@ -303,6 +315,8 @@ public class AuraMetricsTimeSeriesTest {
                     .setInterval("1s")
                     .setId("rate")
                     .build())
+            .setStartTimeStamp(new SecondTimeStamp(BASE_TS))
+            .setEndTimeStamp(new SecondTimeStamp(BASE_TS + 3600))
             .setId("foo")
             .build();
     when(node.config()).thenReturn(config);

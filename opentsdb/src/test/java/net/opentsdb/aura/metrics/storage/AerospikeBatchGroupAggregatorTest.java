@@ -25,6 +25,7 @@ import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.core.DefaultRegistry;
 import net.opentsdb.core.MockTSDB;
+import net.opentsdb.data.SecondTimeStamp;
 import net.opentsdb.data.TimeSeriesValue;
 import net.opentsdb.data.TypedTimeSeriesIterator;
 import net.opentsdb.data.types.numeric.NumericArrayType;
@@ -1026,6 +1027,8 @@ public class AerospikeBatchGroupAggregatorTest {
             .setMetric(MetricLiteralFilter.newBuilder()
                     .setMetric("sys.cpu.usr")
                     .build())
+            .setStartTimeStamp(new SecondTimeStamp(start))
+            .setEndTimeStamp(new SecondTimeStamp(end))
             .setPushDownNodes(pushdowns)
             .setId("m1")
             .build();
