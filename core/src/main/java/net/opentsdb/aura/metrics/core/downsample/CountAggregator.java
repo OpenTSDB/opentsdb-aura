@@ -21,6 +21,7 @@ import java.util.Arrays;
 
 public class CountAggregator extends Aggregator {
 
+  public static final int ORDINAL = 3;
   public static final byte ID = (byte) 0b100;
   public static final String NAME = "count";
 
@@ -29,7 +30,7 @@ public class CountAggregator extends Aggregator {
   }
 
   public CountAggregator(final int numPoints, final Aggregator aggregator) {
-    super(0.0, ID, NAME, numPoints, aggregator);
+    super(0.0, ORDINAL, ID, NAME, numPoints, aggregator);
   }
 
   @Override

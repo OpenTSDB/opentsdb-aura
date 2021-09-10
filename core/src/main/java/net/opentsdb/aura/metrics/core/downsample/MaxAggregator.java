@@ -19,6 +19,7 @@ package net.opentsdb.aura.metrics.core.downsample;
 
 public class MaxAggregator extends Aggregator {
 
+  public static final int ORDINAL = 5;
   public static final byte ID = (byte) 0b10000;
   public static final String NAME = "max";
 
@@ -27,12 +28,12 @@ public class MaxAggregator extends Aggregator {
   }
 
   public MaxAggregator(final int numPoints, final Aggregator aggregator) {
-    super(Double.NaN, ID, NAME, numPoints, aggregator);
+    super(Double.NaN, ORDINAL, ID, NAME, numPoints, aggregator);
   }
 
   @Override
   public void doApply(final double value) {
-    if(Double.isNaN(this.value)) {
+    if (Double.isNaN(this.value)) {
       this.value = value;
       return;
     }

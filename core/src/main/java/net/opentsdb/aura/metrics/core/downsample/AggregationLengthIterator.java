@@ -28,6 +28,4 @@ public interface AggregationLengthIterator extends AggregatorIterator<Void> {
 
   void serialize(byte[] buffer, int offset);
 
-//  void readAggValue(double[] buffer);
-
 }

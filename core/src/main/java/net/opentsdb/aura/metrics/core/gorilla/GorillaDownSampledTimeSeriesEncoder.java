@@ -64,7 +64,7 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
         downSampler.getAggCount());
   }
 
-  GorillaDownSampledTimeSeriesEncoder(
+  public GorillaDownSampledTimeSeriesEncoder(
       final boolean lossy,
       final Interval interval,
       final SegmentWidth segmentWidth,
@@ -331,6 +331,11 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
     public void serialize(byte[] buffer, int offset) {
       int bits = aggLengthInBits();
       segment.serializeBits(buffer, offset, bits);
+    }
+
+    @Override
+    public int aggOrdinal() {
+      return aggIterator.aggOrdinal();
     }
 
     @Override

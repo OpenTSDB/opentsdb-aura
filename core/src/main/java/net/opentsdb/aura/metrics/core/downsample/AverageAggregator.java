@@ -19,6 +19,7 @@ package net.opentsdb.aura.metrics.core.downsample;
 
 public class AverageAggregator extends Aggregator {
 
+  public static final int ORDINAL = 1;
   public static final byte ID = (byte) 0b1;
   public static final String NAME = "avg";
 
@@ -30,7 +31,7 @@ public class AverageAggregator extends Aggregator {
   }
 
   public AverageAggregator(final int numPoints, final Aggregator aggregator) {
-    super(0.0, ID, NAME, numPoints, aggregator);
+    super(0.0, ORDINAL, ID, NAME, numPoints, aggregator);
     this.sumAggregator = new SumAggregator(numPoints);
     this.countAggregator = new CountAggregator(numPoints);
   }

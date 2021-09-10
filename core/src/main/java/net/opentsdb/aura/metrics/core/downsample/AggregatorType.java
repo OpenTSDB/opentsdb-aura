@@ -23,11 +23,31 @@ public enum AggregatorType {
     public Aggregator create(int intervalCount, Aggregator aggregator) {
       return new AverageAggregator(intervalCount, aggregator);
     }
+
+    @Override
+    public int getOrdinal() {
+      return AverageAggregator.ORDINAL;
+    }
+
+    @Override
+    public byte getId() {
+      return AverageAggregator.ID;
+    }
   },
   sum {
     @Override
     public Aggregator create(int intervalCount, Aggregator aggregator) {
       return new SumAggregator(intervalCount, aggregator);
+    }
+
+    @Override
+    public int getOrdinal() {
+      return SumAggregator.ORDINAL;
+    }
+
+    @Override
+    public byte getId() {
+      return SumAggregator.ID;
     }
   },
   count {
@@ -35,11 +55,31 @@ public enum AggregatorType {
     public Aggregator create(int intervalCount, Aggregator aggregator) {
       return new CountAggregator(intervalCount, aggregator);
     }
+
+    @Override
+    public int getOrdinal() {
+      return CountAggregator.ORDINAL;
+    }
+
+    @Override
+    public byte getId() {
+      return CountAggregator.ID;
+    }
   },
   min {
     @Override
     public Aggregator create(int intervalCount, Aggregator aggregator) {
       return new MinAggregator(intervalCount, aggregator);
+    }
+
+    @Override
+    public int getOrdinal() {
+      return MinAggregator.ORDINAL;
+    }
+
+    @Override
+    public byte getId() {
+      return MinAggregator.ID;
     }
   },
   max {
@@ -47,13 +87,41 @@ public enum AggregatorType {
     public Aggregator create(int intervalCount, Aggregator aggregator) {
       return new MaxAggregator(intervalCount, aggregator);
     }
+
+    @Override
+    public int getOrdinal() {
+      return MaxAggregator.ORDINAL;
+    }
+
+    @Override
+    public byte getId() {
+      return MaxAggregator.ID;
+    }
   },
   sumofsquare {
     @Override
     public Aggregator create(int intervalCount, Aggregator aggregator) {
       return new SumOfSquareAggregator(intervalCount, aggregator);
     }
+
+    @Override
+    public int getOrdinal() {
+      return SumOfSquareAggregator.ORDINAL;
+    }
+
+    @Override
+    public byte getId() {
+      return SumOfSquareAggregator.ID;
+    }
   };
 
   public abstract Aggregator create(int intervalCount, Aggregator aggregator);
+
+  public abstract int getOrdinal();
+
+  public abstract byte getId();
+
+  public static AggregatorType getByOrdinal(final int ordinal) {
+    return values()[ordinal - 1];
+  }
 }

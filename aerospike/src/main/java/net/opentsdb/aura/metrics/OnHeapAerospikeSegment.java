@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics;
 
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
+import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaDownSampledSegment;
+
+import java.util.List;
 
 public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
+  private byte[] aggIds;
+  private List<byte[]> aggList;
   private byte[] header;
-  private int headerOffset;
   private int headerLength;
-  private byte aggId;
-  private byte[] agg;
+  private byte bitMap;
   private int aggCount;
 
-  public OnHeapAerospikeSegment(int segmentTime, byte[] header, byte aggId, byte[] agg) {
-    super(segmentTime, header, 0, header.length);
-    this.header = header;
-    this.headerOffset = 0;
+  public OnHeapAerospikeSegment(int segmentTime, byte bitMap, byte[] aggIds, List<byte[]> aggList) {
+    super(segmentTime, aggList.get(0));
+    this.bitMap = bitMap;
+    this.aggIds = aggIds;
+    this.aggList = aggList;
+    this.header = aggList.get(0);
     this.headerLength = header.length;
-    this.aggId = aggId;
-    this.agg = agg;
     this.bitIndex = 0;
-    this.aggCount = 1;
+    this.aggCount = aggList.size() - 1;
   }
 
   @Override
@@ -50,16 +53,31 @@ public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
     return false;
   }
 
-  public void moveToAggHead(byte aggId) {
+  protected void moveToAggHead(byte aggId) {
+    int aggIndex = getAggIndex(aggId);
+    chooseAggToRead(aggIndex);
+  }
+
+  private int getAggIndex(byte aggId) {
+    for (int i = 0; i < aggIds.length; i++) {
+      if (aggIds[i] == aggId) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  protected byte chooseAggToRead(int index) {
     this.bitIndex = 0;
-    this.buffer = agg;
-    this.length = agg.length;
+    this.buffer = aggList.get(index);
+    this.length = buffer.length;
     this.currentLong = ByteArrays.getLong(buffer, 0);
     this.byteIndex = Long.BYTES;
+    return aggIds[index];
   }
 
   public byte getAggID() {
-    return aggId;
+    return bitMap;
   }
 
   public int getAggCount() {

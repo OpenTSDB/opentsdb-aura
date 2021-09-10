@@ -35,9 +35,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Random;
 
 import static net.opentsdb.aura.metrics.core.TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
@@ -659,130 +657,6 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     assertArrayEquals(expectedMinValues, minValues);
     assertArrayEquals(expectedMaxValues, maxValues);
     assertArrayEquals(expectedSumOfSquaresValues, sumOfSquaresValues);
-  }
-
-  @RepeatedTest(value = 100, name = "{displayName} - {currentRepetition}/{totalRepetitions}")
-  void serializeAggValuesSeparately() {
-    Aggregator aggregator =
-        Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
-    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
-
-    double[] randomValues = new double[segmentWidth.getWidth()];
-    Arrays.fill(randomValues, Double.NaN);
-    for (int i = 0; i < randomValues.length; i++) {
-      randomValues[i] = random.nextLong() + random.nextDouble();
-    }
-
-    encoder =
-        new GorillaDownSampledTimeSeriesEncoder(
-            false, interval, segmentWidth, downSampler, segment);
-    encoder.createSegment(SEGMENT_TIMESTAMP);
-    encoder.addDataPoints(randomValues);
-
-    assertEquals(intervalCount, encoder.getNumDataPoints());
-
-    downSampler.apply(randomValues);
-    AggregatorIterator<double[]> iterator = downSampler.iterator();
-    Map<Byte, double[]> expectedValues = new HashMap<>();
-    while (iterator.hasNext()) {
-      double[] values = iterator.next();
-      expectedValues.put(iterator.aggID(), values);
-    }
-
-    // header bytes
-    int headerBytes = (int) (3 + Math.ceil(encoder.getIntervalCount() / Byte.SIZE));
-    byte[] header = new byte[headerBytes];
-
-    encoder.serializeHeader(header, 0);
-
-    AggregationLengthIterator aggIterator = encoder.aggIterator();
-    while (aggIterator.hasNext()) {
-      aggIterator.next();
-      int aggBytes = aggIterator.aggLengthInBytes();
-      // one extra byte to accommodate if agg is not starting from the byte boundary.
-      byte[] agg = new byte[aggBytes + 1];
-
-      aggIterator.serialize(agg, 0);
-
-      OnHeapAerospikeSegment aerospikeSegment =
-          new OnHeapAerospikeSegment(SEGMENT_TIMESTAMP, header, aggIterator.aggID(), agg);
-      AerospikeDSTimeSeriesEncoder aerospikeEncoder =
-          new AerospikeDSTimeSeriesEncoder(false, aerospikeSegment);
-
-      double[] values = new double[intervalCount];
-
-      int numPoints = aerospikeEncoder.readAggValues(values, aggIterator.aggID());
-      assertEquals(intervalCount, numPoints);
-      assertArrayEquals(expectedValues.get(aggIterator.aggID()), values);
-    }
-  }
-
-  @Test
-  void testSerializeSparseDataSeparately() {
-    Aggregator aggregator =
-        Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
-    DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
-
-    double[] sparseValues = new double[segmentWidth.getWidth()];
-    Arrays.fill(sparseValues, Double.NaN);
-    sparseValues[39] = random.nextLong() + random.nextDouble();
-
-    sparseValues[239] = random.nextLong() + random.nextDouble();
-
-    sparseValues[240] = random.nextLong() + random.nextDouble();
-    sparseValues[242] = random.nextLong() + random.nextDouble();
-    sparseValues[243] = random.nextLong() + random.nextDouble();
-    sparseValues[244] = random.nextLong() + random.nextDouble();
-
-    sparseValues[7198] = random.nextLong() + random.nextDouble();
-
-    encoder =
-        new GorillaDownSampledTimeSeriesEncoder(
-            false, interval, segmentWidth, downSampler, segment);
-    encoder.createSegment(SEGMENT_TIMESTAMP);
-    encoder.addDataPoints(sparseValues);
-
-    assertEquals(4, encoder.getNumDataPoints());
-
-    int serdeLength = encoder.serializationLength();
-    byte[] buffer = new byte[serdeLength];
-    encoder.serialize(buffer, 0, serdeLength);
-
-    downSampler.apply(sparseValues);
-    AggregatorIterator<double[]> iterator = downSampler.iterator();
-
-    Map<Byte, double[]> expectedValues = new HashMap<>();
-    while (iterator.hasNext()) {
-      double[] values = iterator.next();
-      expectedValues.put(iterator.aggID(), values);
-    }
-
-    // header bytes
-    int headerBytes = (int) (3 + Math.ceil(encoder.getIntervalCount() / Byte.SIZE));
-    byte[] header = new byte[headerBytes];
-
-    encoder.serializeHeader(header, 0);
-
-    AggregationLengthIterator aggIterator = encoder.aggIterator();
-    while (aggIterator.hasNext()) {
-      aggIterator.next();
-      int aggBytes = aggIterator.aggLengthInBytes();
-      // one extra byte to accommodate if agg is not starting from the byte boundary.
-      byte[] agg = new byte[aggBytes + 1];
-
-      aggIterator.serialize(agg, 0);
-
-      OnHeapAerospikeSegment aerospikeSegment =
-          new OnHeapAerospikeSegment(SEGMENT_TIMESTAMP, header, aggIterator.aggID(), agg);
-      AerospikeDSTimeSeriesEncoder aerospikeEncoder =
-          new AerospikeDSTimeSeriesEncoder(false, aerospikeSegment);
-
-      double[] values = new double[intervalCount];
-
-      int numPoints = aerospikeEncoder.readAggValues(values, aggIterator.aggID());
-      assertEquals(4, numPoints);
-      assertArrayEquals(expectedValues.get(aggIterator.aggID()), values);
-    }
   }
 
   private void assumeSparseData(double[] aggValues, double[] rawValues) {

@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package net.opentsdb.aura.metrics.core.gorilla;
+package net.opentsdb.aura.metrics;
 
 import net.opentsdb.aura.metrics.core.downsample.CountAggregator;
+import net.opentsdb.aura.metrics.core.gorilla.GorillaDownSampledTimeSeriesEncoder;
 
 import java.util.Arrays;
 
@@ -62,7 +63,7 @@ public class AerospikeDSTimeSeriesEncoder
   public int readAggValues(double[] valueBuffer, byte aggId) {
 
     if ((this.aggId & aggId) == 0) { // agg not found
-      if ((segment.aggs & aggId) == 0) {
+      if ((segment.getAggs() & aggId) == 0) {
         throw new IllegalArgumentException("aggregation with id: " + aggId + " not found");
       } else {
         throw new IllegalArgumentException("aggregation with id: " + aggId + " not fetched");
@@ -82,6 +83,33 @@ public class AerospikeDSTimeSeriesEncoder
     }
 
     segment.moveToAggHead(aggId);
+    boolean isCount = aggId == CountAggregator.ID;
+    dataPoints = 0; // reset before the read of each agg.
+    for (int i = 0; i < tsBitMap.length; i++) {
+      if (tsBitMap[i] == 1) {
+        valueBuffer[i] = readNextValue();
+      } else {
+        valueBuffer[i] = isCount ? 0 : Double.NaN;
+      }
+    }
+    return numPoints;
+  }
+
+  public int readAggValuesByIndex(double[] valueBuffer, int index) {
+
+    if (!tsBitsRead) {
+      segment.moveToHead();
+      numPoints = segment.decodeTimestampBits(tsBitMap);
+      tsBitsSet = true;
+      tsBitsRead = true;
+    }
+
+    if (numPoints == 0) {
+      Arrays.fill(valueBuffer, Double.NaN);
+      return 0;
+    }
+
+    byte aggId = segment.chooseAggToRead(index);
     boolean isCount = aggId == CountAggregator.ID;
     dataPoints = 0; // reset before the read of each agg.
     for (int i = 0; i < tsBitMap.length; i++) {

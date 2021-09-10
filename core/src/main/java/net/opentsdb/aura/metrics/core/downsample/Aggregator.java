@@ -21,12 +21,15 @@ import java.util.Arrays;
 
 public abstract class Aggregator {
 
-  protected final double identity;
-  protected double value;
+  private final int COMPOSITE_ORDINAL = -1;
+
+  private int ordinal;
   protected byte id;
   protected String name;
-  protected byte compositeId;
+  protected byte bitMap;
   protected String compositeName;
+  protected final double identity;
+  protected double value;
   protected final double[] values;
   protected int aggregatorCount;
 
@@ -39,12 +42,18 @@ public abstract class Aggregator {
     return new AggregatorBuilder(intervalCount);
   }
 
-  public Aggregator(final double identity, final byte id, final String name, final int numPoints) {
-    this(identity, id, name, numPoints, null);
+  public Aggregator(
+      final double identity,
+      final int ordinal,
+      final byte id,
+      final String name,
+      final int numPoints) {
+    this(identity, ordinal, id, name, numPoints, null);
   }
 
   public Aggregator(
       final double identity,
+      final int ordinal,
       final byte id,
       final String name,
       final int numPoints,
@@ -52,16 +61,17 @@ public abstract class Aggregator {
     this.identity = identity;
     this.previous = previous;
     this.values = new double[numPoints];
+    this.ordinal = ordinal;
     this.id = id;
-    this.compositeId = id;
+    this.bitMap = id;
     this.name = name;
     this.compositeName = name;
     this.aggregatorCount = 1;
     if (previous != null) {
-      if ((id & previous.compositeId) != 0) {
+      if ((id & previous.bitMap) != 0) {
         throw new IllegalArgumentException("Duplicate aggregator found for: " + name);
       }
-      this.compositeId |= previous.compositeId;
+      this.bitMap |= previous.bitMap;
       this.compositeName = previous.compositeName + "-" + name;
       previous.next = this;
       aggregatorCount += previous.aggregatorCount;
@@ -97,8 +107,12 @@ public abstract class Aggregator {
     return agg;
   }
 
+  public int getOrdinal() {
+    return aggregatorCount == 1 ? ordinal : COMPOSITE_ORDINAL;
+  }
+
   public byte getId() {
-    return compositeId;
+    return bitMap;
   }
 
   public String getName() {
@@ -136,6 +150,7 @@ public abstract class Aggregator {
     Aggregator current;
     Aggregator head;
 
+    int ordinal;
     byte aggId;
     String aggName;
 
@@ -152,6 +167,7 @@ public abstract class Aggregator {
     @Override
     public double[] next() {
       double[] values = current.values;
+      ordinal = current.ordinal;
       aggId = current.id;
       aggName = current.name;
       current = current.next;
@@ -163,6 +179,11 @@ public abstract class Aggregator {
       current = head;
       aggId = 0;
       aggName = null;
+    }
+
+    @Override
+    public int aggOrdinal() {
+      return ordinal;
     }
 
     @Override

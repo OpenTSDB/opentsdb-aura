@@ -25,7 +25,7 @@ public interface DownSampledSegment extends Segment {
 
   byte getInterval();
 
-  void setAggs(byte aggId);
+  void setAggs(byte bitMap);
 
   byte getAggs();
 

@@ -67,7 +67,6 @@ public class DSEncodedValue extends Value {
     while (iterator.hasNext()) {
       iterator.next();
       int lengthInBytes = iterator.aggLengthInBytes();
-      System.out.println(iterator.aggName() + " bytes: " + lengthInBytes);
       bytes += particleMetaBytes(lengthInBytes);
       bytes += lengthInBytes;
     }
@@ -75,8 +74,6 @@ public class DSEncodedValue extends Value {
     assert size < 15;
     bytes += MAP_BEGIN_BYTES; // to encode map begin
     bytes += size; // keys
-
-//    bytes++; // one extra byte
 
     this.length = bytes;
     return bytes;
@@ -88,9 +85,8 @@ public class DSEncodedValue extends Value {
     writeMapBegin(buffer, offset, size);
     offset += MAP_BEGIN_BYTES;
 
-    byte keyIndex = 0;
+    buffer[offset++] = encodeMapKey(recordOffset, 0); // header
 
-    buffer[offset++] = encodeMapKey(recordOffset, keyIndex++);
     int length = writeParticleMetaBytes(buffer, offset, headerLength);
     offset += length;
     encoder.serializeHeader(buffer, offset);
@@ -99,10 +95,9 @@ public class DSEncodedValue extends Value {
     AggregationLengthIterator iterator = encoder.aggIterator();
     while (iterator.hasNext()) {
       iterator.next();
-      buffer[offset++] = encodeMapKey(recordOffset, keyIndex++);
 
+      buffer[offset++] = encodeMapKey(recordOffset, iterator.aggOrdinal());
       int bytes = iterator.aggLengthInBytes();
-
       length = writeParticleMetaBytes(buffer, offset, bytes);
       offset += length;
 
@@ -113,7 +108,7 @@ public class DSEncodedValue extends Value {
   }
 
   private int particleMetaBytes(int size) {
-    size++; // not sure of this
+    size++;
 
     int bytes;
     if (size < 32) {
@@ -132,7 +127,7 @@ public class DSEncodedValue extends Value {
   }
 
   private int writeParticleMetaBytes(byte[] buffer, int offset, int size) {
-    size++; // not sure of this
+    size++;
 
     int bytes;
     if (size < 32) {
@@ -167,8 +162,8 @@ public class DSEncodedValue extends Value {
     buffer[offset++] = (byte) 0xc0;
   }
 
-  private static final byte encodeMapKey(int recordOffset, int keyIndex) {
-    return (byte) (recordOffset << 4 | keyIndex);
+  private static final byte encodeMapKey(final int recordOffset, final int ordinal) {
+    return (byte) (recordOffset << 4 | ordinal);
   }
 
   @Override

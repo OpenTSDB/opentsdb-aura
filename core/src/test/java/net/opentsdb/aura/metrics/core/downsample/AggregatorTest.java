@@ -47,6 +47,7 @@ public class AggregatorTest {
 
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).count().build();
 
+    assertEquals(3, aggregator.getOrdinal());
     assertEquals(0b100, aggregator.getId());
     assertEquals("count", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -61,6 +62,7 @@ public class AggregatorTest {
   void sumAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).forType(sum).build();
 
+    assertEquals(2, aggregator.getOrdinal());
     assertEquals(0b10, aggregator.getId());
     assertEquals("sum", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -75,6 +77,7 @@ public class AggregatorTest {
   void averageAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).forType("AVG").build();
 
+    assertEquals(1, aggregator.getOrdinal());
     assertEquals(0b1, aggregator.getId());
     assertEquals("avg", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -89,6 +92,7 @@ public class AggregatorTest {
   void minAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).min().build();
 
+    assertEquals(4, aggregator.getOrdinal());
     assertEquals(0b1000, aggregator.getId());
     assertEquals("min", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -119,6 +123,7 @@ public class AggregatorTest {
   void maxAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).max().build();
 
+    assertEquals(5, aggregator.getOrdinal());
     assertEquals(0b10000, aggregator.getId());
     assertEquals("max", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -149,6 +154,7 @@ public class AggregatorTest {
   void sumOfSquareAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).sumOfSquares().build();
 
+    assertEquals(6, aggregator.getOrdinal());
     assertEquals(0b100000, aggregator.getId());
     assertEquals("sumofsquare", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -164,6 +170,7 @@ public class AggregatorTest {
     Aggregator aggregator =
         Aggregator.newBuilder(intervalCount).avg().sum().count().min().max().sumOfSquares().build();
 
+    assertEquals(-1, aggregator.getOrdinal());
     assertEquals(0b111111, aggregator.getId());
     assertEquals("avg-sum-count-min-max-sumofsquare", aggregator.getName());
     assertEquals(6, aggregator.getAggCount());
@@ -191,13 +198,30 @@ public class AggregatorTest {
 
     apply(aggregator, rawData);
 
-    Iterator<double[]> iterator = aggregator.iterator();
+    AggregatorIterator<double[]> iterator = aggregator.iterator();
     assertSumOfSquareEquals((iterator.next()), intervalCount, intervalWidth);
+    assertEquals(SumOfSquareAggregator.NAME, iterator.aggName());
+    assertEquals(SumOfSquareAggregator.ID, iterator.aggID());
+
     assertAverageEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(AverageAggregator.NAME, iterator.aggName());
+    assertEquals(AverageAggregator.ID, iterator.aggID());
+
     assertMaxEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(MaxAggregator.NAME, iterator.aggName());
+    assertEquals(MaxAggregator.ID, iterator.aggID());
+
     assertMinEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(MinAggregator.NAME, iterator.aggName());
+    assertEquals(MinAggregator.ID, iterator.aggID());
+
     assertCountEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(CountAggregator.NAME, iterator.aggName());
+    assertEquals(CountAggregator.ID, iterator.aggID());
+
     assertSumEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(SumAggregator.NAME, iterator.aggName());
+    assertEquals(SumAggregator.ID, iterator.aggID());
 
     assertFalse(iterator.hasNext());
   }

@@ -37,8 +37,6 @@ public interface DownSampledTimeSeriesEncoder extends TimeSeriesEncoder {
 
   int serializeHeader(byte[] buffer, int offset);
 
-//  void serializeHe(byte[] buffer, int offset);
-
   static byte encodeInterval(Interval interval, SegmentWidth segmentWidth) {
     return (byte) (interval.getId() << 3 | segmentWidth.getId());
   }

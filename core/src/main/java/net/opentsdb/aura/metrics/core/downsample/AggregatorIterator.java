@@ -21,10 +21,11 @@ import java.util.Iterator;
 
 public interface AggregatorIterator<T> extends Iterator<T> {
 
+  int aggOrdinal();
+
   byte aggID();
 
   String aggName();
 
   void reset();
-
 }

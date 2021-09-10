@@ -25,6 +25,10 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
   protected byte interval;
   protected byte aggs;
 
+  public OnHeapGorillaDownSampledSegment(int segmentTime, byte[] buffer) {
+    this(segmentTime, buffer, 0, buffer.length);
+  }
+
   public OnHeapGorillaDownSampledSegment(
       int segmentTime, byte[] buffer, int startingOffset, int length) {
     super(segmentTime, buffer, startingOffset, length);
@@ -44,7 +48,7 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
   }
 
   @Override
-  public void setAggs(byte aggId) {
+  public void setAggs(byte bitMap) {
     throw new UnsupportedOperationException();
   }
 
