@@ -39,7 +39,7 @@ public class ConfigUtils {
   public static final String RETENTION_KEY = "metrics.retention";
   public static final String FLUSH_TYPE_KEY = "metrics.flush.type";
   public static final String FLUSH_FREQUENCY_KEY = "metrics.flush.frequency";
-  public static final String NAMESPACE_QUERY_KEY = "metrics.query.namespaced";
+  public static final String NAMESPACE_QUERY_KEY = "metrics.query.namespaces";
 
   public static final String SEGMENT_SIZE_KEY = "metrics.segment.size";
   public static final String MEMORY_USAGE_KEY = "metrics.memory.limit";
