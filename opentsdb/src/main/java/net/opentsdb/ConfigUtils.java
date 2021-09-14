@@ -19,6 +19,9 @@ package net.opentsdb;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.ultrabrew.metrics.util.Strings;
+import net.opentsdb.AuraMetricsService.FlushType;
+import net.opentsdb.AuraMetricsService.OperatingMode;
+import net.opentsdb.aura.metrics.core.StorageMode;
 import net.opentsdb.configuration.Configuration;
 import net.opentsdb.configuration.ConfigurationEntrySchema;
 import net.opentsdb.core.TSDB;
@@ -56,10 +59,8 @@ public class ConfigUtils {
   public static final String GARBAGE_FREQUENCY_KEY =
           "metrics.shard.segment.collector.frequency";
 
-
   // GORILLA BITS - TODO - move this out to an encoding bit.
   public static final String GORILLA_LOSSY_KEY = "metrics.storage.memory.gorilla.lossy.enable";
-
 
   private ConfigUtils() {
     // Thou shalt not initialize me!
@@ -68,6 +69,18 @@ public class ConfigUtils {
   public static void registerConfigs(final TSDB tsdb, final String id) {
     final Configuration config = tsdb.getConfig();
 
+    if (!config.hasProperty(configId(id, STORAGE_MODE_KEY))) {
+      config.register(configId(id, STORAGE_MODE_KEY), StorageMode.LONG_RUNNING.toString(), false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, CONSUMER_MODE_KEY))) {
+      config.register(configId(id, CONSUMER_MODE_KEY), null, false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, OPERATING_MODE_KEY))) {
+      config.register(configId(id, OPERATING_MODE_KEY), OperatingMode.WRITER.toString(), false,
+              "TODO");
+    }
     if (!config.hasProperty(configId(id, NAMESPACES_KEY))) {
       config.register(ConfigurationEntrySchema.newBuilder()
               .setKey(configId(id, NAMESPACES_KEY))
@@ -77,12 +90,69 @@ public class ConfigUtils {
               .setSource(ConfigUtils.class.getName())
               .build());
     }
-
     if (!config.hasProperty(configId(id, RETENTION_KEY))) {
       config.register(configId(id, RETENTION_KEY), "24h", false,
               "How long to retain metrics data in memory.");
     }
+    if (!config.hasProperty(configId(id, FLUSH_TYPE_KEY))) {
+      config.register(configId(id, FLUSH_TYPE_KEY), FlushType.NONE.toString(), false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, FLUSH_FREQUENCY_KEY))) {
+      config.register(configId(id, FLUSH_FREQUENCY_KEY), "150m", false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, NAMESPACE_QUERY_KEY))) {
+      config.register(configId(id, NAMESPACE_QUERY_KEY), false, false,
+              "TODO");
+    }
 
+    if (!config.hasProperty(configId(id, SEGMENT_SIZE_KEY))) {
+      config.register(configId(id, SEGMENT_SIZE_KEY), "2h", false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, MEMORY_USAGE_KEY))) {
+      config.register(configId(id, MEMORY_USAGE_KEY), 90, false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, PURGE_FREQUENCY_KEY))) {
+      config.register(configId(id, PURGE_FREQUENCY_KEY), "2h", false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, PURGE_BATCH_SIZE_KEY))) {
+      config.register(configId(id, PURGE_BATCH_SIZE_KEY), 4096, false,
+              "TODO");
+    }
+
+    if (!config.hasProperty(configId(id, SHARD_QUEUE_SIZE_KEY))) {
+      config.register(configId(id, SHARD_QUEUE_SIZE_KEY), 20_000, false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, SHARDS_KEY))) {
+      config.register(configId(id, SHARDS_KEY), 5, false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, SHARD_METRIC_TABLE_KEY))) {
+      config.register(configId(id, SHARD_METRIC_TABLE_KEY), 1024, false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, SHARD_TAG_TABLE_KEY))) {
+      config.register(configId(id, SHARD_TAG_TABLE_KEY), 1024 * 128, false,
+              "TODO");
+    }
+
+    if (!config.hasProperty(configId(id, GARBAGE_QUEUE_SIZE_KEY))) {
+      config.register(configId(id, GARBAGE_QUEUE_SIZE_KEY), 2_000_000, false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, GARBAGE_DELAY_KEY))) {
+      config.register(configId(id, GARBAGE_DELAY_KEY), "15m", false,
+              "TODO");
+    }
+    if (!config.hasProperty(configId(id, GARBAGE_FREQUENCY_KEY))) {
+      config.register(configId(id, GARBAGE_FREQUENCY_KEY), "10m", false,
+              "TODO");
+    }
     // GORILLA
     if (!config.hasProperty(configId(id, GORILLA_LOSSY_KEY))) {
       config.register(configId(id, GORILLA_LOSSY_KEY), false, false,

@@ -59,8 +59,8 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin
   private static Logger logger = LoggerFactory.getLogger(AuraMetricsDataStoreFactory.class);
   public static final String TYPE = AuraMetricsDataStoreFactory.class.toString();
 
-  public final ThreadLocal<LowLevelMetricShardContainer[]> shardContainers;
-  private final TimeSeriesStorageIf timeSeriesStorage;
+  public ThreadLocal<LowLevelMetricShardContainer[]> shardContainers;
+  private TimeSeriesStorageIf timeSeriesStorage;
 
   public LowLevelMetricShardContainerPool allocator;
   public ThreadLocal<ObjectPool> shardContainerPools;
@@ -69,17 +69,24 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin
   private boolean process_deferreds;
   private Random rnd = new Random(System.currentTimeMillis());
 
-  public AuraMetricsDataStoreFactory(final TimeSeriesStorageIf timeSeriesStorage) {
-    this.timeSeriesStorage = timeSeriesStorage;
-    shardContainers = ThreadLocal.withInitial(() ->
-            new LowLevelMetricShardContainer[timeSeriesStorage.numShards()]);
-  }
+//  public AuraMetricsDataStoreFactory(final TimeSeriesStorageIf timeSeriesStorage) {
+//    this.timeSeriesStorage = timeSeriesStorage;
+//    shardContainers = ThreadLocal.withInitial(() ->
+//            new LowLevelMetricShardContainer[timeSeriesStorage.numShards()]);
+//  }
 
   @Override
   public Deferred<Object> initialize(final TSDB tsdb, final String id) {
     this.tsdb = tsdb;
     this.id = id;
 
+    Object obj = tsdb.getRegistry().getSharedObject("AuraTimeSeriesStorage");
+    if (obj == null) {
+      return Deferred.fromError(new IllegalArgumentException("No AuraTimeSeriesStorage found!"));
+    }
+    timeSeriesStorage = (TimeSeriesStorageIf) obj;
+    shardContainers = ThreadLocal.withInitial(() ->
+        new LowLevelMetricShardContainer[timeSeriesStorage.numShards()]);
     allocator = new LowLevelMetricShardContainerPool();
     shardContainerPools = 
         new ThreadLocal<ObjectPool>() {
