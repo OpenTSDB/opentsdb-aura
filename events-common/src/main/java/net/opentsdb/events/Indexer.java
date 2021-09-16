@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package net.opentsdb.events;
 
-rootProject.name = 'opentsdb-aura'
+import net.opentsdb.events.view.Event;
 
-include 'core'
-include 'aerospike'
-include 'opentsdb'
-include 'aws'
-include 'meta-grpc-client'
-include 'events-common'
-include 'events-lucene'
+public interface Indexer {
 
+  void index(Event event) throws Exception;
+
+  String id();
+}

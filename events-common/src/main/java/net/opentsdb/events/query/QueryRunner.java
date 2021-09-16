@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-rootProject.name = 'opentsdb-aura'
+package net.opentsdb.events.query;
 
-include 'core'
-include 'aerospike'
-include 'opentsdb'
-include 'aws'
-include 'meta-grpc-client'
-include 'events-common'
-include 'events-lucene'
+public interface QueryRunner {
 
+  IndexEventsResponse runquery(EventsQuery query);
+
+}

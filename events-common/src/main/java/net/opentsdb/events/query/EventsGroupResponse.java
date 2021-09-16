@@ -15,13 +15,26 @@
  * limitations under the License.
  */
 
-rootProject.name = 'opentsdb-aura'
+package net.opentsdb.events.query;
 
-include 'core'
-include 'aerospike'
-include 'opentsdb'
-include 'aws'
-include 'meta-grpc-client'
-include 'events-common'
-include 'events-lucene'
+import java.util.Set;
 
+public class EventsGroupResponse {
+
+  private Set<IndexGroupResponse> groupResponse;
+
+  public EventsGroupResponse(Set<IndexGroupResponse> groupResponse) {
+    this.groupResponse = groupResponse;
+  }
+
+  public Set<IndexGroupResponse> getGroupResponse() {
+    return groupResponse;
+  }
+
+  @Override
+  public String toString() {
+    return "EventsGroupResponse{" +
+        "groupResponse=" + groupResponse +
+        '}';
+  }
+}

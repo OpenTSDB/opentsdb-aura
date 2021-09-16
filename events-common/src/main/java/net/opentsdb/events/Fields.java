@@ -14,14 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package net.opentsdb.events;
 
-rootProject.name = 'opentsdb-aura'
+public enum Fields {
 
-include 'core'
-include 'aerospike'
-include 'opentsdb'
-include 'aws'
-include 'meta-grpc-client'
-include 'events-common'
-include 'events-lucene'
 
+  namespace("namespace"),
+  source("source"),
+  title("title"),
+  message("message"),
+  userid("userid"),
+  ongoing("ongoing"),
+  priority("priority"),
+  eventid("eventid"),
+  starttimestamp("starttimestamp"),
+  endtimestamp("endtimestamp"),
+  timestampMinute("timestampMinute"),
+  parentid("parentid"),
+  childid("childid");
+
+
+  private String field;
+
+  Fields(String field) {
+    this.field = field;
+  }
+
+
+}

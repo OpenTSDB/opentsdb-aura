@@ -1,0 +1,68 @@
+/*
+ * This file is part of OpenTSDB.
+ * Copyright (C) 2021  Yahoo.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id "java-library"
+}
+
+dependencies {
+    api project(':events-common')
+
+    compile 'org.apache.lucene:lucene-core:8.1.1'
+    compile 'org.apache.lucene:lucene-analyzers-common:8.1.1'
+    compile 'org.apache.lucene:lucene-codecs:8.1.1'
+    compile 'org.apache.lucene:lucene-queryparser:8.1.1'
+    compile 'org.apache.lucene:lucene-grouping:8.1.1'
+    compile 'net.openhft:zero-allocation-hashing:0.11'
+    compile 'net.opentsdb:opentsdb-common:3.0.90-SNAPSHOT'
+    compile 'net.opentsdb:opentsdb-core:3.0.90-SNAPSHOT'
+    compile ('io.swagger:swagger-jaxrs:1.5.21') {
+        exclude group: 'javax.ws.rs', module: 'jsr311-api'
+    }
+    compile 'net.opentsdb:opentsdb-core:3.0.90-SNAPSHOT'
+    compile 'net.opentsdb:opentsdb-executors-http:3.0.90-SNAPSHOT'
+    compile 'net.opentsdb:opentsdb-servlet:3.0.90-SNAPSHOT'
+    compile 'net.opentsdb:opentsdb-server-undertow:3.0.90-SNAPSHOT'
+    compile 'org.glassfish.jersey.core:jersey-common:2.27'
+    compile 'org.glassfish.jersey.core:jersey-client:2.27'
+    compile 'org.glassfish.jersey.core:jersey-server:2.27'
+    compile 'org.glassfish.jersey.containers:jersey-container-servlet-core:2.27'
+    compile 'org.glassfish.jersey.media:jersey-media-json-jackson:2.27'
+    compile 'org.glassfish.jersey.inject:jersey-hk2:2.27'
+    compile 'com.google.guava:guava:23.6.1-jre'
+    runtime group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.11.2'
+    runtime group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.11.2'
+    runtime group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.11.2'
+    runtime group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.11.2'
+
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.7.0'
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-params', version: '5.7.0'
+    testImplementation group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
+    testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.7.0'
+    testCompile group: 'net.opentsdb', name: 'opentsdb-common', version: '3.0.90-SNAPSHOT', classifier: 'tests'
+}
+
+test {
+    useJUnitPlatform()
+//    doFirst {
+//        jvmArgs "-javaagent:${classpath.find { it.name.contains("jmockit") }.absolutePath}"
+//    }
+
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
