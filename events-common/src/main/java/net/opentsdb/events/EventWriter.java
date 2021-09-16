@@ -32,12 +32,8 @@ public abstract class EventWriter implements Indexer, Runnable {
 
   private static final Logger LOG = LoggerFactory.getLogger(EventWriter.class);
   public static DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-  private static LinkedBlockingQueue<Event> queue = new LinkedBlockingQueue<>(10000);
+  private LinkedBlockingQueue<Event> queue = new LinkedBlockingQueue<>(10000);
   private static LongHashFunction hash = LongHashFunction.xx();
-
-  public static void queue(Event event) throws InterruptedException {
-    queue.put(event);
-  }
 
   public static String getIndexName(String eventId) {
     return eventId.split("_")[0];
