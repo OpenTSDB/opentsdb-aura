@@ -50,6 +50,7 @@ import net.opentsdb.query.QueryPipelineContext;
 import net.opentsdb.query.TimeSeriesDataSourceConfig;
 import net.opentsdb.query.TimeSeriesQuery;
 import net.opentsdb.query.filter.MetricLiteralFilter;
+import net.opentsdb.stats.StatsCollector;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -95,15 +96,15 @@ public class AuraMetricsNumericIteratorTest {
     shardConfig.metricTableSize = 10;
     shardConfig.tagTableSize = 10;
 
-    MetricRegistry registry = new MetricRegistry();
     GorillaSegmentFactory segmentFactory =
-        new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
+        new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes,
+                TSDB.getStatsCollector());
     TimeSeriesEncoderFactory<GorillaRawTimeSeriesEncoder> encoderFactory =
         new GorillaTimeSeriesEncoderFactory(
             false,
             shardConfig.garbageQSize,
             shardConfig.segmentCollectionDelayMinutes,
-            registry,
+                TSDB.getStatsCollector(),
             segmentFactory);
 
     int segmentsInATimeSeries =
@@ -139,7 +140,7 @@ public class AuraMetricsNumericIteratorTest {
             encoder,
             docStore,
             memoryInfoReader,
-            registry,
+            TSDB.getStatsCollector(),
             LocalDateTime.now(),
             hashFunction,
             flusher,

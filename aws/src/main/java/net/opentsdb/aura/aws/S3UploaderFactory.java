@@ -19,7 +19,7 @@ package net.opentsdb.aura.aws;
 
 import net.opentsdb.aura.metrics.metaflush.Uploader;
 import net.opentsdb.aura.metrics.metaflush.UploaderFactory;
-import io.ultrabrew.metrics.MetricRegistry;
+import net.opentsdb.stats.StatsCollector;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -45,7 +45,7 @@ public class S3UploaderFactory implements UploaderFactory {
             }
             final S3Client client = s3ClientBuilder.build();
 
-            this.uploaders.put(shardIds[i], new S3Uploader(client, builder.metricRegistry, builder.bucketName, builder.namespace, shardIds[i]));
+            this.uploaders.put(shardIds[i], new S3Uploader(client, builder.stats, builder.bucketName, builder.namespace, shardIds[i]));
         }
     }
 
@@ -62,7 +62,7 @@ public class S3UploaderFactory implements UploaderFactory {
         private Region region;
         private URI endpoint;
         private AwsCredentialsProvider awsCredentialsProvider;
-        private MetricRegistry metricRegistry;
+        private StatsCollector stats;
 
         public Builder bucketName(String bucketName) {
             this.bucketName = bucketName;
@@ -93,8 +93,8 @@ public class S3UploaderFactory implements UploaderFactory {
             return this;
         }
 
-        public Builder withMetricRegistry(MetricRegistry metricRegistry) {
-            this.metricRegistry = metricRegistry;
+        public Builder withStatsCollector(StatsCollector stats) {
+            this.stats = stats;
             return this;
         }
 

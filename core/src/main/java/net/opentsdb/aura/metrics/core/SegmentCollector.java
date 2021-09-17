@@ -17,8 +17,7 @@
 
 package net.opentsdb.aura.metrics.core;
 
-import io.ultrabrew.metrics.Gauge;
-import io.ultrabrew.metrics.MetricRegistry;
+import net.opentsdb.stats.StatsCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,23 +27,25 @@ public class SegmentCollector implements LazyStatsCollector {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SegmentCollector.class);
 
+  public static final String M_QUEUE_LENGTH = "garbage.queue.length";
+
   private final GarbageQueue garbageQueue;
   private final int collectionDelayMinutes;
   private final Segment segmentHandle;
   private final LazyStatsCollector segmentStatsCollector;
-  private Gauge garbageQueueLengthGauge;
+  private final StatsCollector stats;
   private String[] tags;
 
   public SegmentCollector(
       final int garbageQSize,
       final int collectionDelayMinutes,
       final Segment segmentHandle,
-      final MetricRegistry metricRegistry) {
+      final StatsCollector stats) {
     this.collectionDelayMinutes = collectionDelayMinutes;
     this.garbageQueue = new GarbageQueue("GarbageQueue", garbageQSize);
     this.segmentHandle = segmentHandle;
     this.segmentStatsCollector = (LazyStatsCollector) segmentHandle;
-    this.garbageQueueLengthGauge = metricRegistry.gauge("garbage.queue.length");
+    this.stats = stats;
   }
 
   public void collect(final long segmentAddress) {
@@ -82,7 +83,9 @@ public class SegmentCollector implements LazyStatsCollector {
 
   @Override
   public void collectMetrics() {
-    garbageQueueLengthGauge.set(garbageQueue.size(), tags);
+    if (stats != null) {
+      stats.setGauge(M_QUEUE_LENGTH, garbageQueue.size(), tags);
+    }
     segmentStatsCollector.collectMetrics();
   }
 

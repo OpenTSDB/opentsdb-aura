@@ -17,13 +17,15 @@
 
 package net.opentsdb.aura.metrics.core.gorilla;
 
-import io.ultrabrew.metrics.Gauge;
-import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.OffHeapSegment;
 import net.opentsdb.collections.DirectByteArray;
 import net.opentsdb.collections.DirectLongArray;
+import net.opentsdb.stats.StatsCollector;
 
 public class OffHeapGorillaRawSegment extends OffHeapSegment implements GorillaRawSegment {
+
+  protected static final String M_BLOCK_COUNT = "memory.block.count";
+  protected static final String M_SEGMENT_LENGTH = "segment.length";
 
   protected static final int LAST_TIMESTAMP_BYTE_INDEX = 22;
   protected static final int LAST_VALUE_BYTE_INDEX = 26;
@@ -44,14 +46,12 @@ public class OffHeapGorillaRawSegment extends OffHeapSegment implements GorillaR
   protected boolean ooo;
   protected boolean readyToRead;
 
-  protected Gauge memoryBlockCountGauge;
-  protected Gauge segmentLengthGauge;
+  protected final StatsCollector stats;
   protected String[] tags;
 
-  public OffHeapGorillaRawSegment(final int dataBlockSizeBytes, final MetricRegistry metricRegistry) {
+  public OffHeapGorillaRawSegment(final int dataBlockSizeBytes, final StatsCollector stats) {
     super(dataBlockSizeBytes);
-    this.memoryBlockCountGauge = metricRegistry.gauge("memory.block.count");
-    this.segmentLengthGauge = metricRegistry.gauge("segment.length");
+    this.stats = stats;
   }
 
   @Override
@@ -293,8 +293,10 @@ public class OffHeapGorillaRawSegment extends OffHeapSegment implements GorillaR
 
   @Override
   public void collectMetrics() {
-    this.memoryBlockCountGauge.set(memoryBlockCount, tags);
-    this.segmentLengthGauge.set(memoryBlockCount * blockSizeBytes, tags);
+    if (stats != null) {
+      stats.setGauge(M_BLOCK_COUNT, memoryBlockCount, tags);
+      stats.setGauge(M_SEGMENT_LENGTH, memoryBlockCount * blockSizeBytes, tags);
+    }
   }
 
   @Override

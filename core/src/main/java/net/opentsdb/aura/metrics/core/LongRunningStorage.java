@@ -18,8 +18,8 @@
 package net.opentsdb.aura.metrics.core;
 
 import net.opentsdb.aura.metrics.meta.MetaDataStoreFactory;
-import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.hashing.HashFunction;
+import net.opentsdb.stats.StatsCollector;
 
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -28,7 +28,7 @@ public class LongRunningStorage extends BaseStorage {
   public LongRunningStorage(
           final MemoryInfoReader memoryInfoReader,
           final ShardConfig shardConfig,
-          final MetricRegistry metricRegistry,
+          final StatsCollector stats,
           final HashFunction hashFunction,
           final TimeSeriesEncoderFactory encoderFactory,
           final MetaDataStoreFactory metaDataStoreFactory,
@@ -37,7 +37,7 @@ public class LongRunningStorage extends BaseStorage {
     super(
         memoryInfoReader,
         shardConfig,
-        metricRegistry,
+        stats,
         hashFunction,
         encoderFactory,
         metaDataStoreFactory,

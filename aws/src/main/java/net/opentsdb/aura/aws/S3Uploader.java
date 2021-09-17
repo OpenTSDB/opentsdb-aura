@@ -18,10 +18,8 @@
 package net.opentsdb.aura.aws;
 
 import net.opentsdb.aura.metrics.metaflush.Uploader;
-import io.ultrabrew.metrics.Counter;
-import io.ultrabrew.metrics.Gauge;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.Timer;
+import net.opentsdb.stats.StatsCollector;
+import net.opentsdb.utils.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.internal.util.Mimetype;
@@ -31,8 +29,18 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
 import java.io.ByteArrayInputStream;
+import java.time.temporal.ChronoUnit;
 
 public class S3Uploader implements Uploader {
+
+    public static final String M_UPLOAD_TIME = "meta.s3.upload.time";
+    public static final String M_UPLOAD_2XX = "meta.s3.upload.2xx";
+    public static final String M_UPLOAD_4XX = "meta.s3.upload.4xx";
+    public static final String M_UPLOAD_5XX = "meta.s3.upload.5xx";
+    public static final String M_UPLOAD_OTHER = "meta.s3.upload.other";
+    public static final String M_UPLOAD_RETRIES = "meta.s3.upload.retries";
+    public static final String M_UPLOAD_EX = "meta.s3.upload.exceptions";
+    public static final String M_UPLOAD_SIZE = "meta.s3.upload.size";
 
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final String bucketName;
@@ -45,18 +53,13 @@ public class S3Uploader implements Uploader {
     private final String format;
     private int index = 0;
     private final S3Client s3Client;
-    private final Timer s3RequestTimer;
-    private final Gauge payloadSize;
-    private final Counter s3_2xx;
-    private final Counter s3_4xx;
-    private final Counter s3_5xx;
-    private final Counter s3_other;
-    private final Counter s3_exceptions;
+    private final StatsCollector stats;
     private final String[] tags;
     private final int retries = 3;
+
     public S3Uploader(
             final S3Client s3Client,
-            final MetricRegistry metricRegistry,
+            final StatsCollector stats,
             final String bucketName,
             final String namespace,
             final int shardid) {
@@ -66,13 +69,7 @@ public class S3Uploader implements Uploader {
         this.shardid = shardid;
         this.format = namespace + "/%s/" + shardid + "-%s" ;
         this.s3Client = s3Client;
-        this.s3RequestTimer = metricRegistry.timer("meta.s3.upload.time");
-        this.s3_2xx = metricRegistry.counter("meta.s3.upload.2xx");
-        this.s3_4xx = metricRegistry.counter("meta.s3.upload.4xx");
-        this.s3_5xx = metricRegistry.counter("meta.s3.upload.5xx");
-        this.s3_other = metricRegistry.counter("meta.s3.upload.other");
-        this.s3_exceptions = metricRegistry.counter("meta.s3.upload.exceptions");
-        this.payloadSize = metricRegistry.gauge("meta.s3.upload.size");
+        this.stats = stats;
         this.tags = new String[]{
                 "bucket_name", bucketName,
                 "namespace", namespace,
@@ -83,7 +80,7 @@ public class S3Uploader implements Uploader {
     public void upload(int timestamp, byte[] payload) {
 
         final String objectName = String.format(this.format, timestamp, index);
-        this.payloadSize.set(payload.length, tags);
+        stats.setGauge(M_UPLOAD_SIZE, payload.length, tags);
         log.info("S3 upload for: {} size: {}",
                 objectName,
                 payload.length);
@@ -91,7 +88,7 @@ public class S3Uploader implements Uploader {
         PutObjectRequest putObjectRequest = PutObjectRequest.builder().bucket(bucketName).key(objectName).build();
         //To avoid making a byte array copy.
 
-        long start = this.s3RequestTimer.start();
+        long start = DateTime.nanoTime();
         int retriesLeft = this.retries;
         while(retriesLeft > 0) {
             try {
@@ -107,12 +104,13 @@ public class S3Uploader implements Uploader {
                     );
                     reportErrorResponse(putObjectResponse.sdkHttpResponse().statusCode());
                     retriesLeft--;
-                    this.s3RequestTimer.stop(start, tags);
-                    start = this.s3RequestTimer.start();
+                    stats.addTime(M_UPLOAD_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tags);
+                    stats.incrementCounter(M_UPLOAD_RETRIES, tags);
+                    start = DateTime.nanoTime();
                     continue;
                 }
-                this.s3RequestTimer.stop(start, tags);
-                this.s3_2xx.inc(tags);
+                stats.addTime(M_UPLOAD_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tags);
+                stats.incrementCounter(M_UPLOAD_2XX, tags);
                 log.info("S3 uploaded for: {} status code: {} status text: {}",
                         objectName,
                         putObjectResponse.sdkHttpResponse().statusCode(),
@@ -121,9 +119,8 @@ public class S3Uploader implements Uploader {
             } catch (Throwable t) {
                 log.error("Error uploading to S3 for {} retries left: {}", objectName, retriesLeft, t);
                 retriesLeft--;
-                this.s3RequestTimer.stop(start, tags);
-                start = this.s3RequestTimer.start();
-                this.s3_exceptions.inc(tags);
+                stats.addTime(M_UPLOAD_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tags);
+                stats.incrementCounter(M_UPLOAD_EX, tags);
             }
         }
 
@@ -131,11 +128,11 @@ public class S3Uploader implements Uploader {
 
     private void reportErrorResponse(int statusCode) {
         if( statusCode >= 400 && statusCode < 500) {
-            this.s3_4xx.inc(tags);
+            stats.incrementCounter(M_UPLOAD_4XX, tags);
         } else if ( statusCode >= 500 && statusCode < 600) {
-            this.s3_5xx.inc(tags);
+            stats.incrementCounter(M_UPLOAD_5XX, tags);
         } else {
-            this.s3_other.inc(tags);
+            stats.incrementCounter(M_UPLOAD_OTHER, tags);
         }
     }
 

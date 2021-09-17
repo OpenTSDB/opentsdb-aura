@@ -23,11 +23,11 @@ import net.opentsdb.aura.metrics.core.data.Memory;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaRawSegment;
 import net.opentsdb.aura.metrics.meta.MetaDataStore;
-import io.ultrabrew.metrics.MetricRegistry;
 import mockit.Injectable;
 import mockit.Verifications;
 import net.opentsdb.data.LowLevelMetricData;
 import net.opentsdb.hashing.HashFunction;
+import net.opentsdb.stats.StatsCollector;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,11 +54,11 @@ public class TimeSeriesShardTest {
   private static Random random = new Random(now);
   private static HashFunction hashFunction = new XxHash();
 
-  protected MetricRegistry metricRegistry = new MetricRegistry();
   protected RawTimeSeriesEncoder encoder;
   protected TimeSeriesShardIF shard;
   private TimeseriesStorageContext storageContext;
 
+  @Injectable protected StatsCollector stats;
   @Injectable protected MetaDataStore metaDataStore;
   @Injectable protected MemoryInfoReader memoryInfoReader;
   @Injectable protected ScheduledExecutorService purgeService;
@@ -80,8 +80,8 @@ public class TimeSeriesShardTest {
     encoder =
         new GorillaRawTimeSeriesEncoder(
             false,
-            metricRegistry,
-            new OffHeapGorillaRawSegment(256, metricRegistry),
+                stats,
+            new OffHeapGorillaRawSegment(256, stats),
             segmentCollector);
     storageContext = new LongRunningStorage.LongRunningStorageContext(config);
     shard =
@@ -92,7 +92,7 @@ public class TimeSeriesShardTest {
             encoder,
             metaDataStore,
             memoryInfoReader,
-            metricRegistry,
+                stats,
             purgeDateTime,
             hashFunction,
             flusher,
@@ -409,7 +409,7 @@ public class TimeSeriesShardTest {
             encoder,
             metaDataStore,
             memoryInfoReader,
-            metricRegistry,
+                stats,
             purgeDateTime,
             hashFunction,
             flusher,
@@ -472,7 +472,7 @@ public class TimeSeriesShardTest {
             encoder,
             metaDataStore,
             memoryInfoReader,
-            metricRegistry,
+                stats,
             purgeDateTime,
             hashFunction,
             flusher,

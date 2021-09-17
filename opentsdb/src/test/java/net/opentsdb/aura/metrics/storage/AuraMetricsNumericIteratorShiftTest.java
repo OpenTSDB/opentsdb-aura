@@ -95,13 +95,13 @@ public class AuraMetricsNumericIteratorShiftTest {
 
     MetricRegistry registry = new MetricRegistry();
     GorillaSegmentFactory segmentFactory =
-        new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
+        new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, TSDB.getStatsCollector());
     TimeSeriesEncoderFactory<GorillaRawTimeSeriesEncoder> encoderFactory =
         new GorillaTimeSeriesEncoderFactory(
             false,
             shardConfig.garbageQSize,
             shardConfig.segmentCollectionDelayMinutes,
-            registry,
+                TSDB.getStatsCollector(),
             segmentFactory);
 
     int segmentsInATimeSeries =
@@ -137,7 +137,7 @@ public class AuraMetricsNumericIteratorShiftTest {
             encoder,
             docStore,
             memoryInfoReader,
-            registry,
+                TSDB.getStatsCollector(),
             LocalDateTime.now(),
             hashFunction,
             flusher,

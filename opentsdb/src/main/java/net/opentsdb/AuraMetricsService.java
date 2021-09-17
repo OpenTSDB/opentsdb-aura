@@ -17,13 +17,12 @@
 
 package net.opentsdb;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.oath.auth.KeyRefresher;
 import com.oath.auth.KeyRefresherException;
 import com.oath.auth.Utils;
 import com.stumbleupon.async.Deferred;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.util.Strings;
 import net.opentsdb.aura.aws.S3UploaderFactory;
 import net.opentsdb.aura.aws.auth.AthensCredentialsProviderImpl;
 import net.opentsdb.aura.metrics.ASCluster;
@@ -63,8 +62,6 @@ import net.opentsdb.core.TSDB;
 import net.opentsdb.data.TimeSeriesDataSourceFactory;
 import net.opentsdb.hashing.HashFunction;
 import net.opentsdb.service.TSDBService;
-import net.opentsdb.stats.StatsCollector;
-import net.opentsdb.stats.UltrabrewMetrics;
 import net.opentsdb.utils.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -165,7 +162,6 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
 
   private List<String> namespaces;
   private ScheduledExecutorService metricsScheduler;
-  private MetricRegistry registry;
   private StorageMode storageMode;
   private MemoryInfoReader memoryInfoReader;
   private ShardConfig shardConfig;
@@ -184,16 +180,6 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
     this.id = Strings.isNullOrEmpty(id) ? null : id;
 
     registerConfigs();
-
-    // TODO - pass the stats collector around.
-    StatsCollector statsCollector = tsdb.getRegistry().getPlugin(StatsCollector.class, null);
-    if (statsCollector != null && statsCollector instanceof UltrabrewMetrics) {
-      logger.info("Using TSD stats collector");
-      registry = ((UltrabrewMetrics) statsCollector).getRegistry();
-    } else {
-      logger.warn("TODO - Proper registry for metrics.");
-      registry = new MetricRegistry();
-    }
 
     // TODO - need a plugin for this.
     memoryInfoReader = new Rhel7MemoryInfoReader(1000);
@@ -325,7 +311,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
     TimeSeriesEncoderFactory dsEncoderFactory = null;
     if (shardConfig.downSampleInterval != null) {
       OffHeapDownSampledGorillaSegmentFactory downSampledSegmentFactory =
-              new OffHeapDownSampledGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
+              new OffHeapDownSampledGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, tsdb.getStatsCollector());
       dsEncoderFactory =
               new GorillaTimeSeriesDownSamplingEncoderFactory(
                       shardConfig.lossy,
@@ -336,12 +322,12 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
     }
 
     GorillaSegmentFactory segmentFactory =
-            new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
+            new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, tsdb.getStatsCollector());
     encoderFactory = new GorillaTimeSeriesEncoderFactory(
                     shardConfig.lossy,
                     shardConfig.garbageQSize,
                     shardConfig.segmentCollectionDelayMinutes,
-                    registry,
+                    tsdb.getStatsCollector(),
                     segmentFactory);
     int segmentsInATimeSeries =
             storageMode.getSegmentsPerTimeseries(shardConfig.retentionHour,
@@ -416,7 +402,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
       return new LongRunningStorage(
                       memoryInfoReader,
                       shardConfig,
-                      registry,
+                      tsdb.getStatsCollector(),
                       hashFunction,
                       encoderFactory,
                       new NewDocStoreFactory(shardConfig, hashFunction),
@@ -428,7 +414,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
       return new EphemeralStorage(
                       memoryInfoReader,
                       shardConfig,
-                      registry,
+                      tsdb.getStatsCollector(),
                       hashFunction,
                       encoderFactory,
                       new NewDocStoreFactory(shardConfig, hashFunction),
@@ -608,7 +594,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
                     .region(tsdb.getConfig().getString(configId(id, AWS_S3_REGION_KEY)))
                     .numShards(shardConfig.shardIds)
                     .awsCredentialsProvider(provider)
-                    .withMetricRegistry(registry)
+                    .withStatsCollector(tsdb.getStatsCollector())
                     .build();
     String duration = tsdb.getConfig().getString(
             configId(id, ConfigUtils.FLUSH_FREQUENCY_KEY));
@@ -621,7 +607,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
             new CompressedMetaWriterFactory(namespaces.get(0)),
             s3UploaderFactory,
             Executors.newWorkStealingPool(shardConfig.shardCount),
-            registry,
+            tsdb.getStatsCollector(),
             namespaces.get(0),
             (int) flushFrequency);
   }
@@ -641,7 +627,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
                     secondsInASegment,
                     shardConfig.namespace,
                     "b",
-                    registry,
+                    tsdb.getStatsCollector(),
                     metricsScheduler);
     stores.add(longTermStore);
     tsdb.getRegistry()
@@ -657,7 +643,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
             shardConfig,
             stores,
             metricsScheduler,
-            registry,
+            tsdb.getStatsCollector(),
             new String[] {"namespace", shardConfig.namespace, "shardId", "0"},
             flushFrequency,
             tsdb.getConfig().getInt(configId(id, FLUSH_THREADS_KEY)));

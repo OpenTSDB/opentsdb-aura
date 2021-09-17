@@ -25,11 +25,11 @@ import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
-import io.ultrabrew.metrics.MetricRegistry;
 import mockit.Expectations;
 import mockit.Injectable;
 import mockit.Mocked;
 import mockit.Verifications;
+import net.opentsdb.stats.StatsCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -60,7 +60,7 @@ public class LTSAerospikeTest {
   @Injectable
   private ASCluster cluster;
   @Injectable
-  private MetricRegistry metricRegistry;
+  private StatsCollector stats;
   @Injectable
   private ScheduledExecutorService scheduledExecutorService;
   @Injectable
@@ -78,7 +78,7 @@ public class LTSAerospikeTest {
 
   @BeforeEach
   public void before() {
-    lts = new LTSAerospike(cluster, NAMESPACE, recordWidthInSeconds, secondsInASegment, SET_NAME, BIN_NAME, metricRegistry, scheduledExecutorService);
+    lts = new LTSAerospike(cluster, NAMESPACE, recordWidthInSeconds, secondsInASegment, SET_NAME, BIN_NAME, stats, scheduledExecutorService);
   }
 
   @Test
@@ -162,7 +162,7 @@ public class LTSAerospikeTest {
       ri.getResultCode();
       result = ResultCode.KEY_NOT_FOUND_ERROR;
     }};
-    LTSAerospike lts = new LTSAerospike(cluster, NAMESPACE, recordWidthInSeconds, secondsInASegment, SET_NAME, BIN_NAME, metricRegistry, scheduledExecutorService);
+    LTSAerospike lts = new LTSAerospike(cluster, NAMESPACE, recordWidthInSeconds, secondsInASegment, SET_NAME, BIN_NAME, stats, scheduledExecutorService);
     LongTermStorage.Records records = lts.read(hash, BASE_TIME, BASE_TIME + (3600 * 2));
     assertFalse(records.hasNext());
   }

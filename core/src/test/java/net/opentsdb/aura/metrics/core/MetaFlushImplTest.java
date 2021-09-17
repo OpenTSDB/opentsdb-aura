@@ -185,7 +185,7 @@ public class MetaFlushImplTest extends TimeSeriesShardTest {
                 new CompressedMetaWriterFactory(namespace),
                 uploaderFactory,
                 executorService,
-                metricRegistry,
+                stats,
                 namespace,
                 0);
 
@@ -209,7 +209,7 @@ public class MetaFlushImplTest extends TimeSeriesShardTest {
                         encoder,
                         metaDataStore,
                         memoryInfoReader,
-                        metricRegistry,
+                        stats,
                         purgeDateTime,
                         hashFunction,
                         metaFlush,

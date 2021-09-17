@@ -24,24 +24,28 @@ import net.opentsdb.aura.metrics.core.TimeSeriesRecordFactory;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.data.HashTable;
 import net.opentsdb.aura.metrics.core.data.Memory;
-import io.ultrabrew.metrics.Counter;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.Timer;
 import net.opentsdb.collections.LongLongHashTable;
 import net.opentsdb.collections.LongLongIterator;
+import net.opentsdb.stats.StatsCollector;
+import net.opentsdb.utils.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 public class MetaFlushImpl implements Flusher {
 
+    public static final String M_FLUSHED = "timeseries.flushed";
+    public static final String M_DURATION = "meta.flush.duration";
+    public static final String M_ERRORS = "meta.flush.errors";
+
     private final UploaderFactory uploaderFactory;
     private final ExecutorService pool ;
     private final TimeSeriesRecordFactory timeSeriesRecordFactory;
     private final MetaWriterFactory metaWriterFactory;
-    private final MetricRegistry registry;
+    private final StatsCollector stats;
     private final String namespace;
     private final int frequency;
 
@@ -50,7 +54,7 @@ public class MetaFlushImpl implements Flusher {
             MetaWriterFactory metaWriterFactory,
             UploaderFactory uploaderFactory,
             ExecutorService service,
-            MetricRegistry registry,
+            StatsCollector stats,
             String namespace,
             int flushFrequency) {
 
@@ -58,7 +62,7 @@ public class MetaFlushImpl implements Flusher {
         this.metaWriterFactory = metaWriterFactory;
         this.uploaderFactory = uploaderFactory;
         this.pool = service;
-        this.registry = registry;
+        this.stats = stats;
         this.namespace = namespace;
         this.frequency = flushFrequency;
     }
@@ -74,7 +78,8 @@ public class MetaFlushImpl implements Flusher {
                                   final HashTable metricTable,
                                   final LongLongHashTable timeSeriesTable,
                                   int flushTimestamp) {
-        final Future submit = pool.submit(new FlushJob(registry, shardId, tagTable, metricTable, timeSeriesTable, flushTimestamp));
+        final Future submit = pool.submit(
+                new FlushJob(shardId, tagTable, metricTable, timeSeriesTable, flushTimestamp));
         return new MetaFlushStatus(submit);
     }
 
@@ -99,7 +104,6 @@ public class MetaFlushImpl implements Flusher {
 
         private final Logger log = LoggerFactory.getLogger(getClass());
 
-        private final MetricRegistry registry;
         private final int shardId;
         private final HashTable tagTable;
         private final HashTable metricTable;
@@ -108,17 +112,13 @@ public class MetaFlushImpl implements Flusher {
         private final TimeSeriesRecord record;
         private final byte[] pointerBuffer;
         private byte[] byteBuffer;
-        private final Counter timeseriesWritten;
-        private final Timer flushDuration;
-        private final Counter flushErrors;
         private final String[] tags;
-        public FlushJob(final MetricRegistry registry,
-                        final int shardId,
+
+        public FlushJob(final int shardId,
                         final HashTable tagTable,
                         final HashTable metricTable,
                         final LongLongHashTable timeSeriesTable,
                         int flushTimestamp) {
-            this.registry = registry;
 
             this.shardId = shardId;
             this.tagTable = tagTable;
@@ -128,15 +128,12 @@ public class MetaFlushImpl implements Flusher {
             this.record = timeSeriesRecordFactory.create();
             this.pointerBuffer = new byte[HashTable.valSz + 4];
             this.byteBuffer = new byte[2048];
-            this.timeseriesWritten = registry.counter("timeseries.flushed");
-            this.flushDuration = registry.timer("meta.flush.duration");
             this.tags = new String[]{"namespace", namespace, "shard_id", String.valueOf(shardId)};
-            this.flushErrors = registry.counter("meta.flush.errors");
         }
 
         @Override
         public void run() {
-            final long start = this.flushDuration.start();
+            final long start = DateTime.nanoTime();
             try {
                 final MetaWriter metaWriter = metaWriterFactory.create(uploaderFactory.create(shardId),shardId);
                 metaWriter.init(flushTimestamp);
@@ -185,7 +182,7 @@ public class MetaFlushImpl implements Flusher {
                     }
 
                     count++;
-                    this.timeseriesWritten.inc(tags);
+                    stats.incrementCounter(M_FLUSHED, tags);
                     if (count % 100000 == 0 && log.isDebugEnabled()) {
                         log.debug("Wrote {} many records in meta flush for shard: {} and time: {}", count, shardId, flushTimestamp);
                     }
@@ -196,9 +193,9 @@ public class MetaFlushImpl implements Flusher {
                 metaWriter.close();
             } catch (Throwable t) {
                 log.error("Throwable in meta flush: ", t);
-                this.flushErrors.inc(tags);
+                stats.incrementCounter(M_ERRORS, tags);
             }
-            this.flushDuration.stop(start, tags);
+            stats.addTime(M_DURATION, DateTime.nanoTime() - start, ChronoUnit.NANOS, tags);
         }
     }
 }

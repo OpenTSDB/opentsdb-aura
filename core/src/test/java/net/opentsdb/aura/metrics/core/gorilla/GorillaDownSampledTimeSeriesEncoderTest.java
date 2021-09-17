@@ -76,7 +76,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
   private static double[] rawValues = new double[segmentWidth.getWidth()];
 
   private OffHeapGorillaDownSampledSegment segment =
-      new OffHeapGorillaDownSampledSegment(256, null);
+      new OffHeapGorillaDownSampledSegment(256);
 
   private GorillaDownSampledTimeSeriesEncoder encoder;
 
