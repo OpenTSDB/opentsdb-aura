@@ -20,10 +20,9 @@ package net.opentsdb.aura.metrics.core;
 import net.opentsdb.aura.metrics.meta.MetaDataStore;
 import net.opentsdb.aura.metrics.meta.MetaDataStoreFactory;
 import net.opentsdb.aura.metrics.meta.MetricQuery;
-import io.ultrabrew.metrics.Counter;
-import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.data.LowLevelMetricData;
 import net.opentsdb.hashing.HashFunction;
+import net.opentsdb.stats.StatsCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,21 +36,23 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
 
   protected final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
+  public static final String M_EARLY = "timeseries.early.count";
+  public static final String M_LATE = "timeseries.delay.count";
+
   private final ShardConfig shardConfig;
 
   protected final TimeSeriesShardIF[] shards;
   private final int shardCount;
   private final int[] shardIds;
   protected final Flusher flusher;
+  protected final StatsCollector stats;
 
-  private final Counter earlyTimeSeriesCounter;
-  private final Counter delayedTimeSeriesCounter;
   protected TimeseriesStorageContext context;
 
   public BaseStorage(
       final MemoryInfoReader memoryInfoReader,
       final ShardConfig shardConfig,
-      final MetricRegistry metricRegistry,
+      final StatsCollector stats,
       final HashFunction hashFunction,
       final TimeSeriesEncoderFactory<RawTimeSeriesEncoder> encoderFactory,
       final MetaDataStoreFactory metaDataStoreFactory,
@@ -60,6 +61,7 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
       final ScheduledExecutorService scheduledExecutorService) {
 
     this.shardConfig = shardConfig;
+    this.stats = stats;
     this.shardIds = shardConfig.shardIds;
     this.flusher = flusher;
     this.context = context;
@@ -79,7 +81,7 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
               encoder,
               metaDataStore,
               memoryInfoReader,
-              metricRegistry,
+              stats,
               purgeDateTime,
               hashFunction,
               flusher,
@@ -88,9 +90,6 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
       ((ShardAware) metaDataStore).setShard(shard);
       shards[i] = shard;
     }
-
-    this.earlyTimeSeriesCounter = metricRegistry.counter("timeseries.early.count");
-    this.delayedTimeSeriesCounter = metricRegistry.counter("timeseries.delay.count");
   }
 
   protected abstract boolean isDelayed(int segmentTime, int currentTimeHour);
@@ -105,7 +104,7 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
     int currentTimeHour = Util.getCurrentWallClockHour();
 
     if (isDelayed(segmentTime, currentTimeHour)) { // older than retention period. drop it.
-      delayedTimeSeriesCounter.inc();
+      stats.incrementCounter(M_LATE);
       try {
         event.close();
       } catch (IOException e) {
@@ -115,7 +114,7 @@ public abstract class BaseStorage implements TimeSeriesStorageIf {
     }
 
     if (isEarly(segmentTime, currentTimeHour)) { // too early, drop it.
-      earlyTimeSeriesCounter.inc();
+      stats.incrementCounter(M_EARLY);
       try {
         event.close();
       } catch (IOException e) {

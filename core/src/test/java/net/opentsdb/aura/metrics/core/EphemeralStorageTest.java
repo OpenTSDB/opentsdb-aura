@@ -20,10 +20,10 @@ package net.opentsdb.aura.metrics.core;
 import mockit.Mocked;
 import net.opentsdb.aura.metrics.meta.MetaDataStoreFactory;
 import net.opentsdb.aura.metrics.meta.NewDocStore;
-import io.ultrabrew.metrics.MetricRegistry;
 import mockit.Expectations;
 import mockit.Injectable;
 import net.opentsdb.hashing.HashFunction;
+import net.opentsdb.stats.StatsCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -47,7 +47,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 public class EphemeralStorageTest {
 
   @Injectable private MemoryInfoReader memoryInfoReader;
-  @Injectable private MetricRegistry metricRegistry;
+  @Injectable private StatsCollector stats;
   @Injectable private HashFunction hashFunction;
   @Injectable private TimeSeriesEncoderFactory<RawTimeSeriesEncoder> encoderFactory;
   @Injectable private MetaDataStoreFactory dataStoreFactory;
@@ -96,7 +96,7 @@ public class EphemeralStorageTest {
         new EphemeralStorage(
             memoryInfoReader,
             config,
-            metricRegistry,
+                stats,
             hashFunction,
             encoderFactory,
             dataStoreFactory,

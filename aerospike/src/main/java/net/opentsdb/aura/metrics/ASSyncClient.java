@@ -38,14 +38,14 @@ import com.aerospike.client.util.Util;
 import net.opentsdb.aura.metrics.operation.MapOperation;
 import net.opentsdb.aura.metrics.operation.MapPolicy;
 import net.opentsdb.aura.metrics.operation.OperationLocal;
-import io.ultrabrew.metrics.Counter;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.Timer;
+import net.opentsdb.stats.StatsCollector;
+import net.opentsdb.utils.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -72,6 +72,25 @@ import java.util.concurrent.TimeUnit;
 public class ASSyncClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(ASSyncClient.class);
 
+    public static final String M_TCP = "AerospikeClient.tcp.call.latency";
+    public static final String M_OVERALL = "AerospikeClient.overall.call.latency";
+
+    public static final String M_RAW_WRITES = "AerospikeClient.raw.writes.attempts";
+    public static final String M_RAW_READS = "AerospikeClient.raw.reads.attempts";
+    public static final String M_MAP_WRITES = "AerospikeClient.map.writes.attempts";
+    public static final String M_MAP_READS = "AerospikeClient.map.reads.attempts";
+
+    public static final String M_IO_TIMEOUTS = "AerospikeClient.io.timeouts";
+    public static final String M_IO_EX = "AerospikeClient.io.exceptions";
+    public static final String M_IO_RETRIES = "AerospikeClient.io.retries";
+    public static final String M_IO_IOEX = "AerospikeClient.io.ioExceptions";
+    public static final String M_IO_SOT = "AerospikeClient.io.socketTimeout";
+    public static final String M_IO_CLOSED = "AerospikeClient.io.closedNodeConnections";
+    public static final String M_IO_REPOOLED = "AerospikeClient.io.rePooledConnections";
+    public static final String M_IO_BYTES_SENT = "AerospikeClient.io.bytesSent";
+    public static final String M_IO_BYTES_READ = "AerospikeClient.io.bytesRead";
+    public static final String M_IO_BYTES_SKIPPED = "AerospikeClient.io.bytesSkipped";
+
     /** The cluster we're working with. */
     private final Cluster cluster;
 
@@ -79,7 +98,7 @@ public class ASSyncClient {
     private final String namespace;
 
     /** Where we're reporting metrics. */
-    private final MetricRegistry metricRegistry;
+    private final StatsCollector stats;
 
     /** The thread local commands list. */
     private ThreadLocal<ASCommand> operations;
@@ -109,24 +128,21 @@ public class ASSyncClient {
     private volatile long bytesRead;
     private volatile long bytesDiscarded;
 
-    private volatile Timer callTimer;
-    private volatile Timer overallTimer;
-
     /**
      * Default ctor.
      * @param cluster The non-null cluster to work with.
      * @param namespace The non-null namespace to write to.
-     * @param metricRegistry The metric registry to write metrics to.
+     * @param stats The metric registry to write metrics to.
      * @param executorService A thread to schedule writes to the registry for
      *                        high-perf counters, etc.
      */
     public ASSyncClient(final Cluster cluster,
                         final String namespace,
-                        final MetricRegistry metricRegistry,
+                        final StatsCollector stats,
                         final ScheduledExecutorService executorService) {
         this.cluster = cluster;
         this.namespace = namespace;
-        this.metricRegistry = metricRegistry;
+        this.stats = stats;
         operations = new ThreadLocal<ASCommand>() {
             @Override
             protected ASCommand initialValue() {
@@ -140,8 +156,6 @@ public class ASSyncClient {
                 TimeUnit.MINUTES.toMillis(1),
                 TimeUnit.MINUTES.toMillis(1),
                 TimeUnit.MILLISECONDS);
-        callTimer = metricRegistry.timer("AerospikeClient.tcp.call.latency");
-        overallTimer = metricRegistry.timer("AerospikeClient.overall.call.latency");
     }
 
     /**
@@ -529,7 +543,7 @@ public class ASSyncClient {
                         ++rePooledConnections;
 
                         // Command has completed successfully.  Exit method.
-                        overallTimer.update(System.nanoTime() - overallStart, tags);
+                        stats.incrementCounter(M_OVERALL, DateTime.nanoTime() - overallStart, tags);
                         return ResultCode.OK;
                     }
                     catch (AerospikeException ae) {
@@ -637,7 +651,7 @@ public class ASSyncClient {
                 LOGGER.warn("SocketTimeoutException: {}, {}", sequence, iteration);
                 //exception = new AerospikeException.Timeout(node, policy, iteration, true);
                 ++timeouts;
-                overallTimer.update(System.nanoTime() - overallStart, tags);
+                stats.addTime(M_OVERALL, DateTime.nanoTime() - overallStart, ChronoUnit.NANOS, tags);
                 return ResultCode.TIMEOUT;
             }
 
@@ -653,7 +667,7 @@ public class ASSyncClient {
             long start = System.nanoTime();
             conn.readFully(dataBuffer, MSG_TOTAL_HEADER_SIZE);
             long timeTaken = System.nanoTime() - start;
-            callTimer.update(timeTaken, tags);
+            stats.addTime(M_TCP, timeTaken, ChronoUnit.NANOS, tags);
             bytesRead += MSG_TOTAL_HEADER_SIZE;
 
             int resultCode = dataBuffer[13] & 0xFF;
@@ -724,23 +738,6 @@ public class ASSyncClient {
      * interaction.
      */
     class MetricFlusher implements Runnable {
-        // Interactions
-        private final Counter rawWrites;
-        private final Counter mapWrites;
-        private final Counter rawReads;
-        private final Counter mapReads;
-
-        // AS IO
-        private final Counter timeouts;
-        private final Counter exceptions;
-        private final Counter retries;
-        private final Counter ioExceptions;
-        private final Counter socketTimeouts;
-        private final Counter closedNodeConnections;
-        private final Counter rePooledConnections;
-        private final Counter bytesSent;
-        private final Counter bytesRead;
-        private final Counter bytesDiscarded;
 
         // Interactions
         private long prevRawWrites;
@@ -760,47 +757,28 @@ public class ASSyncClient {
         private long prevBytesRead;
         private long prevBytesDiscarded;
 
-
-        MetricFlusher() {
-            rawWrites = metricRegistry.counter("AerospikeClient.raw.writes.attempts");
-            rawReads = metricRegistry.counter("AerospikeClient.raw.reads.attempts");
-            mapWrites = metricRegistry.counter("AerospikeClient.map.writes.attempts");
-            mapReads = metricRegistry.counter("AerospikeClient.map.reads.attempts");
-
-            timeouts = metricRegistry.counter("AerospikeClient.io.timeouts");
-            exceptions = metricRegistry.counter("AerospikeClient.io.exceptions");
-            retries = metricRegistry.counter("AerospikeClient.io.retries");
-            ioExceptions = metricRegistry.counter("AerospikeClient.io.ioExceptions");
-            socketTimeouts = metricRegistry.counter("AerospikeClient.io.socketTimeout");
-            closedNodeConnections = metricRegistry.counter("AerospikeClient.io.closedNodeConnections");
-            rePooledConnections = metricRegistry.counter("AerospikeClient.io.rePooledConnections");
-            bytesSent = metricRegistry.counter("AerospikeClient.io.bytesSent");
-            bytesRead = metricRegistry.counter("AerospikeClient.io.bytesRead");
-            bytesDiscarded = metricRegistry.counter("AerospikeClient.io.bytesSkipped");
-        }
-
         @Override
         public void run() {
-            prevRawWrites = updateCounter(ASSyncClient.this.rawWrites, prevRawWrites, rawWrites);
-            prevRawReads = updateCounter(ASSyncClient.this.rawReads, prevRawReads, rawReads);
-            prevMapWrites = updateCounter(ASSyncClient.this.mapWrites, prevMapWrites, mapWrites);
-            prevMapReads = updateCounter(ASSyncClient.this.mapReads, prevMapReads, mapReads);
+            prevRawWrites = updateCounter(ASSyncClient.this.rawWrites, prevRawWrites, M_RAW_WRITES);
+            prevRawReads = updateCounter(ASSyncClient.this.rawReads, prevRawReads, M_RAW_READS);
+            prevMapWrites = updateCounter(ASSyncClient.this.mapWrites, prevMapWrites, M_MAP_WRITES);
+            prevMapReads = updateCounter(ASSyncClient.this.mapReads, prevMapReads, M_MAP_READS);
 
-            prevTimeouts = updateCounter(ASSyncClient.this.timeouts, prevTimeouts, timeouts);
-            prevExceptions = updateCounter(ASSyncClient.this.exceptions, prevExceptions, exceptions);
-            prevRetries = updateCounter(ASSyncClient.this.retries, prevRetries, retries);
-            prevIoExceptions = updateCounter(ASSyncClient.this.ioExceptions, prevIoExceptions, ioExceptions);
-            prevSocketTimeouts = updateCounter(ASSyncClient.this.socketTimeouts, prevSocketTimeouts, socketTimeouts);
-            prevClosedNodeConnection = updateCounter(ASSyncClient.this.closedNodeConnections, prevClosedNodeConnection, closedNodeConnections);
-            prevRePooledConnection = updateCounter(ASSyncClient.this.rePooledConnections, prevRePooledConnection, rePooledConnections);
-            prevBytesSent = updateCounter(ASSyncClient.this.bytesSent, prevBytesSent, bytesSent);
-            prevBytesRead = updateCounter(ASSyncClient.this.bytesRead, prevBytesRead, bytesRead);
-            prevBytesDiscarded = updateCounter(ASSyncClient.this.bytesDiscarded, prevBytesDiscarded, bytesDiscarded);
+            prevTimeouts = updateCounter(ASSyncClient.this.timeouts, prevTimeouts, M_IO_TIMEOUTS);
+            prevExceptions = updateCounter(ASSyncClient.this.exceptions, prevExceptions, M_IO_EX);
+            prevRetries = updateCounter(ASSyncClient.this.retries, prevRetries, M_IO_RETRIES);
+            prevIoExceptions = updateCounter(ASSyncClient.this.ioExceptions, prevIoExceptions, M_IO_IOEX);
+            prevSocketTimeouts = updateCounter(ASSyncClient.this.socketTimeouts, prevSocketTimeouts, M_IO_SOT);
+            prevClosedNodeConnection = updateCounter(ASSyncClient.this.closedNodeConnections, prevClosedNodeConnection, M_IO_CLOSED);
+            prevRePooledConnection = updateCounter(ASSyncClient.this.rePooledConnections, prevRePooledConnection, M_IO_REPOOLED);
+            prevBytesSent = updateCounter(ASSyncClient.this.bytesSent, prevBytesSent, M_IO_BYTES_SENT);
+            prevBytesRead = updateCounter(ASSyncClient.this.bytesRead, prevBytesRead, M_IO_BYTES_READ);
+            prevBytesDiscarded = updateCounter(ASSyncClient.this.bytesDiscarded, prevBytesDiscarded, M_IO_BYTES_SKIPPED);
         }
 
-        long updateCounter(long latest, long previous, Counter counter) {
+        long updateCounter(long latest, long previous, String metric) {
             long delta = latest - previous;
-            counter.inc(delta, tags);
+            stats.incrementCounter(metric, delta, tags);
             return latest;
         }
     }

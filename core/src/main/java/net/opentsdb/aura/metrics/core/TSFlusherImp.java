@@ -17,15 +17,15 @@
 
 package net.opentsdb.aura.metrics.core;
 
-import io.ultrabrew.metrics.Gauge;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.Timer;
 import net.opentsdb.aura.metrics.core.downsample.DownSampledTimeSeriesEncoder;
 import net.opentsdb.collections.LongLongHashTable;
 import net.opentsdb.collections.LongLongIterator;
+import net.opentsdb.stats.StatsCollector;
+import net.opentsdb.utils.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -44,7 +44,13 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class TSFlusherImp implements TSFlusher {
   private static final Logger LOGGER = LoggerFactory.getLogger(TSFlusherImp.class);
 
-  private final MetricRegistry registry;
+  public static final String M_TIME_TAKEN = "storage.flusher.timeTaken";
+  public static final String M_SEGMENTS = "storage.flusher.segmentsFlushed";
+  public static final String M_SEGMENTS_OOO = "storage.flusher.segmentsOutOfOrder";
+  public static final String M_FAIL = "storage.flusher.segmentFlushFailures";
+  public static final String M_EMPTY = "storage.flusher.segmentEmpty";
+
+  private final StatsCollector stats;
   private final List<LongTermStorage> stores;
   private final ThreadLocal<int[]> tlTimestamps;
   private final ThreadLocal<double[]> tlValues;
@@ -66,7 +72,7 @@ public class TSFlusherImp implements TSFlusher {
       final ShardConfig shardConfig,
       final List<LongTermStorage> stores,
       final ScheduledExecutorService scheduledExecutorService,
-      final MetricRegistry registry,
+      final StatsCollector stats,
       final String[] tagSet,
       final long frequency,
       final int threadsPerShard) {
@@ -83,7 +89,7 @@ public class TSFlusherImp implements TSFlusher {
     } else {
       dsEncoders = ThreadLocal.withInitial(() -> dsEncoderFactory.create());
     }
-    this.registry = registry;
+    this.stats = stats;
     this.tagSet = tagSet;
     this.frequency = frequency;
     this.threadsPerShard = threadsPerShard;
@@ -193,17 +199,12 @@ public class TSFlusherImp implements TSFlusher {
    */
   class FlushInfo {
     private final String[] tagSet;
-    private final Timer totalTimer;
     private final long start;
     private final int shardId;
     private final LongLongIterator iterator;
     private final LongLongHashTable timeSeriesTable;
     private final int baseTimestamp;
     private final Job[] jobs;
-    private final Gauge flushedGuage;
-    private final Gauge oooGuage;
-    private final Gauge failureGuage;
-    private final Gauge emptyGuage;
     private final AtomicBoolean inProgress;
     private int flushed;
     private int ooo;
@@ -216,8 +217,7 @@ public class TSFlusherImp implements TSFlusher {
         final int baseTimestamp,
         final AtomicBoolean inProgress) {
       this.inProgress = inProgress;
-      totalTimer = registry.timer("storage.flusher.timeTaken");
-      start = totalTimer.start();
+      start = DateTime.nanoTime();
       tagSet = Arrays.copyOf(TSFlusherImp.this.tagSet, TSFlusherImp.this.tagSet.length);
       tagSet[tagSet.length - 1] = Integer.toString(shardId);
       this.shardId = shardId;
@@ -225,10 +225,6 @@ public class TSFlusherImp implements TSFlusher {
       iterator = timeSeriesTable.iterator();
       this.baseTimestamp = baseTimestamp;
       jobs = new Job[threadsPerShard];
-      flushedGuage = registry.gauge("storage.flusher.segmentsFlushed");
-      oooGuage = registry.gauge("storage.flusher.segmentsOutOfOrder");
-      failureGuage = registry.gauge("storage.flusher.segmentFlushFailures");
-      emptyGuage = registry.gauge("storage.flusher.segmentEmpty");
       for (int i = 0; i < jobs.length; i++) {
         jobs[i] = new Job(i);
         jobs[i].start();
@@ -254,12 +250,12 @@ public class TSFlusherImp implements TSFlusher {
           jobs[i] = null;
         }
       }
-      double timeTaken = ((double) System.nanoTime() - (double) start) / (double) 1_000_000;
-      totalTimer.stop(start, tagSet);
-      flushedGuage.set(flushed, tagSet);
-      oooGuage.set(ooo, tagSet);
-      failureGuage.set(failures, tagSet);
-      emptyGuage.set(noSegment, tagSet);
+
+      stats.addTime(M_TIME_TAKEN, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
+      stats.setGauge(M_SEGMENTS, flushed, tagSet);
+      stats.setGauge(M_SEGMENTS_OOO, ooo, tagSet);
+      stats.setGauge(M_FAIL, failures, tagSet);
+      stats.setGauge(M_EMPTY, noSegment, tagSet);
       flushInfos.remove(shardId);
       LOGGER.warn("Canceled shard thread: {}@{}", shardId, baseTimestamp);
       this.inProgress.set(false);
@@ -268,12 +264,12 @@ public class TSFlusherImp implements TSFlusher {
     void complete() {
       LOGGER.debug(
           "Finishing shard flush for {}@{} with {} records", shardId, baseTimestamp, flushed);
-      flushedGuage.set(flushed, tagSet);
-      oooGuage.set(ooo, tagSet);
-      failureGuage.set(failures, tagSet);
-      emptyGuage.set(noSegment, tagSet);
+      stats.addTime(M_TIME_TAKEN, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
+      stats.setGauge(M_SEGMENTS, flushed, tagSet);
+      stats.setGauge(M_SEGMENTS_OOO, ooo, tagSet);
+      stats.setGauge(M_FAIL, failures, tagSet);
+      stats.setGauge(M_EMPTY, noSegment, tagSet);
       double timeTaken = ((double) System.nanoTime() - (double) start) / (double) 1_000_000;
-      totalTimer.stop(start, tagSet);
       synchronized (flushInfos) {
         flushInfos.remove(shardId);
       }

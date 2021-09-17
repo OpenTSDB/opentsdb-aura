@@ -27,11 +27,14 @@ import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
 import io.ultrabrew.metrics.Counter;
 import io.ultrabrew.metrics.MetricRegistry;
 import io.ultrabrew.metrics.Timer;
+import net.opentsdb.stats.StatsCollector;
+import net.opentsdb.utils.DateTime;
 import net.opentsdb.utils.XXHash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -46,8 +49,21 @@ public class LTSAerospike implements LongTermStorage {
 
     public static final int KEY_LENGTH = 12;
 
+    public static final String M_WRITE_FAILED = "aerospike.timeseries.write.failed";
+    public static final String M_WRITE_EX = "aerospike.timeseries.write.exceptions";
+    public static final String M_WRITE_SUCCESS = "aerospike.timeseries.write.success";
+
+    public static final String M_READ_EX = "aerospike.timeseries.read.exceptions";
+    public static final String M_READ_SUCCESS = "aerospike.timeseries.read.success";
+    public static final String M_READ_FAILED = "aerospike.timeseries.read.failed";
+    public static final String M_READ_HITS = "aerospike.timeseries.read.hits";
+    public static final String M_READ_MISSES = "aerospike.timeseries.read.misses";
+    public static final String M_READ_ITERATORS = "aerospike.timeseries.read.iterators";
+    public static final String M_READ_LATENCY = "aerospike.timeseries.read.latency";
+
     private final ThreadLocal<byte[]> keys = ThreadLocal.withInitial(() -> new byte[KEY_LENGTH]);
     private final ThreadLocal<EncoderValue> encoderValues = ThreadLocal.withInitial(() -> new EncoderValue());
+    private final StatsCollector stats;
     private final ASSyncClient asClient;
     private final ASBatchClient batchClient;
     private final int secondsInRecord;
@@ -55,10 +71,6 @@ public class LTSAerospike implements LongTermStorage {
     private final byte[] bin;
     private final int segmentsInRecord;
     private final int secondsInSegment;
-    private final MetricRegistry metricRegistry;
-    private final Counter writeTSExceptionsCounter;
-    private final Counter writeTSSuccessCounter;
-    private final Counter writeTSErrorCounter;
     private volatile long writeTSExceptions;
     private volatile long writeTSSuccess;
     private volatile long writeTSErrors;
@@ -68,13 +80,6 @@ public class LTSAerospike implements LongTermStorage {
     private volatile long readTSHits;
     private volatile long readTSMisses;
     private volatile long readTSiterators;
-    private final Timer readTSLatency;
-    private final Counter readTSExceptionsCounter;
-    private final Counter readTSSuccessCounter;
-    private final Counter readTSErrorCounter;
-    private final Counter readTSHitsCounter;
-    private final Counter readTSMissesCounter;
-    private final Counter readTSIterators;
 
     public LTSAerospike(final ASCluster cluster,
                  final String namespace,
@@ -82,36 +87,23 @@ public class LTSAerospike implements LongTermStorage {
                  final int secondsInSegment,
                  final String setName,
                  final String binName,
-                 final MetricRegistry metricRegistry,
+                 final StatsCollector stats,
                  final ScheduledExecutorService executor) {
         if (namespace == null || namespace.isEmpty()) {
             throw new IllegalArgumentException("Unable to start Aerospike cluster client without a cluster namespace.");
         }
-
+        this.stats = stats;
         this.secondsInRecord = secondsInRecord;
         this.secondsInSegment = secondsInSegment;
         segmentsInRecord = secondsInRecord / secondsInSegment;
-        asClient = new ASSyncClient(cluster.cluster(), namespace, metricRegistry, executor);
-        batchClient = new ASBatchClient(cluster.cluster(), namespace, metricRegistry, executor);
+        asClient = new ASSyncClient(cluster.cluster(), namespace, stats, executor);
+        batchClient = new ASBatchClient(cluster.cluster(), namespace, stats, executor);
         // we hash the namespace to get the set name.
         // TODO - rather have a way to hash to the max # of sets so we don't need
         // a full 8 bytes
         set = new byte[8];
         ByteArrays.putLong(XXHash.hash(setName), set,0);
         bin = binName.getBytes(StandardCharsets.UTF_8);
-        this.metricRegistry = metricRegistry;
-
-        writeTSErrorCounter = metricRegistry.counter("aerospike.timeseries.write.failed");
-        writeTSExceptionsCounter = metricRegistry.counter("aerospike.timeseries.write.exceptions");
-        writeTSSuccessCounter = metricRegistry.counter("aerospike.timeseries.write.success");
-
-        readTSExceptionsCounter = metricRegistry.counter("aerospike.timeseries.read.exceptions");
-        readTSSuccessCounter = metricRegistry.counter("aerospike.timeseries.read.success");
-        readTSErrorCounter = metricRegistry.counter("aerospike.timeseries.read.failed");
-        readTSHitsCounter = metricRegistry.counter("aerospike.timeseries.read.hits");
-        readTSMissesCounter = metricRegistry.counter("aerospike.timeseries.read.misses");
-        readTSIterators = metricRegistry.counter("aerospike.timeseries.read.iterators");
-        readTSLatency = metricRegistry.timer("aerospike.timeseries.read.latency");
 
         executor.scheduleAtFixedRate(new Metrics(),
                 MINUTES.toMillis(1),
@@ -306,9 +298,10 @@ public class LTSAerospike implements LongTermStorage {
             int end = Math.min(segmentsInRecord, (endTimestamp - (recordTimestamp - secondsInRecord)) / secondsInSegment);
 
             // TODO - watch this as it's expensive.
-            final long start = System.nanoTime();
+            final long start = DateTime.nanoTime();
             RecordIterator iterator = asClient.mapRangeQuery(key, set, bin, offset, end);
-            readTSLatency.update(System.nanoTime() - start);
+
+            stats.addTime(M_READ_LATENCY, DateTime.nanoTime() - start, ChronoUnit.NANOS);
             if (iterator.getResultCode() != ResultCode.OK) {
                 if (iterator.getResultCode() == ResultCode.KEY_NOT_FOUND_ERROR) {
                     ++readTSMisses;
@@ -359,48 +352,48 @@ public class LTSAerospike implements LongTermStorage {
             long temp = writeTSExceptions;
             long delta = temp - prevWriteTSExceptions;
             prevWriteTSExceptions = temp;
-            writeTSExceptionsCounter.inc(delta);
+            stats.incrementCounter(M_WRITE_EX, delta);
 
             temp = writeTSSuccess;
             delta = temp - prevWriteTSSuccess;
             prevWriteTSSuccess = temp;
-            writeTSSuccessCounter.inc(delta);
+            stats.incrementCounter(M_WRITE_SUCCESS, delta);
 
             temp = writeTSErrors;
             delta = temp - prevWriteTSErrors;
             prevWriteTSErrors = temp;
-            writeTSErrorCounter.inc(delta);
+            stats.incrementCounter(M_WRITE_FAILED, delta);
 
             // READ metrics
             temp = readTSErrors;
             delta = temp - prevReadTSErrors;
             prevReadTSErrors = temp;
-            readTSErrorCounter.inc(delta);
+            stats.incrementCounter(M_READ_FAILED, delta);
 
             temp = readTSExceptions;
             delta = temp - prevReadTSExceptions;
             prevReadTSExceptions = temp;
-            readTSExceptionsCounter.inc(delta);
+            stats.incrementCounter(M_READ_EX, delta);
 
             temp = readTSHits;
             delta = temp - prevReadTSHits;
             prevReadTSHits = temp;
-            readTSHitsCounter.inc(delta);
+            stats.incrementCounter(M_READ_HITS, delta);
 
             temp = readTSMisses;
             delta = temp - prevReadTSMisses;
             prevReadTSMisses = temp;
-            readTSMissesCounter.inc(delta);
+            stats.incrementCounter(M_READ_MISSES, delta);
 
             temp = readTSSuccess;
             delta = temp - prevReadTSSuccess;
             prevReadTSSuccess = temp;
-            readTSSuccessCounter.inc(delta);
+            stats.incrementCounter(M_READ_SUCCESS, delta);
 
             temp = readTSiterators;
             delta = temp - prevReadTSiterators;
             prevReadTSiterators = temp;
-            readTSIterators.inc(delta);
+            stats.incrementCounter(M_READ_ITERATORS, delta);
         }
     }
 }

@@ -123,9 +123,9 @@ public class AuraMetricsTimeSeriesTest {
     shardConfig.metaStoreCapacity = 10;
 
     MetricRegistry registry = new MetricRegistry();
-    GorillaSegmentFactory segmentFactory = new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
+    GorillaSegmentFactory segmentFactory = new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, TSDB.getStatsCollector());
     encoderFactory =
-        new GorillaTimeSeriesEncoderFactory(false, shardConfig.garbageQSize, shardConfig.segmentCollectionDelayMinutes, registry, segmentFactory);
+        new GorillaTimeSeriesEncoderFactory(false, shardConfig.garbageQSize, shardConfig.segmentCollectionDelayMinutes, TSDB.getStatsCollector(), segmentFactory);
 
     int segmentsInATimeSeries =
         StorageMode.LONG_RUNNING.getSegmentsPerTimeseries(
@@ -154,7 +154,7 @@ public class AuraMetricsTimeSeriesTest {
                     encoder,
                     docStore,
                     memoryInfoReader,
-                    registry,
+                    TSDB.getStatsCollector(),
                     LocalDateTime.now(),
                     hashFunction,
                     flusher,

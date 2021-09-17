@@ -33,9 +33,8 @@ import com.aerospike.client.policy.BatchPolicy;
 import com.aerospike.client.policy.ConsistencyLevel;
 import com.aerospike.client.policy.Policy;
 import com.aerospike.client.util.Util;
-import io.ultrabrew.metrics.Counter;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.Timer;
+import net.opentsdb.stats.StatsCollector;
+import net.opentsdb.utils.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +42,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.SocketTimeoutException;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -69,6 +69,27 @@ public class ASBatchClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(ASBatchClient.class);
   private static final int MAX_BUFFER_SIZE = 1024 * 1024 * 10;  // 10 MB
 
+  public static final String M_TCP = "AerospikeClient.tcp.call.latency";
+  public static final String M_OVERALL = "AerospikeClient.overall.call.latency";
+  public static final String M_TTFB = "AerospikeClient.tcp.timeToFirstByte.latency";
+  public static final String M_NODES_PER_BATCH = "AerospikeClient.batch.nodesPerBatch";
+  public static final String M_KEYS_PER_NODE = "AerospikeClient.batch.keysPerNodePerBatch";
+  public static final String M_HITS_PER_NODE = "AerospikeClient.batch.hitsPerNode";
+
+  public static final String M_BATCH_READS = "AerospikeClient.batch.reads";
+  public static final String M_NO_NODE = "AerospikeClient.batch.noNodeForKey";
+
+  public static final String M_IO_TIMEOUTS = "AerospikeClient.io.timeouts";
+  public static final String M_IO_EX = "AerospikeClient.io.exceptions";
+  public static final String M_IO_RETRIES = "AerospikeClient.io.retries";
+  public static final String M_IO_IOEX = "AerospikeClient.io.ioExceptions";
+  public static final String M_IO_SOT = "AerospikeClient.io.socketTimeout";
+  public static final String M_IO_CLOSED = "AerospikeClient.io.closedNodeConnections";
+  public static final String M_IO_REPOOLED = "AerospikeClient.io.rePooledConnections";
+  public static final String M_IO_BYTES_SENT = "AerospikeClient.io.bytesSent";
+  public static final String M_IO_BYTES_READ = "AerospikeClient.io.bytesRead";
+  public static final String M_IO_BYTES_SKIPPED = "AerospikeClient.io.bytesSkipped";
+
   /** The cluster we're working with. */
   private final Cluster cluster;
 
@@ -76,7 +97,7 @@ public class ASBatchClient {
   private final String namespace;
 
   /** Where we're reporting metrics. */
-  private final MetricRegistry metricRegistry;
+  private final StatsCollector stats;
 
   /** Hashers used to digest the keys. */
   private final ThreadLocal<UpdatingRipeMD160> hashers;
@@ -111,28 +132,21 @@ public class ASBatchClient {
   private volatile long bytesRead;
   private volatile long bytesDiscarded;
 
-  private volatile Timer callTimer;
-  private volatile Timer overallTimer;
-  private volatile Timer timeToFirstByteTimer;
-  private Timer nodesPerBatch; // not really a timer
-  private Timer keysPerNodePerBatch; // not really a timer
-  private Timer hitsPerNode; // not really a timer
-
   /**
    Default ctor.
    * @param cluster The non-null cluster to work with.
    * @param namespace The non-null namespace to write to.
-   * @param metricRegistry The metric registry to write metrics to.
+   * @param stats The metric registry to write metrics to.
    * @param executorService A thread to schedule writes to the registry for
    *                        high-perf counters, etc.
    */
   public ASBatchClient(final Cluster cluster,
                        final String namespace,
-                       final MetricRegistry metricRegistry,
+                       final StatsCollector stats,
                        final ScheduledExecutorService executorService) {
     this.cluster = cluster;
     this.namespace = namespace;
-    this.metricRegistry = metricRegistry;
+    this.stats = stats;
     defaultBatchPolicy = new BatchPolicy();
     defaultBatchPolicy.sendSetName = true;
     tags = new String[] { "namespace", namespace, "callType", "batchSync" };
@@ -153,13 +167,6 @@ public class ASBatchClient {
       }
       return cmds;
     });
-
-    callTimer = metricRegistry.timer("AerospikeClient.tcp.call.latency");
-    overallTimer = metricRegistry.timer("AerospikeClient.overall.call.latency");
-    timeToFirstByteTimer = metricRegistry.timer("AerospikeClient.tcp.timeToFirstByte.latency");
-    nodesPerBatch = metricRegistry.timer("AerospikeClient.batch.nodesPerBatch");
-    keysPerNodePerBatch = metricRegistry.timer("AerospikeClient.batch.keysPerNodePerBatch");
-    hitsPerNode = metricRegistry.timer("AerospikeClient.batch.hitsPerNode");
   }
 
   /**
@@ -216,11 +223,11 @@ public class ASBatchClient {
       }
       batchReq.addkey(i, digest);
     }
-    nodesPerBatch.update(batches.size(), tags);
+    stats.incrementCounter(M_NODES_PER_BATCH, batches.size(), tags);
 
     for (Map.Entry<Node, BatchASCommand> entry : batches.entrySet()) {
       final BatchASCommand command = entry.getValue();
-      keysPerNodePerBatch.update(command.keyCount, tags);
+      stats.incrementCounter(M_KEYS_PER_NODE, command.keyCount, tags);
       command.executeLocal(cluster, defaultBatchPolicy, entry.getKey());
     }
     return bri;
@@ -478,7 +485,7 @@ public class ASBatchClient {
             ++rePooledConnections;
 
             // Command has completed successfully.  Exit method.
-            overallTimer.update(System.nanoTime() - overallStart, tags);
+            stats.addTime(M_OVERALL, DateTime.nanoTime() - overallStart, ChronoUnit.NANOS, tags);
             return ResultCode.OK;
           }
           catch (AerospikeException ae) {
@@ -579,7 +586,7 @@ public class ASBatchClient {
       if (isClientTimeout) {
         LOGGER.warn("SocketTimeoutException: {}, {}", sequence, iteration);
         ++timeouts;
-        overallTimer.update(System.nanoTime() - overallStart, tags);
+        stats.addTime(M_OVERALL, DateTime.nanoTime() - overallStart, ChronoUnit.NANOS, tags);
         return ResultCode.TIMEOUT;
       }
 
@@ -609,7 +616,7 @@ public class ASBatchClient {
         readBytesLocal(8);
         if (ttfb < 0) {
           ttfb = System.nanoTime() - start;
-          timeToFirstByteTimer.update(ttfb, tags);
+          stats.addTime(M_TTFB, ttfb, ChronoUnit.NANOS, tags);
         }
 
         long size = Buffer.bytesToLong(dataBuffer, 0);
@@ -621,7 +628,7 @@ public class ASBatchClient {
         }
       }
       long timeTaken = System.nanoTime() - start;
-      callTimer.update(timeTaken, tags);
+      stats.addTime(M_TCP, timeTaken, ChronoUnit.NANOS, tags);
     }
 
     /**
@@ -706,7 +713,7 @@ public class ASBatchClient {
       }
 
       ++hits;
-      hitsPerNode.update(hits, tags);
+      stats.incrementCounter(M_HITS_PER_NODE, hits, tags);
       return true;
     }
 
@@ -798,22 +805,6 @@ public class ASBatchClient {
    */
   class MetricFlusher implements Runnable {
     // Interactions
-    private final Counter batchReads;
-    private final Counter noNodeForKey;
-
-    // AS IO
-    private final Counter timeouts;
-    private final Counter exceptions;
-    private final Counter retries;
-    private final Counter ioExceptions;
-    private final Counter socketTimeouts;
-    private final Counter closedNodeConnections;
-    private final Counter rePooledConnections;
-    private final Counter bytesSent;
-    private final Counter bytesRead;
-    private final Counter bytesDiscarded;
-
-    // Interactions
     private long prevBatchReads;
     private long prevNoNodeForKey;
 
@@ -829,43 +820,26 @@ public class ASBatchClient {
     private long prevBytesRead;
     private long prevBytesDiscarded;
 
-
-    MetricFlusher() {
-      batchReads = metricRegistry.counter("AerospikeClient.batch.reads");
-      noNodeForKey = metricRegistry.counter("AerospikeClient.batch.noNodeForKey");
-
-      timeouts = metricRegistry.counter("AerospikeClient.io.timeouts");
-      exceptions = metricRegistry.counter("AerospikeClient.io.exceptions");
-      retries = metricRegistry.counter("AerospikeClient.io.retries");
-      ioExceptions = metricRegistry.counter("AerospikeClient.io.ioExceptions");
-      socketTimeouts = metricRegistry.counter("AerospikeClient.io.socketTimeout");
-      closedNodeConnections = metricRegistry.counter("AerospikeClient.io.closedNodeConnections");
-      rePooledConnections = metricRegistry.counter("AerospikeClient.io.rePooledConnections");
-      bytesSent = metricRegistry.counter("AerospikeClient.io.bytesSent");
-      bytesRead = metricRegistry.counter("AerospikeClient.io.bytesRead");
-      bytesDiscarded = metricRegistry.counter("AerospikeClient.io.bytesSkipped");
-    }
-
     @Override
     public void run() {
-      prevBatchReads = updateCounter(ASBatchClient.this.batchReads, prevBatchReads, batchReads);
-      prevNoNodeForKey = updateCounter(ASBatchClient.this.noNodeForKey, prevNoNodeForKey, noNodeForKey);
+      prevBatchReads = updateCounter(ASBatchClient.this.batchReads, prevBatchReads, M_BATCH_READS);
+      prevNoNodeForKey = updateCounter(ASBatchClient.this.noNodeForKey, prevNoNodeForKey, M_NO_NODE);
 
-      prevTimeouts = updateCounter(ASBatchClient.this.timeouts, prevTimeouts, timeouts);
-      prevExceptions = updateCounter(ASBatchClient.this.exceptions, prevExceptions, exceptions);
-      prevRetries = updateCounter(ASBatchClient.this.retries, prevRetries, retries);
-      prevIoExceptions = updateCounter(ASBatchClient.this.ioExceptions, prevIoExceptions, ioExceptions);
-      prevSocketTimeouts = updateCounter(ASBatchClient.this.socketTimeouts, prevSocketTimeouts, socketTimeouts);
-      prevClosedNodeConnection = updateCounter(ASBatchClient.this.closedNodeConnections, prevClosedNodeConnection, closedNodeConnections);
-      prevRePooledConnection = updateCounter(ASBatchClient.this.rePooledConnections, prevRePooledConnection, rePooledConnections);
-      prevBytesSent = updateCounter(ASBatchClient.this.bytesSent, prevBytesSent, bytesSent);
-      prevBytesRead = updateCounter(ASBatchClient.this.bytesRead, prevBytesRead, bytesRead);
-      prevBytesDiscarded = updateCounter(ASBatchClient.this.bytesDiscarded, prevBytesDiscarded, bytesDiscarded);
+      prevTimeouts = updateCounter(ASBatchClient.this.timeouts, prevTimeouts, M_IO_TIMEOUTS);
+      prevExceptions = updateCounter(ASBatchClient.this.exceptions, prevExceptions, M_IO_EX);
+      prevRetries = updateCounter(ASBatchClient.this.retries, prevRetries, M_IO_RETRIES);
+      prevIoExceptions = updateCounter(ASBatchClient.this.ioExceptions, prevIoExceptions, M_IO_IOEX);
+      prevSocketTimeouts = updateCounter(ASBatchClient.this.socketTimeouts, prevSocketTimeouts, M_IO_SOT);
+      prevClosedNodeConnection = updateCounter(ASBatchClient.this.closedNodeConnections, prevClosedNodeConnection, M_IO_CLOSED);
+      prevRePooledConnection = updateCounter(ASBatchClient.this.rePooledConnections, prevRePooledConnection, M_IO_REPOOLED);
+      prevBytesSent = updateCounter(ASBatchClient.this.bytesSent, prevBytesSent, M_IO_BYTES_SENT);
+      prevBytesRead = updateCounter(ASBatchClient.this.bytesRead, prevBytesRead, M_IO_BYTES_READ);
+      prevBytesDiscarded = updateCounter(ASBatchClient.this.bytesDiscarded, prevBytesDiscarded, M_IO_BYTES_SKIPPED);
     }
 
-    long updateCounter(long latest, long previous, Counter counter) {
+    long updateCounter(long latest, long previous, String metric) {
       long delta = latest - previous;
-      counter.inc(delta, tags);
+      stats.incrementCounter(metric, delta, tags);
       return latest;
     }
   }

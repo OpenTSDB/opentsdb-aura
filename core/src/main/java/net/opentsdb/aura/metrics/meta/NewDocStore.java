@@ -19,7 +19,6 @@ package net.opentsdb.aura.metrics.meta;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import io.ultrabrew.metrics.Gauge;
 import net.opentsdb.aura.metrics.core.ShardAware;
 import net.opentsdb.aura.metrics.core.TimeSeriesShardIF;
 import net.opentsdb.aura.metrics.core.Util;
@@ -35,6 +34,7 @@ import gnu.trove.map.TLongObjectMap;
 import gnu.trove.map.hash.TLongObjectHashMap;
 import net.opentsdb.data.LowLevelMetricData;
 import net.opentsdb.hashing.HashFunction;
+import net.opentsdb.stats.StatsCollector;
 import org.roaringbitmap.FastAggregation;
 import org.roaringbitmap.PeekableIntIterator;
 import org.roaringbitmap.RoaringBitmap;
@@ -56,6 +56,17 @@ public class NewDocStore implements MetaDataStore, ShardAware {
 
   private static Logger logger = LoggerFactory.getLogger(NewDocStore.class);
 
+  public static final String M_BITMAPS_SIZE = "docStore.bitmaps.size.bytes";
+  public static final String M_TAG_KEYS = "docStore.tagkey.count";
+  public static final String M_TAG_KEY_BYTES = "docStore.tagkey.bytes";
+  public static final String M_TAG_VALUES = "docStore.tagvalue.count";
+  public static final String M_TAG_VALUE_BYTES = "docStore.tagvalue.bytes";
+  public static final String M_METRICS = "docStore.metric.count";
+  public static final String M_METRIC_BYTES = "docStore.metric.bytes";
+  public static final String M_IDS_FREE = "docStore.docIds.free";
+  public static final String M_MAX_ID = "docStore.docIds.max";
+  public static final String M_TABLES = "docStore.table.count";
+
   private static final int DEFAULT_INITIAL_CAPACITY = 1024;
   private static final int DEFAULT_MAX_CAPACITY = Integer.MAX_VALUE;
 
@@ -65,6 +76,7 @@ public class NewDocStore implements MetaDataStore, ShardAware {
   public static final String METRICS = "__AURAMETRIC";
 
   private TimeSeriesShardIF shard; // the shard we belong to. Needed for Meta queries.
+  private StatsCollector stats;
   private final Map<String, Map<String, RoaringBitmap>> indexMap;
   private final RoaringBitmap resets = new RoaringBitmap();
   private final List<long[]> tables;
@@ -79,16 +91,6 @@ public class NewDocStore implements MetaDataStore, ShardAware {
   private long tagValueBytes;
   private long metrics;
   private long metricBytes;
-  private Gauge m_rrSizeBytes;
-  private Gauge m_tagKeys;
-  private Gauge m_tagKeyBytes;
-  private Gauge m_tagValues;
-  private Gauge m_tagValueBytes;
-  private Gauge m_metrics;
-  private Gauge m_metricBytes;
-  private Gauge m_freeDocs;
-  private Gauge m_maxDocId;
-  private Gauge m_tablesCount;
 
   private final DocStoreQuery queryRunner;
   private final SharedMetaResult shardMetaResults;
@@ -146,18 +148,9 @@ public class NewDocStore implements MetaDataStore, ShardAware {
     this.shardMetaResults = shardMetaResults;
     this.metaQueryEnabled = metaQueryEnabled;
 
-    if (shard != null && shard.metricRegistry() != null) {
+    if (shard != null) {
       tags = new String[] { "shardId", Integer.toString(shard.getId()) };
-      m_rrSizeBytes = shard.metricRegistry().gauge("docStore.bitmaps.size.bytes");
-      m_tagKeys = shard.metricRegistry().gauge("docStore.tagkey.count");
-      m_tagKeyBytes = shard.metricRegistry().gauge("docStore.tagkey.bytes");
-      m_tagValues = shard.metricRegistry().gauge("docStore.tagvalue.count");
-      m_tagValueBytes = shard.metricRegistry().gauge("docStore.tagvalue.bytes");
-      m_metrics = shard.metricRegistry().gauge("docStore.metric.count");
-      m_metricBytes = shard.metricRegistry().gauge("docStore.metric.bytes");
-      m_freeDocs = shard.metricRegistry().gauge("docStore.docIds.free");
-      m_maxDocId = shard.metricRegistry().gauge("docStore.docIds.max");
-      m_tablesCount = shard.metricRegistry().gauge("docStore.table.count");
+      stats = shard.stats();
     } else {
       tags = null;
     }
@@ -167,16 +160,7 @@ public class NewDocStore implements MetaDataStore, ShardAware {
   public void setShard(TimeSeriesShardIF shard) {
     this.shard = shard;
     tags = new String[] { "shardId", Integer.toString(shard.getId()) };
-    m_rrSizeBytes = shard.metricRegistry().gauge("docStore.bitmaps.size.bytes");
-    m_tagKeys = shard.metricRegistry().gauge("docStore.tagkey.count");
-    m_tagKeyBytes = shard.metricRegistry().gauge("docStore.tagkey.bytes");
-    m_tagValues = shard.metricRegistry().gauge("docStore.tagvalue.count");
-    m_tagValueBytes = shard.metricRegistry().gauge("docStore.tagvalue.bytes");
-    m_metrics = shard.metricRegistry().gauge("docStore.metric.count");
-    m_metricBytes = shard.metricRegistry().gauge("docStore.metric.bytes");
-    m_freeDocs = shard.metricRegistry().gauge("docStore.docIds.free");
-    m_maxDocId = shard.metricRegistry().gauge("docStore.docIds.max");
-    m_tablesCount = shard.metricRegistry().gauge("docStore.table.count");
+    stats = shard.stats();
   }
 
   public void add(final String[] tagKeys, final String[] tagValues, long key) {
@@ -184,11 +168,11 @@ public class NewDocStore implements MetaDataStore, ShardAware {
     final int index;
     if (resets.isEmpty()) {
       index = currentIndex++;
-      m_maxDocId.set(index, tags);
+      stats.setGauge(M_MAX_ID, index, tags);
     } else {
       index = resets.first();
       resets.remove(index);
-      m_freeDocs.set(resets.getLongCardinality(), tags);
+      stats.setGauge(M_IDS_FREE, resets.getLongCardinality(), tags);
     }
 
     if (index == maxCapacity) {
@@ -202,7 +186,7 @@ public class NewDocStore implements MetaDataStore, ShardAware {
     if (tableIndex + 1 > tables.size()) { // grow table.
       docs = new long[initialCapacity];
       tables.add(docs);
-      m_tablesCount.set(tables.size(), tags);
+      stats.setGauge(M_TABLES, tables.size(), tags);
     } else {
       docs = tables.get(tableIndex);
     }
@@ -305,11 +289,11 @@ public class NewDocStore implements MetaDataStore, ShardAware {
     final int index;
     if (resets.isEmpty()) {
       index = currentIndex++;
-      m_maxDocId.set(index, tags);
+      stats.setGauge(M_MAX_ID, index, tags);
     } else {
       index = resets.first();
       resets.remove(index);
-      m_freeDocs.set(resets.getLongCardinality(), tags);
+      stats.setGauge(M_IDS_FREE, resets.getLongCardinality(), tags);
     }
 
     if (index == maxCapacity) {
@@ -323,7 +307,7 @@ public class NewDocStore implements MetaDataStore, ShardAware {
     if (tableIndex + 1 > tables.size()) { // grow table.
       docs = new long[initialCapacity];
       tables.add(docs);
-      m_tablesCount.set(tables.size(), tags);
+      stats.setGauge(M_TABLES, tables.size(), tags);
     } else {
       docs = tables.get(tableIndex);
     }
@@ -641,7 +625,7 @@ public class NewDocStore implements MetaDataStore, ShardAware {
       });
 
       resets.add(index);
-      m_freeDocs.set(resets.getLongCardinality(), tags);
+      stats.setGauge(M_IDS_FREE, resets.getLongCardinality(), tags);
       tables.get(tableIndex)[docIndex] = 0;
       size--;
     }
@@ -907,13 +891,7 @@ public class NewDocStore implements MetaDataStore, ShardAware {
    * <p>TODO - Improve this! It's naive and sucks but kinda functional.
    */
   class DocStoreQuery {
-    //    final MetaSearchResults shardMetaResults;
-    //    final HashTable tagTable;
     final byte[] tagPointerBuf;
-    //    final HashTable timeSeriesTable;
-    //    final byte[][] timeseriesPointerAndData;
-    //    final HashFunction hashFunction;
-
     // For tag keys OR value counts. <tag key OR value, count>
     Map<String, Integer> singleCounts = Maps.newHashMap();
     // For the BASIC and KEY + VALUE queries. <tagKey, <tagValue, count>>
@@ -1785,12 +1763,12 @@ public class NewDocStore implements MetaDataStore, ShardAware {
   }
 
   void updateStats() {
-    m_rrSizeBytes.set(rrSizeBytes, tags);
-    m_tagKeys.set(tagKeys, tags);
-    m_tagKeyBytes.set(tagKeyBytes, tags);
-    m_tagValues.set(tagValues, tags);
-    m_tagValueBytes.set(tagValueBytes, tags);
-    m_metrics.set(metrics, tags);
-    m_metricBytes.set(metricBytes, tags);
+    stats.setGauge(M_BITMAPS_SIZE, rrSizeBytes, tags);
+    stats.setGauge(M_TAG_KEYS, tagKeys, tags);
+    stats.setGauge(M_TAG_KEY_BYTES, tagKeyBytes, tags);
+    stats.setGauge(M_TAG_VALUES, tagValues, tags);
+    stats.setGauge(M_TAG_VALUE_BYTES, tagValueBytes, tags);
+    stats.setGauge(M_METRICS, metrics, tags);
+    stats.setGauge(M_METRIC_BYTES, metricBytes, tags);
   }
 }

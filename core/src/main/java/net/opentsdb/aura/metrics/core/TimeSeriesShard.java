@@ -32,15 +32,13 @@ import net.opentsdb.aura.metrics.meta.MetaQuery;
 import net.opentsdb.aura.metrics.meta.MetricQuery;
 import net.opentsdb.aura.metrics.meta.Query;
 import net.opentsdb.aura.metrics.meta.SharedMetaResult;
-import io.ultrabrew.metrics.Counter;
-import io.ultrabrew.metrics.Gauge;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.Timer;
 import net.opentsdb.collections.LongIntHashTable;
 import net.opentsdb.collections.LongLongHashTable;
 import net.opentsdb.collections.LongLongIterator;
 import net.opentsdb.data.LowLevelMetricData;
 import net.opentsdb.hashing.HashFunction;
+import net.opentsdb.stats.StatsCollector;
+import net.opentsdb.utils.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +65,25 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TimeSeriesShard.class);
 
+  public static final String M_READ_TIME = "shard.read.time";
+  public static final String M_WRITE_TIME = "timeseries.write.timer";
+  public static final String M_PURGE_TIME = "timeseries.purge.timer";
+  public static final String M_PURGE_COUNT = "timeseries.purge.count";
+  public static final String M_WRITE_FAIL = "timeseries.write.failure.count";
+  public static final String M_TIMESERIES = "timeseries.count";
+  public static final String M_DROPPED = "timeseries.drop.count";
+  public static final String M_DATAPOINTS = "datapoint.count";
+  public static final String M_METRIC_LEN = "metric.length";
+  public static final String M_METRICS = "metric.count";
+  public static final String M_TAGS_LEN = "tagset.length";
+  public static final String M_TAGS = "tagset.count";
+
+  public static final String M_META_WRITE_TIME = "meta.write.timer";
+  public static final String M_META_PURGE_TIME = "meta.purge.time";
+  public static final String M_META_SEARCH_TIME = "meta.search.time";
+  public static final String M_META_PURGE_FAILURE = "meta.purge.failure.count";
+  public static final String M_META_RECORD_COUNT = "meta.record.count";
+
   public static final int PURGE_JOB_TIMEOUT_MS = 100;
   private final ShardConfig shardConfig;
   private final TimeseriesStorageContext storageContext;
@@ -90,23 +107,6 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
 
   private final MetaDataStore docStore;
 
-  private Timer timeSeriesWriteTimer;
-  private Timer shardReadTimer;
-  private Counter timeSeriesWriteFailureCounter;
-  private Gauge dataPointCountGauge;
-  private Gauge metricLengthGauge;
-  private Gauge metricCountGauge;
-  private Gauge tagsetLengthGauge;
-  private Gauge tagsetCountGauge;
-  private Gauge metaRecordCountGauge;
-  private Gauge timeSeriesCountGauge;
-  private Counter timeSeriesDropCounter;
-  private Counter timeSeriesPurgeCounter;
-  private Timer timeSeriesPurgeTimer;
-  private Timer metaSearchTimer;
-  private Timer metaWriteTimer;
-  private Timer metaPurgeTimer;
-  private Counter metaPurgeFailureCounter;
   private String[] tagSet;
   private Flusher flusher;
   private final ScheduledExecutorService scheduledExecutorService;
@@ -129,7 +129,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   private final long[] docIdBatch; // = new long[DOCID_BATCH_SIZE]; // L2 cache aligned.
   private final ReadWriteLock purgeLock = new ReentrantReadWriteLock();
   private final Gate purgeFlushGate = new Gate();
-  private final MetricRegistry metricRegistry;
+  private final StatsCollector stats;
 
   private final LinkedBlockingQueue<JobWrapper> gatedJobsQueue = new LinkedBlockingQueue<>();
 
@@ -140,7 +140,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
       final RawTimeSeriesEncoder encoder,
       final MetaDataStore docStore,
       final MemoryInfoReader memoryInfoReader,
-      final MetricRegistry metricRegistry,
+      final StatsCollector stats,
       final LocalDateTime purgeDateTime,
       final HashFunction hashFunction,
       final Flusher flusher,
@@ -159,7 +159,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
     this.tagSet =
         new String[] {"namespace", shardConfig.namespace, "shardId", String.valueOf(shardId)};
     this.flusher = flusher;
-    this.metricRegistry = metricRegistry;
+    this.stats = stats;
     this.scheduledExecutorService = scheduledExecutorService;
     this.encoder.setTags(tagSet);
     this.memoryInfoReader = memoryInfoReader;
@@ -175,24 +175,6 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
     this.metaCountTable =
         new LongIntHashTable(shardConfig.timeSeriesTableSize, "MetaCountTable" + shardId);
     this.docIdBatch = new long[shardConfig.metaPurgeBatchSize];
-
-    this.shardReadTimer = metricRegistry.timer("shard.read.time");
-    this.timeSeriesWriteTimer = metricRegistry.timer("timeseries.write.timer");
-    this.timeSeriesPurgeTimer = metricRegistry.timer("timeseries.purge.timer");
-    this.timeSeriesPurgeCounter = metricRegistry.counter("timeseries.purge.count");
-    this.timeSeriesWriteFailureCounter = metricRegistry.counter("timeseries.write.failure.count");
-    this.timeSeriesCountGauge = metricRegistry.gauge("timeseries.count");
-    this.timeSeriesDropCounter = metricRegistry.counter("timeseries.drop.count");
-    this.dataPointCountGauge = metricRegistry.gauge("datapoint.count");
-    this.metricLengthGauge = metricRegistry.gauge("metric.length");
-    this.metricCountGauge = metricRegistry.gauge("metric.count");
-    this.tagsetLengthGauge = metricRegistry.gauge("tagset.length");
-    this.tagsetCountGauge = metricRegistry.gauge("tagset.count");
-    this.metaWriteTimer = metricRegistry.timer("meta.write.timer");
-    this.metaPurgeTimer = metricRegistry.timer("meta.purge.time");
-    this.metaSearchTimer = metricRegistry.timer("meta.search.time");
-    this.metaPurgeFailureCounter = metricRegistry.counter("meta.purge.failure.count");
-    this.metaRecordCountGauge = metricRegistry.gauge("meta.record.count");
 
     Thread t =
         new Thread(
@@ -290,7 +272,6 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
         segmentCollectionFrequencySeconds);
   }
 
-
   private void initJob(JobWrapper jobWrapper) {
     try {
       this.gatedJobsQueue.put(jobWrapper);
@@ -365,8 +346,8 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   }
 
   @Override
-  public MetricRegistry metricRegistry() {
-    return metricRegistry;
+  public StatsCollector stats() {
+    return stats;
   }
 
   @Override
@@ -416,23 +397,23 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
         int timestamp;
         try {
           timestamp = (int) event.timestamp().epoch();
-          long start = timeSeriesWriteTimer.start();
+          long start = DateTime.nanoTime();
           addTimeSeries(event, timestamp,
                   storageContext.getSegmentTime(timestamp));
-          timeSeriesWriteTimer.stop(start, tagSet);
+          stats.addTime(M_WRITE_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
         } catch (Throwable t) {
           LOGGER.error("Error storing timeseries", t);
-          timeSeriesWriteFailureCounter.inc(tagSet);
+          stats.incrementCounter(M_WRITE_FAIL, tagSet);
         }
       }
 
-      dataPointCountGauge.set(dataPointCount, tagSet);
-      timeSeriesCountGauge.set(timeSeriesCount, tagSet);
-      metricLengthGauge.set(metricLengthBytes, tagSet);
-      metricCountGauge.set(metricTable.size(), tagSet);
-      tagsetLengthGauge.set(tagsetLengthBytes, tagSet);
-      tagsetCountGauge.set(tagTable.size(), tagSet);
-      metaRecordCountGauge.set(docStore.size(), tagSet);
+      stats.setGauge(M_DATAPOINTS, dataPointCount, tagSet);
+      stats.setGauge(M_TIMESERIES, timeSeriesCount, tagSet);
+      stats.setGauge(M_METRIC_LEN, metricLengthBytes, tagSet);
+      stats.setGauge(M_METRICS, metricTable.size(), tagSet);
+      stats.setGauge(M_TAGS_LEN, tagsetLengthBytes, tagSet);
+      stats.setGauge(M_TAGS, tagTable.size(), tagSet);
+      stats.setGauge(M_META_RECORD_COUNT, docStore.size(), tagSet);
       encoder.collectMetrics();
     } finally {
       try {
@@ -464,7 +445,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
 
   public class PurgeJob implements Job {
 
-    long start = timeSeriesPurgeTimer.start();
+    long start = DateTime.nanoTime();
     volatile LongLongHashTable tsTableClone;
     LongLongIterator tsIterator;
     int currentTimeInSeconds = (int) (System.currentTimeMillis() / 1000);
@@ -576,14 +557,14 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
           }
 
           try {
-            long s = metaPurgeTimer.start();
+            long s = DateTime.nanoTime();
             docStore.remove(docIdBatch, batchSize, byteBuffer);
-            metaPurgeTimer.stop(s, tagSet);
+            stats.addTime(M_META_PURGE_TIME, DateTime.nanoTime() - s, ChronoUnit.NANOS, tagSet);
             metaPurgeCount += batchSize;
           } catch (InSufficientBufferLengthException e) {
             // should not happen
             LOGGER.error("Error removing docIds from doc store", e);
-            metaPurgeFailureCounter.inc(tagSet);
+            stats.incrementCounter(M_META_PURGE_FAILURE, tagSet);
           }
         }
 
@@ -599,16 +580,18 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
       }
 
       long timeTaken = System.nanoTime() - start;
-      timeSeriesPurgeTimer.stop(start, tagSet);
-      timeSeriesPurgeCounter.inc(tsPurgeCount, tagSet);
+      stats.addTime(M_PURGE_TIME, timeTaken, ChronoUnit.NANOS, tagSet);
+      stats.incrementCounter(M_PURGE_COUNT, tsPurgeCount, tagSet);
       timeSeriesCount -= tsPurgeCount;
       dataPointCount -= dpPurgeCount;
 
-      timeSeriesCountGauge.set(timeSeriesCount, tagSet);
-      dataPointCountGauge.set(dataPointCount, tagSet);
-      tagsetLengthGauge.set(tagsetLengthBytes, tagSet);
-      tagsetCountGauge.set(tagTable.size(), tagSet);
-      metaRecordCountGauge.set(docStore.size(), tagSet);
+      stats.setGauge(M_DATAPOINTS, dataPointCount, tagSet);
+      stats.setGauge(M_TIMESERIES, timeSeriesCount, tagSet);
+      stats.setGauge(M_METRIC_LEN, metricLengthBytes, tagSet);
+      stats.setGauge(M_METRICS, metricTable.size(), tagSet);
+      stats.setGauge(M_TAGS_LEN, tagsetLengthBytes, tagSet);
+      stats.setGauge(M_TAGS, tagTable.size(), tagSet);
+      stats.setGauge(M_META_RECORD_COUNT, docStore.size(), tagSet);
       encoder.collectMetrics();
 
       LOGGER.info(
@@ -691,14 +674,16 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   }
 
   @Override
-  public long query(final MetricQuery metricQuery, final int firstSegmentTime, final int segmentCount) throws Exception {
-    long st = shardReadTimer.start();
+  public long query(final MetricQuery metricQuery,
+                    final int firstSegmentTime,
+                    final int segmentCount) throws Exception {
+    long st = DateTime.nanoTime();
     int cardinality;
     Query query = metricQuery.getQuery();
     try {
-      long start = metaSearchTimer.start();
+      long start = DateTime.nanoTime();
       cardinality = docStore.search(query, metricQuery.getMetricString(), docIdBuffer);
-      metaSearchTimer.stop(start, tagSet);
+      stats.addTime(M_META_SEARCH_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
     } catch (MetaDataStore.InSufficientArrayLengthException e) {
       int required = e.getRequired();
       int newLength = required * 2;
@@ -706,14 +691,14 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
       LOGGER.warn(
           "Growing doc id buffer for shard: {} from: {} to: {}", shardId, oldLength, newLength);
       docIdBuffer = new long[newLength];
-      long start = metaSearchTimer.start();
+      long start = DateTime.nanoTime();
       cardinality = docStore.search(query, metricQuery.getMetricString(), docIdBuffer);
-      metaSearchTimer.stop(start, tagSet);
+      stats.addTime(M_META_SEARCH_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
     }
 
     queryResult.create(cardinality);
     if (cardinality <= 0) {
-      shardReadTimer.stop(st, tagSet);
+      stats.addTime(M_READ_TIME, DateTime.nanoTime() - st, ChronoUnit.NANOS, tagSet);
       // empty result
       return 0;
     }
@@ -768,7 +753,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
       }
     }
     queryResult.setTSCount(tsIndex);
-    shardReadTimer.stop(st, tagSet);
+    stats.addTime(M_READ_TIME, DateTime.nanoTime() - st, ChronoUnit.NANOS, tagSet);
     return queryResult.getAddress();
   }
 
@@ -777,9 +762,9 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
     int cardinality;
     Query query = metricQuery.getQuery();
     try {
-      long start = metaSearchTimer.start();
+      long start = DateTime.nanoTime();
       cardinality = docStore.search(query, metricQuery.getMetricString(), docIdBuffer);
-      metaSearchTimer.stop(start, tagSet);
+      stats.addTime(M_META_SEARCH_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
     } catch (MetaDataStore.InSufficientArrayLengthException e) {
       int required = e.getRequired();
       int newLength = required * 2;
@@ -787,9 +772,9 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
       LOGGER.warn(
           "Growing doc id buffer for shard: {} from: {} to: {}", shardId, oldLength, newLength);
       docIdBuffer = new long[newLength];
-      long start = metaSearchTimer.start();
+      long start = DateTime.nanoTime();
       cardinality = docStore.search(query, metricQuery.getMetricString(), docIdBuffer);
-      metaSearchTimer.stop(start, tagSet);
+      stats.addTime(M_META_SEARCH_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
     }
 
     if (cardinality <= 0) {
@@ -866,7 +851,9 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   }
 
   private void addTimeSeries(
-      final LowLevelMetricData.HashedLowLevelMetricData event, final int timestamp, final int segmentTime) {
+      final LowLevelMetricData.HashedLowLevelMetricData event,
+      final int timestamp,
+      final int segmentTime) {
     long seriesHash = event.timeSeriesHash();
     long tagKey = event.tagsSetHash();
     final double value;
@@ -888,7 +875,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
     if (tsRecordAddress == timeSeriesTable.NOT_FOUND) { // add new time series
 
       if (memoryUsageLimit > 0 && memoryInfoReader.getTotalMemoryUsage() >= memoryUsageLimit) {
-        timeSeriesDropCounter.inc(tagSet);
+        stats.incrementCounter(M_DROPPED, tagSet);
         dataDropCount++;
         return;
       }
@@ -899,9 +886,9 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
         tagTable.put(event.tagsSetHash(), event.tagsBuffer(), event.tagBufferStart(), length);
         tagsetLengthBytes += length;
 
-        long start = metaWriteTimer.start();
+        long start = DateTime.nanoTime();
         docStore.add(event);
-        metaWriteTimer.stop(start, tagSet);
+        stats.addTime(M_META_WRITE_TIME, DateTime.nanoTime() - start, ChronoUnit.NANOS, tagSet);
         count = 1;
         metaCountTable.put(tagKey, count);
 

@@ -109,13 +109,13 @@ public class BaseAMNumericArrayTest {
 
     MetricRegistry registry = new MetricRegistry();
     GorillaSegmentFactory segmentFactory =
-            new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, registry);
+            new OffHeapGorillaSegmentFactory(shardConfig.segmentBlockSizeBytes, TSDB.getStatsCollector());
     encoderFactory =
             new GorillaTimeSeriesEncoderFactory(
                     false,
                     shardConfig.garbageQSize,
                     shardConfig.segmentCollectionDelayMinutes,
-                    registry,
+                    TSDB.getStatsCollector(),
                     segmentFactory);
 
     int segmentsInATimeSeries =
@@ -151,7 +151,7 @@ public class BaseAMNumericArrayTest {
                     encoder,
                     docStore,
                     memoryInfoReader,
-                    registry,
+                    TSDB.getStatsCollector(),
                     LocalDateTime.now(),
                     hashFunction,
                     flusher,

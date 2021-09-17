@@ -17,8 +17,8 @@
 
 package net.opentsdb.aura.aws;
 
-import io.ultrabrew.metrics.MetricRegistry;
 import mockit.Expectations;
+import net.opentsdb.stats.StatsCollector;
 import org.junit.jupiter.api.Test;
 import mockit.Injectable;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -33,7 +33,7 @@ public class S3UploaderTest {
     @Injectable
     S3Client s3Client;
     @Injectable
-    MetricRegistry metricRegistry;
+    StatsCollector stats;
 
     @Test
     public void simpleTest() {
@@ -45,7 +45,7 @@ public class S3UploaderTest {
         final String objectName = namespace + "/" + timestamp + "/" + shardid + "-0";
         byte[] payload = new byte[1];
         final PutObjectRequest request = PutObjectRequest.builder().bucket(bucketName).key(objectName).build();
-        S3Uploader s3Uploader = new S3Uploader(s3Client, metricRegistry, bucketName, namespace, shardid);
+        S3Uploader s3Uploader = new S3Uploader(s3Client, stats, bucketName, namespace, shardid);
         new Expectations() {{
 
             s3Client.putObject(request, withInstanceOf(RequestBody.class));

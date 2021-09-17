@@ -20,6 +20,7 @@ package net.opentsdb.aura.metrics.core.gorilla;
 import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.OffHeapSegment;
 import net.opentsdb.aura.metrics.core.downsample.DownSampledSegment;
+import net.opentsdb.stats.StatsCollector;
 
 public class OffHeapGorillaDownSampledSegment extends OffHeapSegment
     implements DownSampledSegment, GorillaSegment {
@@ -29,7 +30,7 @@ public class OffHeapGorillaDownSampledSegment extends OffHeapSegment
   protected static final int HEADER_SIZE_BYTE = 24;
 
   public OffHeapGorillaDownSampledSegment(
-      final int dataBlockSizeBytes, final MetricRegistry metricRegistry) {
+          final int dataBlockSizeBytes) {
     super(dataBlockSizeBytes);
   }
 

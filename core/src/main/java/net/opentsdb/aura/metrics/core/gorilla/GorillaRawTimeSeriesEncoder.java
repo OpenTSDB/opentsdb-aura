@@ -18,12 +18,11 @@
 package net.opentsdb.aura.metrics.core.gorilla;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.ultrabrew.metrics.Gauge;
-import io.ultrabrew.metrics.MetricRegistry;
 import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.TSDataConsumer;
 import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
+import net.opentsdb.stats.StatsCollector;
 
 import static net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaRawSegment.TWO_BYTE_FLAG;
 
@@ -35,20 +34,22 @@ import static net.opentsdb.aura.metrics.core.gorilla.OffHeapGorillaRawSegment.TW
 public class GorillaRawTimeSeriesEncoder extends GorillaSegmentEncoder<GorillaRawSegment>
     implements RawTimeSeriesEncoder {
 
-  protected Gauge segmentCountGauge;
+  public static final String M_COUNT = "segment.count";
+
   protected String[] tags;
 
   protected SegmentCollector segmentCollector;
+  protected final StatsCollector stats;
 
   public GorillaRawTimeSeriesEncoder(
       final boolean lossy,
-      final MetricRegistry metricRegistry,
+      final StatsCollector stats,
       final GorillaRawSegment segmentHandle,
       final SegmentCollector segmentCollector) {
 
     super(lossy, segmentHandle);
-    this.segmentCountGauge = metricRegistry == null ? null : metricRegistry.gauge("segment.count");
     this.segmentCollector = segmentCollector;
+    this.stats = stats;
   }
 
   public void setSegment(final GorillaRawSegment segment) {
@@ -480,8 +481,8 @@ public class GorillaRawTimeSeriesEncoder extends GorillaSegmentEncoder<GorillaRa
 
   @Override
   public void collectMetrics() {
-    if (segmentCountGauge != null) {
-      segmentCountGauge.set(segmentCount, tags);
+    if (stats != null) {
+      stats.setGauge(M_COUNT, segmentCount, tags);
     }
     segment.collectMetrics();
   }
