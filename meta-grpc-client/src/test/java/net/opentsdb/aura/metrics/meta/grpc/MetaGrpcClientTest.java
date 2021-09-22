@@ -17,12 +17,9 @@
 
 package net.opentsdb.aura.metrics.meta.grpc;
 
+import com.google.protobuf.ByteString;
 import io.grpc.stub.StreamObserver;
-import myst.Dictionary;
-import myst.GroupedTimeseries;
-import myst.MystServiceGrpc;
-import myst.QueryRequest;
-import myst.TimeseriesResponse;
+import myst.*;
 import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.meta.MetaClient;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
@@ -31,6 +28,7 @@ import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult.GroupResult.TagH
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
@@ -38,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static net.opentsdb.aura.metrics.meta.grpc.TestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,6 +47,8 @@ public class MetaGrpcClientTest {
   final String host = "localhost";
   final int port = 8080;
   private MystServer server;
+
+  private static final int[] timestampSequence = getTimestampSequence(2);
 
   @AfterEach
   public void tearDown() throws Exception {
@@ -61,15 +62,31 @@ public class MetaGrpcClientTest {
         GroupedTimeseries.newBuilder()
             .addGroup(1)
             .addGroup(2)
-            .addTimeseries(2)
-            .addTimeseries(4)
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                    .setHash(2)
+                    .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(4)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
             .build();
     GroupedTimeseries group2 =
         GroupedTimeseries.newBuilder()
             .addGroup(3)
             .addGroup(4)
-            .addTimeseries(6)
-            .addTimeseries(8)
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(6)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(8)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
             .build();
 
     Dictionary dictionary =
@@ -119,6 +136,9 @@ public class MetaGrpcClientTest {
       assertEquals(2, groupResult1.getHash(0));
       assertEquals(4, groupResult1.getHash(1));
 
+      verifyBitMap(groupResult1.getBitMap(0), timestampSequence);
+      verifyBitMap(groupResult1.getBitMap(1), timestampSequence);
+
       GroupResult groupResult2 = clientResponse.getGroup(1);
       assertEquals(2, groupResult2.numHashes());
       TagHashes tagHashes2 = groupResult2.tagHashes();
@@ -127,6 +147,9 @@ public class MetaGrpcClientTest {
       assertEquals(4, tagHashes2.next());
       assertEquals(6, groupResult2.getHash(0));
       assertEquals(8, groupResult2.getHash(1));
+
+      verifyBitMap(groupResult2.getBitMap(0), timestampSequence);
+      verifyBitMap(groupResult2.getBitMap(1), timestampSequence);
 
       assertEquals("1", clientResponse.getStringForHash(1));
       assertEquals("2", clientResponse.getStringForHash(2));
@@ -142,15 +165,31 @@ public class MetaGrpcClientTest {
         GroupedTimeseries.newBuilder()
             .addGroup(1)
             .addGroup(2)
-            .addTimeseries(2)
-            .addTimeseries(4)
+                .addTimeseries(
+                        Timeseries.newBuilder()
+                                .setHash(2)
+                                .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                )
+                .addTimeseries(
+                        Timeseries.newBuilder()
+                                .setHash(4)
+                                .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                )
             .build();
     GroupedTimeseries group2 =
         GroupedTimeseries.newBuilder()
             .addGroup(3)
             .addGroup(4)
-            .addTimeseries(6)
-            .addTimeseries(8)
+                .addTimeseries(
+                        Timeseries.newBuilder()
+                                .setHash(6)
+                                .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                )
+                .addTimeseries(
+                        Timeseries.newBuilder()
+                                .setHash(8)
+                                .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                )
             .build();
 
     Dictionary dictionary =
@@ -208,6 +247,9 @@ public class MetaGrpcClientTest {
                 assertEquals(2, groupResult1.getHash(0));
                 assertEquals(4, groupResult1.getHash(1));
 
+                verifyBitMap(groupResult1.getBitMap(0), timestampSequence);
+                verifyBitMap(groupResult1.getBitMap(1), timestampSequence);
+
                 MetaTimeSeriesQueryResult.GroupResult groupResult2 = clientResponse.getGroup(1);
                 assertEquals(2, groupResult2.numHashes());
                 MetaTimeSeriesQueryResult.GroupResult.TagHashes tagHashes2 =
@@ -217,6 +259,9 @@ public class MetaGrpcClientTest {
                 assertEquals(4, tagHashes2.next());
                 assertEquals(6, groupResult2.getHash(0));
                 assertEquals(8, groupResult2.getHash(1));
+
+                verifyBitMap(groupResult2.getBitMap(0), timestampSequence);
+                verifyBitMap(groupResult2.getBitMap(1), timestampSequence);
 
                 assertEquals("1", clientResponse.getStringForHash(1));
                 assertEquals("2", clientResponse.getStringForHash(2));
@@ -261,15 +306,31 @@ public class MetaGrpcClientTest {
                   GroupedTimeseries.newBuilder()
                       .addGroup(one)
                       .addGroup(two)
-                      .addTimeseries(two)
-                      .addTimeseries(four)
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(two)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(four)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
                       .build();
               GroupedTimeseries group2 =
                   GroupedTimeseries.newBuilder()
                       .addGroup(three)
                       .addGroup(four)
-                      .addTimeseries(six)
-                      .addTimeseries(eight)
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(six)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(eight)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
                       .build();
 
               Dictionary dictionary =
@@ -318,6 +379,8 @@ public class MetaGrpcClientTest {
       assertEquals(two, tagHashes1.next());
       assertEquals(two, groupResult1.getHash(0));
       assertEquals(four, groupResult1.getHash(1));
+      verifyBitMap(groupResult1.getBitMap(0), timestampSequence);
+      verifyBitMap(groupResult1.getBitMap(1), timestampSequence);
 
       GroupResult groupResult2 = result.getGroup(1);
 
@@ -327,6 +390,9 @@ public class MetaGrpcClientTest {
       assertEquals(four, tagHashes2.next());
       assertEquals(six, groupResult2.getHash(0));
       assertEquals(eight, groupResult2.getHash(1));
+
+      verifyBitMap(groupResult2.getBitMap(0), timestampSequence);
+      verifyBitMap(groupResult2.getBitMap(1), timestampSequence);
 
       assertEquals(String.valueOf(one), result.getStringForHash(one));
       assertEquals(String.valueOf(two), result.getStringForHash(two));
@@ -356,15 +422,31 @@ public class MetaGrpcClientTest {
                   GroupedTimeseries.newBuilder()
                       .addGroup(one)
                       .addGroup(two)
-                      .addTimeseries(two)
-                      .addTimeseries(four)
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(two)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(four)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
                       .build();
               GroupedTimeseries group2 =
                   GroupedTimeseries.newBuilder()
                       .addGroup(three)
                       .addGroup(four)
-                      .addTimeseries(six)
-                      .addTimeseries(eight)
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(six)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(eight)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
                       .build();
 
               Dictionary dictionary =
@@ -423,6 +505,9 @@ public class MetaGrpcClientTest {
                 assertEquals(two, groupResult1.getHash(0));
                 assertEquals(four, groupResult1.getHash(1));
 
+                verifyBitMap(groupResult1.getBitMap(0), timestampSequence);
+                verifyBitMap(groupResult1.getBitMap(1), timestampSequence);
+
                 MetaTimeSeriesQueryResult.GroupResult groupResult2 = result.getGroup(1);
 
                 assertEquals(2, groupResult2.numHashes());
@@ -432,6 +517,9 @@ public class MetaGrpcClientTest {
                 assertEquals(four, tagHashes2.next());
                 assertEquals(six, groupResult2.getHash(0));
                 assertEquals(eight, groupResult2.getHash(1));
+
+                verifyBitMap(groupResult2.getBitMap(0), timestampSequence);
+                verifyBitMap(groupResult2.getBitMap(1), timestampSequence);
 
                 assertEquals(String.valueOf(one), result.getStringForHash(one));
                 assertEquals(String.valueOf(two), result.getStringForHash(two));
@@ -476,15 +564,31 @@ public class MetaGrpcClientTest {
                   GroupedTimeseries.newBuilder()
                       .addGroup(one)
                       .addGroup(two)
-                      .addTimeseries(two)
-                      .addTimeseries(four)
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(two)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(four)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
                       .build();
               GroupedTimeseries group2 =
                   GroupedTimeseries.newBuilder()
                       .addGroup(three)
                       .addGroup(four)
-                      .addTimeseries(six)
-                      .addTimeseries(eight)
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(six)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
+                          .addTimeseries(
+                                  Timeseries.newBuilder()
+                                          .setHash(eight)
+                                          .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+                          )
                       .build();
 
               Dictionary dictionary =
@@ -547,6 +651,9 @@ public class MetaGrpcClientTest {
                 assertEquals(two, groupResult1.getHash(0));
                 assertEquals(four, groupResult1.getHash(1));
 
+                verifyBitMap(groupResult1.getBitMap(0), timestampSequence);
+                verifyBitMap(groupResult1.getBitMap(1), timestampSequence);
+
                 MetaTimeSeriesQueryResult.GroupResult groupResult2 = result.getGroup(1);
 
                 assertEquals(2, groupResult2.numHashes());
@@ -556,6 +663,9 @@ public class MetaGrpcClientTest {
                 assertEquals(four, tagHashes2.next());
                 assertEquals(six, groupResult2.getHash(0));
                 assertEquals(eight, groupResult2.getHash(1));
+
+                verifyBitMap(groupResult2.getBitMap(0), timestampSequence);
+                verifyBitMap(groupResult2.getBitMap(1), timestampSequence);
 
                 assertEquals(String.valueOf(one), result.getStringForHash(one));
                 assertEquals(String.valueOf(two), result.getStringForHash(two));
