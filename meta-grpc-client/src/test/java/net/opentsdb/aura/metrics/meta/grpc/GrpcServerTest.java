@@ -17,6 +17,7 @@
 
 package net.opentsdb.aura.metrics.meta.grpc;
 
+import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
@@ -25,11 +26,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcCleanupRule;
-import myst.Dictionary;
-import myst.GroupedTimeseries;
-import myst.MystServiceGrpc;
-import myst.QueryRequest;
-import myst.TimeseriesResponse;
+import myst.*;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,11 +35,17 @@ import org.junit.runners.JUnit4;
 import java.io.IOException;
 import java.util.Iterator;
 
+import static net.opentsdb.aura.metrics.meta.grpc.TestUtil.getBitMap;
+import static net.opentsdb.aura.metrics.meta.grpc.TestUtil.getTimestampSequence;
+
+
 @RunWith(JUnit4.class)
 public class GrpcServerTest {
 
   private String host = "localhost";
   private int port = 50051;
+
+  private static final int[] timestampSequence = getTimestampSequence(2);
 
   @Rule
   public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
@@ -50,8 +53,34 @@ public class GrpcServerTest {
   @Test
   public void testGetTimeseries() {
 
-    myst.GroupedTimeseries group1 = myst.GroupedTimeseries.newBuilder().addGroup(1).addGroup(2).addTimeseries(2).addTimeseries(4).build();
-    myst.GroupedTimeseries group2 = myst.GroupedTimeseries.newBuilder().addGroup(3).addGroup(4).addTimeseries(6).addTimeseries(8).build();
+    myst.GroupedTimeseries group1 = myst.GroupedTimeseries.newBuilder()
+            .addGroup(1)
+            .addGroup(2)
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(2)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(4)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
+            .build();
+    myst.GroupedTimeseries group2 = myst.GroupedTimeseries.newBuilder()
+            .addGroup(3)
+            .addGroup(4)
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(6)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
+            .addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(8)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
+            )
+            .build();
 
     Dictionary dictionary = Dictionary.newBuilder().putDict(1, String.valueOf(1)).putDict(2, String.valueOf(2)).putDict(3, String.valueOf(3)).putDict(4, String.valueOf(4)).build();
     TimeseriesResponse response = TimeseriesResponse.newBuilder().addGroupedTimeseries(group1).addGroupedTimeseries(group2).setDict(dictionary).build();

@@ -17,19 +17,20 @@
 
 package net.opentsdb.aura.metrics.meta.grpc;
 
+import com.google.protobuf.ByteString;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
-import myst.Dictionary;
-import myst.GroupedTimeseries;
-import myst.MystServiceGrpc;
-import myst.QueryRequest;
-import myst.TimeseriesResponse;
+import myst.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import org.roaringbitmap.RoaringBitmap;
+
 
 public class MystServer {
 
@@ -38,6 +39,8 @@ public class MystServer {
   private Server server;
   private final int port;
   private final MystServiceGrpc.MystServiceImplBase mystService;
+
+  private static final int[] timestampSequence = new int[]{0,1};
 
   public MystServer(final int port) {
     this(port, new MystServiceImpl());
@@ -108,7 +111,10 @@ public class MystServer {
           for (int j = 0; j < tsInAGroup; j++) {
             long groupKey = i + j;
             groupBuilder.addGroup(groupKey);
-            groupBuilder.addTimeseries(j + 1);
+            groupBuilder.addTimeseries(
+                    Timeseries.newBuilder()
+                            .setHash(j + 1)
+                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))));
           }
           GroupedTimeseries group = groupBuilder.build();
           tsResponseBuilder.addGroupedTimeseries(group);
@@ -120,6 +126,25 @@ public class MystServer {
       }
       responseObserver.onCompleted();
     }
+  }
+
+  public static byte[] getBitMap(int[] ts) {
+    RoaringBitmap roaringBitmap = new RoaringBitmap();
+    roaringBitmap.add(ts);
+
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+    DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
+
+    try {
+      roaringBitmap.serialize(dataOutputStream);
+      dataOutputStream.flush();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+
+    return byteArrayOutputStream.toByteArray();
   }
 
 }
