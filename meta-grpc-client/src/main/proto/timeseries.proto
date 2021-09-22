@@ -1,10 +1,9 @@
 syntax = "proto3";
 
-option java_multiple_files = true;
 package myst;
 
 service MystService {
-  rpc GetTimeseries (QueryRequest) returns (stream TimeseriesResponse);
+  rpc GetTimeseries (QueryRequest) returns (stream TimeseriesResponse) {}
 }
 
 message QueryRequest {
@@ -12,7 +11,7 @@ message QueryRequest {
 }
 
 message Dictionary {
-  map<int64, string> dict = 1;
+ map<int64, string> dict = 1;
 }
 
 message TimeseriesResponse {
@@ -22,6 +21,13 @@ message TimeseriesResponse {
 }
 
 message GroupedTimeseries {
-  repeated int64 group = 1;
-  repeated int64 timeseries = 2;
+    repeated int64 group = 1;
+    repeated Timeseries timeseries = 2;
 }
+
+message Timeseries {
+  int64 hash = 1;
+  bytes epoch_bitmap = 2;
+}
+
+option java_multiple_files = true;
