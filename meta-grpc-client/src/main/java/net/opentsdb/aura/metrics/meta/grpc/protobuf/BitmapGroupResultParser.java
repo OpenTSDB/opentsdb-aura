@@ -48,7 +48,6 @@ public class BitmapGroupResultParser extends AbstractParser<BitmapGroupResultLit
             }
             return groupResult;
         } catch (IOException e) {
-            e.printStackTrace();
             throw new InvalidProtocolBufferException(e);
         }
     }

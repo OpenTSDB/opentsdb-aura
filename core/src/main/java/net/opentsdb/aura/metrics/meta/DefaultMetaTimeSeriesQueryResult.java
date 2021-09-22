@@ -155,7 +155,7 @@ public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResu
     }
 
     public void addBitMap(long hash, RoaringBitmap bitmap) {
-      bitmaps[hashCount] = bitmap;
+      bitmaps[hashCount - 1] = bitmap;
     }
 
     @Override
