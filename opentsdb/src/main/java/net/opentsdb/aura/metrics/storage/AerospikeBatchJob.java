@@ -28,6 +28,7 @@ import gnu.trove.map.hash.TLongObjectHashMap;
 import net.opentsdb.data.types.numeric.aggregators.NumericArrayAggregator;
 import net.opentsdb.pools.CloseablePooledObject;
 import net.opentsdb.pools.PooledObject;
+import org.roaringbitmap.RoaringBitmap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,7 +124,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
         int numHashes = gr.numHashes();
         if (nextRecord > 0) {
           // continuation of a series
-          if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.id())) {
+          if (!setupAndOrSendBatch(gr.getHash(startHashId),gr.getBitMap(startHashId), gr.id())) {
             break;
           } else {
             if (!increment()) {
@@ -135,7 +136,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
           if (endGroupId == startGroupId && endHashId > 0) {
             // range within this group and that'd be it.
             for (; startHashId < endHashId; startHashId++) {
-              if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.id())) {
+              if (!setupAndOrSendBatch(gr.getHash(startHashId),gr.getBitMap(startHashId), gr.id())) {
                 return;
               }
             }
@@ -144,7 +145,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
             // in this case, we ignore the end hash. If set, it's set
             // for the final GB index we're reading.
             for (; startHashId < numHashes; startHashId++) {
-              if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.id())) {
+              if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.getBitMap(startHashId), gr.id())) {
                 return;
               }
             }
@@ -157,7 +158,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
           if (endGroupId == startGroupId) {
             // tail end
             for (; startHashId < endHashId; startHashId++) {
-              if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.id())) {
+              if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.getBitMap(startHashId), gr.id())) {
                 return;
               }
             }
@@ -165,7 +166,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
           } else {
             // all in this group
             for (; startHashId < numHashes; startHashId++) {
-              if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.id())) {
+              if (!setupAndOrSendBatch(gr.getHash(startHashId), gr.getBitMap(startHashId), gr.id())) {
                 return;
               }
             }
@@ -188,7 +189,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
     }
   }
 
-  boolean setupAndOrSendBatch(long hash, long groupId) {
+  boolean setupAndOrSendBatch(final long hash, final RoaringBitmap bitmap, final long groupId) {
     batchKeys.grow(queryNode.batchLimit());
     int ts;
     if (nextRecord > 0) {
@@ -199,6 +200,13 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
     }
 
     while (ts < queryNode.segmentsEnd()) {
+
+      if(!bitmap.contains(ts)) {
+        //No need to generate Aerospike hash for this epoch.
+        ts += queryNode.secondsInRecord();
+        continue;
+      }
+
       // not bothering with getters/setters here.
       int keyIdx = batchKeys.keyIdx;
       ByteArrays.putLong(hash, batchKeys.keys[keyIdx], 0);
