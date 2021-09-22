@@ -20,10 +20,7 @@ package net.opentsdb.aura.metrics.meta.grpc;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.ExtensionRegistryLite;
 import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
-import net.opentsdb.aura.metrics.meta.grpc.protobuf.DictionaryLite;
-import net.opentsdb.aura.metrics.meta.grpc.protobuf.DictionaryParser;
-import net.opentsdb.aura.metrics.meta.grpc.protobuf.GroupResultLite;
-import net.opentsdb.aura.metrics.meta.grpc.protobuf.GroupResultParser;
+import net.opentsdb.aura.metrics.meta.grpc.protobuf.*;
 import io.grpc.KnownLength;
 import io.grpc.MethodDescriptor;
 
@@ -35,7 +32,7 @@ import java.lang.ref.WeakReference;
 public class TimeSeriesQueryResultMarshaller {
 
   private static final ThreadLocal<Reference<byte[]>> bufs = new ThreadLocal<>();
-  private static final GroupResultParser groupedTsParser = new GroupResultParser();
+  private static final BitmapGroupResultParser groupedTsParser = new BitmapGroupResultParser();
   private static final DictionaryParser dictParser = new DictionaryParser();
 
 
@@ -53,7 +50,6 @@ public class TimeSeriesQueryResultMarshaller {
 
       @Override
       public DefaultMetaTimeSeriesQueryResult parse(InputStream stream) {
-
         DefaultMetaTimeSeriesQueryResult result = new DefaultMetaTimeSeriesQueryResult(); //TODO: reuse
         ExtensionRegistryLite extensionRegistry = ExtensionRegistryLite.newInstance();
         if (stream instanceof KnownLength) {
@@ -92,7 +88,7 @@ public class TimeSeriesQueryResultMarshaller {
                     done = true;
                     break;
                   case 10: {
-                    GroupResultLite gt = input.readMessage(groupedTsParser, extensionRegistry);
+                    BitmapGroupResultLite gt = input.readMessage(groupedTsParser, extensionRegistry);
                     result.addGroupResult(gt);
                     break;
                   }

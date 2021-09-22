@@ -58,6 +58,7 @@ public class MergedMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResul
             int f = Arrays.binarySearch(localGR.hashes, 0, localGR.numHashes(), hash);
             if (f < 0) {
               localGR.addHash(hash);
+              localGR.addBitMap(hash, remoteGroup.getBitMap(idx));
               ++hashCount;
             }
           }

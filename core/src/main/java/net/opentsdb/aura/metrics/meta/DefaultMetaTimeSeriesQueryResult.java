@@ -20,9 +20,12 @@ package net.opentsdb.aura.metrics.meta;
 import gnu.trove.map.TLongIntMap;
 import gnu.trove.map.hash.TLongIntHashMap;
 import net.opentsdb.utils.XXHash;
+import org.roaringbitmap.RoaringBitmap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResult {
@@ -107,6 +110,7 @@ public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResu
   public static class DefaultGroupResult implements GroupResult {
     private long[] tagHashes = new long[DEFAULT_ARRAY_SIZE];
     public long[] hashes = new long[DEFAULT_ARRAY_SIZE];
+    public RoaringBitmap[] bitmaps = new RoaringBitmap[DEFAULT_ARRAY_SIZE];
 
     private long id = 0;
     private int tagHashCount;
@@ -136,8 +140,22 @@ public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResu
         long[] newHashes = new long[newLength];
         System.arraycopy(hashes, 0, newHashes, 0, oldLength);
         hashes = newHashes;
+        RoaringBitmap[] newBitmaps = new RoaringBitmap[newLength];
+        System.arraycopy(bitmaps, 0, newBitmaps, 0, oldLength);
+        bitmaps = newBitmaps;
       }
       hashes[hashCount++] = hash;
+    }
+
+    public void addBitMap(long hash, byte[] bitMap) throws IOException {
+      //Will leave the hash as is, even though we are not using it.
+      RoaringBitmap roaringBitmap = new RoaringBitmap();
+      roaringBitmap.deserialize(ByteBuffer.wrap(bitMap));
+      bitmaps[hashCount - 1] = roaringBitmap;
+    }
+
+    public void addBitMap(long hash, RoaringBitmap bitmap) {
+      bitmaps[hashCount] = bitmap;
     }
 
     @Override
@@ -162,6 +180,12 @@ public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResu
     public long getHash(final int index) {
       return hashes[index];
     }
+
+    @Override
+    public RoaringBitmap getBitMap(int index) {
+      return bitmaps[index];
+    }
+
 
     @Override
     public TagHashes tagHashes() {

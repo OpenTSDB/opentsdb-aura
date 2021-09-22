@@ -17,6 +17,8 @@
 
 package net.opentsdb.aura.metrics.meta;
 
+import org.roaringbitmap.RoaringBitmap;
+
 public interface MetaTimeSeriesQueryResult {
 
   /**
@@ -85,6 +87,13 @@ public interface MetaTimeSeriesQueryResult {
     long getHash(int index);
 
     /**
+     * Returns the epoch bitmap for a timeseries at the given index.
+     * @param index
+     * @return
+     */
+    RoaringBitmap getBitMap(int index);
+
+    /**
      * @return The tag hash instance used for creating an ID. For a group-all we should
      * return a default instance with a size of 0.
      */
@@ -106,6 +115,10 @@ public interface MetaTimeSeriesQueryResult {
        * @return An iterator over the values or keys and values (alternately)
        */
       long next();
+    }
+
+    interface TimestampMatcher {
+      boolean match(int ts);
     }
   }
 }
