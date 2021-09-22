@@ -24,7 +24,6 @@ public class TestUtil {
     }
 
     public static void verifyBitMap(RoaringBitmap bitMap, int[] ts) {
-        final Iterator<Integer> iterator = bitMap.iterator();
         int i = 0;
         for (; i < ts.length; i++) {
             assertTrue(bitMap.contains(ts[i]));
