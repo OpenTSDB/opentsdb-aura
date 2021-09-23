@@ -201,7 +201,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
 
     while (ts < queryNode.segmentsEnd()) {
 
-      if(!bitmap.contains(ts)) {
+      if(bitmap != null && !bitmap.contains(ts)) {
         //No need to generate Aerospike hash for this epoch.
         ts += queryNode.secondsInRecord();
         continue;
