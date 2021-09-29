@@ -220,6 +220,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
     tsdb.getRegistry().registerSharedObject("AuraTimeSeriesStorage", timeSeriesStorage);
 
     logger.info("Successfully initialized Aura Metrics");
+    logger.info("Stats collector: " + tsdb.getStatsCollector());
     return Deferred.fromResult(null);
   }
 
@@ -504,7 +505,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
     shardConfig.segmentWidth = SegmentWidth.getByHours(shardConfig.segmentSizeHour);
 //    shardConfig.downSampleInterval = getDownSampleInterval();
 //    shardConfig.downSampleAggTypes = getDownSampleAggs();
-    tsdb.getConfig().getString(configId(id,
+    duration = tsdb.getConfig().getString(configId(id,
             ConfigUtils.RETENTION_KEY));
     shardConfig.retentionHour = (int) (DateTime.parseDuration(duration) / 1000 / 3600);
     shardConfig.queueSize = tsdb.getConfig().getInt(
@@ -534,7 +535,9 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
             configId(id, ConfigUtils.PURGE_BATCH_SIZE_KEY));
     shardConfig.metaQueryEnabled = true;
 
-    logger.info("Segment start time is {}", Arrays.toString(shardConfig.segmentStartTimes));
+    logger.info("Segment start time is {} with retention {} hours.",
+            Arrays.toString(shardConfig.segmentStartTimes),
+            shardConfig.retentionHour);
     logger.info("Shard ids: {}", Arrays.toString(shardConfig.shardIds));
 
     return shardConfig;

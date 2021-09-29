@@ -69,6 +69,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
   public static final String M_WRITE_TIME = "timeseries.write.timer";
   public static final String M_PURGE_TIME = "timeseries.purge.timer";
   public static final String M_PURGE_COUNT = "timeseries.purge.count";
+  public static final String M_PURGE_SKIPPED = "timeseries.purge.skipped.ref";
   public static final String M_WRITE_FAIL = "timeseries.write.failure.count";
   public static final String M_TIMESERIES = "timeseries.count";
   public static final String M_DROPPED = "timeseries.drop.count";
@@ -499,6 +500,12 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
 
         long tsAddress = tsIterator.value();
         timeSeriesRecord.open(tsAddress);
+        if (timeSeriesRecord.refs() > 0) {
+          LOGGER.info("Non-zero ref count {} for time series record @ {}",
+                  timeSeriesRecord.refs(), tsAddress);
+          stats().incrementCounter(M_PURGE_SKIPPED, tagSet);
+          continue;
+        }
 
         int lastTimestamp = timeSeriesRecord.getLastTimestamp();
         int secondsSinceLastUpdate = currentTimeInSeconds - lastTimestamp;
@@ -749,6 +756,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
         getTagPointer(timeSeriesRecord.getTagKey(), pointerBuffer);
         long tagAddress = ByteArrays.getLong(pointerBuffer, 0);
         int tagLength = ByteArrays.getInt(pointerBuffer, 8);
+        timeSeriesRecord.inc();
         queryResult.set(tsIndex++, tsRecordAddress, tagAddress, tagLength);
       }
     }

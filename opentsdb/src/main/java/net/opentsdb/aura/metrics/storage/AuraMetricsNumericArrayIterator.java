@@ -353,7 +353,7 @@ public class AuraMetricsNumericArrayIterator implements
 
       if (segmentFound) {
 
-        StatsCollector.StatsTimer segmentDecodeTimer = statsCollector.startTimer("segment.decode.time", ChronoUnit.NANOS);
+        long startDecode = DateTime.nanoTime();
 
         // Reset accumulator for each segment and reuse
         tlAccumulator.reset();
@@ -579,7 +579,7 @@ public class AuraMetricsNumericArrayIterator implements
           logger.info("Interval index: " + t_intervalIndex);
           throw e;
         }
-        segmentDecodeTimer.stop();
+        statsCollector.addTime("segment.decode.time", DateTime.nanoTime() - startDecode, ChronoUnit.NANOS);
       } else {
 
         // check if intervals need to close or skip because of missing segment.
@@ -666,6 +666,8 @@ public class AuraMetricsNumericArrayIterator implements
               segmentCount,
               System.currentTimeMillis() - start);
     }
+
+    timeSeriesRecord.dec();
     return;
   }
 

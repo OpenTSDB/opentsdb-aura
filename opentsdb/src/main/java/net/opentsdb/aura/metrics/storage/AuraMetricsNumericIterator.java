@@ -134,6 +134,7 @@ public class AuraMetricsNumericIterator implements TypedTimeSeriesIterator<Numer
   @Override
   public void close() {
     accumulator.reset();
+    timeSeriesRecord.dec();
   }
 
   boolean advance() {

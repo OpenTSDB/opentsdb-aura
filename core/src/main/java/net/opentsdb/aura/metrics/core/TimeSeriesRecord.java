@@ -65,4 +65,10 @@ public interface TimeSeriesRecord extends DataBlock {
   void deleteSegmentAddressAtIndex(int segmentIndex);
 
   void delete();
+
+  int refs();
+
+  void inc();
+
+  void dec();
 }

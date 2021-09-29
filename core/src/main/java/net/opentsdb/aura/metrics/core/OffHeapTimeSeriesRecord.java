@@ -26,7 +26,18 @@ import net.opentsdb.collections.DirectByteArray;
  * 16 - 16 byte = number of tags, unsigned byte I hope...
  * 17 - 20 bytes = last timestamp in epoch seconds
  * 21 - 28 bytes = last value as a long encoded double value.
- * 29 - 36 bytes = cur segment address? Or first segment address?
+ * 29 - 30 bytes = HACKY ref count of outstanding queries on this record
+ * 31 - 38 bytes = cur segment address? Or first segment address?
+ *
+ * For ref counting, we increment a byte, assuming we wouldn't have more than 255
+ * outstanding queries on on single record. Then we also tag the second byte
+ * with a sort of timestamp to detect stale counts in the case something went
+ * wrong and we failed to decrement a series properly. The timestamp consists of
+ * 3 bits representing a bucket in which the hour falls. This gives us 7 hours
+ * of rollover.
+ * The last 5 bits are a 2 minute bucket. This assumes that valid queries will
+ * complete in 2 minutes. The stale check looks to see if the minute and hour
+ * flags are the same and only then returns not-stale.
  */
 public class OffHeapTimeSeriesRecord implements TimeSeriesRecord {
 
@@ -35,7 +46,8 @@ public class OffHeapTimeSeriesRecord implements TimeSeriesRecord {
   protected static final int TAG_COUNT_INDEX = TAG_KEY_INDEX + Long.BYTES;
   protected static final int LAST_TIMESTAMP_INDEX = TAG_COUNT_INDEX + Byte.BYTES;
   protected static final int LAST_VALUE_INDEX = LAST_TIMESTAMP_INDEX + Integer.BYTES;
-  protected static final int SEGMENT_ADDR_BASE_INDEX = LAST_VALUE_INDEX + Long.BYTES;
+  protected static final int REF_COUNT_INDEX = LAST_VALUE_INDEX + Long.BYTES;
+  protected static final int SEGMENT_ADDR_BASE_INDEX = REF_COUNT_INDEX + 2;
 
   protected final int recordSizeBytes;
   protected final int secondsInASegment;
@@ -67,7 +79,9 @@ public class OffHeapTimeSeriesRecord implements TimeSeriesRecord {
     setTagCount(tagCount);
     setLastTimestamp(timestamp);
     setLastValue(value);
+    dataBlock.setByte(REF_COUNT_INDEX, (byte) 0);
     setSegmentAddress(segmentTime, segmentAddress);
+
     return dataBlock.getAddress();
   }
 
@@ -190,5 +204,70 @@ public class OffHeapTimeSeriesRecord implements TimeSeriesRecord {
   @Override
   public void delete() {
     dataBlock.free();
+  }
+
+  @Override
+  public int refs() {
+    byte refs = dataBlock.getByte(REF_COUNT_INDEX);
+    if (refs == 0) {
+      return 0;
+    }
+
+    if (isStale(dataBlock.getByte(REF_COUNT_INDEX + 1))) {
+      return 0;
+    }
+    return refs;
+  }
+
+  @Override
+  public void inc() {
+    int refs = (int) (dataBlock.getByte(REF_COUNT_INDEX));
+    dataBlock.setByte(REF_COUNT_INDEX, (byte) (refs + 1));
+    dataBlock.setByte(REF_COUNT_INDEX + 1, refTimestamp());
+  }
+
+  @Override
+  public void dec() {
+    int count = ((int) dataBlock.getByte(REF_COUNT_INDEX)) - 1;
+    if (count < 0) {
+      // TODO - log or note it somehow.
+      count = 0;
+    }
+    dataBlock.setByte(REF_COUNT_INDEX, (byte) count);
+  }
+
+  byte refTimestamp() {
+    long now = System.currentTimeMillis() / 1000;
+    long minute = (now - (now % 120)) - (now - (now % 3600));
+    minute /= 120;
+
+    long hour = (now - (now % 3600)) - (now - (now % 86400));
+    hour /= 3600;
+    hour = hour % 7; // 3 bits
+
+    byte mem = (byte) (hour << 5);
+    mem |= minute;
+    return mem;
+  }
+
+  boolean isStale(byte ref) {
+    long now = System.currentTimeMillis() / 1000;
+    long hour = (now - (now % 3600)) - (now - (now % 86400));
+    hour /= 3600;
+    hour = hour % 7; // 3 bits
+
+    int refHour = (ref >>> 5) & 0x7;
+    if (refHour != hour) {
+      return true;
+    }
+
+    long minute = (now - (now % 120)) - (now - (now % 3600));
+    minute /= 120;
+
+    int memMinute = ref & 0x1F;
+    if (memMinute < minute) {
+      return true;
+    }
+    return false;
   }
 }

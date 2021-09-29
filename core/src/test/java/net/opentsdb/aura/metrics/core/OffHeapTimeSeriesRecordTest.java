@@ -17,12 +17,16 @@
 
 package net.opentsdb.aura.metrics.core;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import net.opentsdb.collections.DirectByteArray;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,7 +43,8 @@ public class OffHeapTimeSeriesRecordTest {
     assertEquals(16, OffHeapTimeSeriesRecord.TAG_COUNT_INDEX);
     assertEquals(17, OffHeapTimeSeriesRecord.LAST_TIMESTAMP_INDEX);
     assertEquals(21, OffHeapTimeSeriesRecord.LAST_VALUE_INDEX);
-    assertEquals(29, OffHeapTimeSeriesRecord.SEGMENT_ADDR_BASE_INDEX);
+    assertEquals(29, OffHeapTimeSeriesRecord.REF_COUNT_INDEX);
+    assertEquals(31, OffHeapTimeSeriesRecord.SEGMENT_ADDR_BASE_INDEX);
   }
 
   @Test
@@ -53,7 +58,7 @@ public class OffHeapTimeSeriesRecordTest {
 
     assertEquals(secondsInASegment, record.secondsInASegment);
     assertEquals(secondsInATimeSeries, record.secondsInATimeSeries);
-    assertEquals(29 + (8 * 13), record.recordSizeBytes);
+    assertEquals(31 + (8 * 13), record.recordSizeBytes);
     DirectByteArray dataBlock = record.dataBlock;
     assertNotNull(dataBlock);
     assertEquals(0, dataBlock.getCapacity());
@@ -62,12 +67,12 @@ public class OffHeapTimeSeriesRecordTest {
     // < 24h retention
     segmentsInATimeSeries = 7; // always + 1
     record = new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
-    assertEquals(29 + (8 * 7), record.recordSizeBytes);
+    assertEquals(31 + (8 * 7), record.recordSizeBytes);
 
     // > 24h retention
     segmentsInATimeSeries = 49; // always + 1
     record = new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
-    assertEquals(29 + (8 * 49), record.recordSizeBytes);
+    assertEquals(31 + (8 * 49), record.recordSizeBytes);
   }
 
   @Test
@@ -86,7 +91,7 @@ public class OffHeapTimeSeriesRecordTest {
     assertEquals(6, record.getTagCount());
     assertEquals(timestamp, record.getLastTimestamp());
     assertEquals(42.5, record.getLastValue(), 0.001);
-    assertEquals(29 + (8 * 13), record.length());
+    assertEquals(31 + (8 * 13), record.length());
     DirectByteArray dataBlock = record.dataBlock;
     assertEquals(addr, dataBlock.getAddress());
     dataBlock.free();
@@ -99,7 +104,7 @@ public class OffHeapTimeSeriesRecordTest {
     assertEquals(-1, record.getTagCount());
     assertEquals(-2, record.getLastTimestamp());
     assertTrue(Double.isNaN(record.getLastValue()));
-    assertEquals(29 + (8 * 13), record.length());
+    assertEquals(31 + (8 * 13), record.length());
     dataBlock = record.dataBlock;
     assertEquals(addr, dataBlock.getAddress());
     dataBlock.free();
@@ -108,7 +113,7 @@ public class OffHeapTimeSeriesRecordTest {
     segmentsInATimeSeries = 0;
     final OffHeapTimeSeriesRecord badRecord =
         new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
-    assertEquals(29, badRecord.recordSizeBytes);
+    assertEquals(31, badRecord.recordSizeBytes);
     assertThrows(
         ArithmeticException.class,
         () -> {
@@ -136,7 +141,7 @@ public class OffHeapTimeSeriesRecordTest {
     assertEquals(timestamp, record.getLastTimestamp());
     assertEquals(42.5, record.getLastValue(), 0.001);
     DirectByteArray dataBlock = record.dataBlock;
-    assertEquals(29 + (8 * 13), dataBlock.getCapacity());
+    assertEquals(31 + (8 * 13), dataBlock.getCapacity());
     assertEquals(addr, dataBlock.getAddress());
 
     // this _should_ segfault. No way to handle it in a UT.
@@ -160,7 +165,7 @@ public class OffHeapTimeSeriesRecordTest {
     assertEquals(6, record.getTagCount());
     assertEquals(timestamp, record.getLastTimestamp());
     assertEquals(42.5, record.getLastValue(), 0.001);
-    assertEquals(29 + (8 * 13), record.length());
+    assertEquals(31 + (8 * 13), record.length());
 
     record.setMetricKey(-1);
     record.setTagKey(-2);
@@ -185,7 +190,7 @@ public class OffHeapTimeSeriesRecordTest {
     int secondsInASegment = 3600 * 2;
     OffHeapTimeSeriesRecord record =
         new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
-    assertEquals(29 + (8 * segmentsInATimeSeries), record.recordSizeBytes);
+    assertEquals(31 + (8 * segmentsInATimeSeries), record.recordSizeBytes);
 
     int segmentTimestamp = 1620237600;
     int ts = segmentTimestamp;
@@ -207,7 +212,7 @@ public class OffHeapTimeSeriesRecordTest {
     int secondsInASegment = 3600 * 2;
     OffHeapTimeSeriesRecord record =
         new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
-    assertEquals(29 + (8 * segmentsInATimeSeries), record.recordSizeBytes);
+    assertEquals(31 + (8 * segmentsInATimeSeries), record.recordSizeBytes);
     int segmentTimestamp = 1620237600;
     record.create(1, 2, (byte) 6, 1620237600, 42.5, segmentTimestamp, -1);
 
@@ -227,7 +232,7 @@ public class OffHeapTimeSeriesRecordTest {
     int secondsInASegment = 3600 * 2;
     OffHeapTimeSeriesRecord record =
         new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
-    assertEquals(29 + (8 * segmentsInATimeSeries), record.recordSizeBytes);
+    assertEquals(31 + (8 * segmentsInATimeSeries), record.recordSizeBytes);
     int segmentTimestamp = 1620237600;
     record.create(1, 2, (byte) 6, 1620237600, 42.5, segmentTimestamp, -1);
 
@@ -367,4 +372,68 @@ public class OffHeapTimeSeriesRecordTest {
     assertThrows(IndexOutOfBoundsException.class, () -> record.getSegmentAddressAtIndex(3));
     assertThrows(IndexOutOfBoundsException.class, () -> record.getLastTimestamp());
   }
+
+  @Test
+  public void incDec() {
+    int segmentsInATimeSeries = 13; // always + 1
+    int secondsInASegment = 3600 * 2;
+    OffHeapTimeSeriesRecord record =
+            new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
+
+    int segmentTimestamp = 1620237600;
+    int timestamp = 1620239565;
+    long addr = record.create(1, 2, (byte) 6, timestamp, 42.5, segmentTimestamp, -1);
+    assertTrue(addr > 0);
+
+    record = new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
+    record.open(addr);
+
+    assertEquals(0, record.refs());
+    record.inc();
+    assertEquals(1, record.refs());
+    record.dec();
+    assertEquals(0, record.refs());
+
+    record.inc();
+    record.inc();
+    assertEquals(2, record.refs());
+  }
+
+  @Test
+  public void incDecStale() {
+    int segmentsInATimeSeries = 13; // always + 1
+    int secondsInASegment = 3600 * 2;
+    OffHeapTimeSeriesRecord record =
+            new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
+
+    int segmentTimestamp = 1620237600;
+    int timestamp = 1620239565;
+    long addr = record.create(1, 2, (byte) 6, timestamp, 42.5, segmentTimestamp, -1);
+    assertTrue(addr > 0);
+
+    record = new OffHeapTimeSeriesRecord(segmentsInATimeSeries, secondsInASegment);
+    record.open(addr);
+
+    assertEquals(0, record.refs());
+    record.inc();
+    record.inc();
+    assertEquals(2, record.refs());
+
+    byte ref = record.dataBlock.getByte(OffHeapTimeSeriesRecord.REF_COUNT_INDEX + 1);
+    int refHour = (ref >>> 5) & 0x7;
+    int memMinute = ref & 0x1F;
+    if (memMinute >= 1) {
+      memMinute--;
+    } else {
+      refHour = refHour > 0 ? refHour - 1 : 6;
+    }
+
+    ref = 0;
+    ref = (byte) (refHour << 5);
+    ref |= memMinute;
+    record.dataBlock.setByte(OffHeapTimeSeriesRecord.REF_COUNT_INDEX + 1, ref);
+
+    assertEquals(0, record.refs());
+  }
+
 }
