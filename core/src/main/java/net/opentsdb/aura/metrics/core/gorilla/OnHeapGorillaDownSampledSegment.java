@@ -19,11 +19,14 @@ package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 
+import static net.opentsdb.aura.metrics.core.TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS;
+
 public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
     implements GorillaDownSampledSegment {
 
   protected byte interval;
   protected byte aggs;
+  protected boolean lossy;
 
   public OnHeapGorillaDownSampledSegment(int segmentTime, byte[] buffer) {
     this(segmentTime, buffer, 0, buffer.length);
@@ -32,6 +35,7 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
   public OnHeapGorillaDownSampledSegment(
       int segmentTime, byte[] buffer, int startingOffset, int length) {
     super(segmentTime, buffer, startingOffset, length);
+    this.lossy = buffer[0] == GORILLA_LOSSY_SECONDS;
     this.interval = buffer[1];
     this.aggs = buffer[2];
     this.bitIndex = (startingOffset + 3) * Byte.SIZE;
@@ -55,6 +59,10 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
   @Override
   public byte getAggs() {
     return aggs;
+  }
+
+  public boolean isLossy() {
+    return lossy;
   }
 
   @Override

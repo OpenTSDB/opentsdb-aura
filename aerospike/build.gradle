@@ -24,7 +24,7 @@ dependencies {
 
     api project(':core')
 
-    implementation group: 'com.aerospike', name: 'aerospike-client', version: '5.1.7'
+    api group: 'com.aerospike', name: 'aerospike-client', version: '5.1.7'
     implementation group: 'net.opentsdb', name: 'opentsdb-core', version: opentsdbVersion
 
     testImplementation group: 'org.jmockit', name: 'jmockit', version: '1.49'

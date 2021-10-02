@@ -24,7 +24,10 @@ import com.aerospike.client.Operation;
 import com.aerospike.client.Record;
 import com.aerospike.client.Value;
 import com.aerospike.client.cdt.MapOperation;
+import com.aerospike.client.cdt.MapOrder;
+import com.aerospike.client.cdt.MapPolicy;
 import com.aerospike.client.cdt.MapReturnType;
+import com.aerospike.client.cdt.MapWriteFlags;
 import com.aerospike.client.cluster.Connection;
 import com.aerospike.client.command.OperateArgs;
 import com.aerospike.client.command.ReadCommand;
@@ -174,7 +177,7 @@ public class AerospikeFunctionalTest {
 
     Interval interval = Interval._30_SEC;
     SegmentWidth segmentWidth = SegmentWidth._2_HR;
-    int intervalWidth = interval.getWidth();
+    int intervalWidth = interval.getSeconds();
     short intervalCount = interval.getCount(segmentWidth);
     Random random = new Random(System.currentTimeMillis());
 
@@ -188,12 +191,12 @@ public class AerospikeFunctionalTest {
       randomValues[i] = random.nextLong() + random.nextDouble();
     }
 
-    OffHeapGorillaDownSampledSegment segment = new OffHeapGorillaDownSampledSegment(256, null);
+    OffHeapGorillaDownSampledSegment segment = new OffHeapGorillaDownSampledSegment(256);
 
     GorillaDownSampledTimeSeriesEncoder encoder =
         new GorillaDownSampledTimeSeriesEncoder(
             false, interval, segmentWidth, downSampler, segment);
-    encoder.createSegment(SEGMENT_TIMESTAMP);
+    encoder.createSegment(SEGMENT_TIMESTAMP - 7200 - 7200);
     encoder.addDataPoints(randomValues);
 
     assertEquals(intervalCount, encoder.getNumDataPoints());
@@ -202,22 +205,34 @@ public class AerospikeFunctionalTest {
     int secondsInSegment = (int) TimeUnit.HOURS.toSeconds(2);
     int recordTimestamp = encoder.getSegmentTime() - (encoder.getSegmentTime() % secondsInRecord);
 
-    //    long hash = random.nextLong();
     long hash = 8737594818697886573l;
     int recordOffset = (encoder.getSegmentTime() - recordTimestamp) / secondsInSegment;
 
     System.out.println("hash: " + hash);
     System.out.println("recordTimeStamp: " + recordTimestamp);
 
-    Key key = new Key("default", null, new ByteValue(new byte[KEY_LENGTH]));
+    byte[] rowKey = new byte[KEY_LENGTH];
+    ByteArrays.putLong(hash, rowKey, 0);
+    ByteArrays.putInt(recordTimestamp, rowKey, 8);
+
+    Key key = new Key("default", null, new ByteValue(rowKey));
     ByteValue v = (ByteValue) key.userKey;
     ByteArrays.putLong(hash, v.bytes, 0);
     ByteArrays.putInt(recordTimestamp, v.bytes, 8);
 
-    Bin bin = new Bin(null, new DSEncodedValue());
-    ((DSEncodedValue) bin.value).reset(encoder, recordOffset);
+    //    Bin bin = new Bin(null, new DSEncodedValue());
+    //    ((DSEncodedValue) bin.value).reset(encoder, recordOffset);
+    //    client.put(writePolicy, key, bin);
 
-    client.put(writePolicy, key, bin);
+    Record record =
+        client.operate(
+            writePolicy,
+            key,
+            MapOperation.putItems(
+                new MapPolicy(MapOrder.KEY_ORDERED, MapWriteFlags.DEFAULT),
+                null,
+                new DSEncodeMapValue(encoder, recordOffset)));
+    System.out.println(record);
 
     downSampler.apply(randomValues);
     AggregatorIterator<double[]> aggItr = downSampler.iterator();
@@ -230,30 +245,21 @@ public class AerospikeFunctionalTest {
 
     List<Value> keyList = new ArrayList<>();
     keyList.add(Value.get((byte) (recordOffset << 4 | 0))); // header
+    keyList.add(Value.get((byte) (recordOffset << 4 | AverageAggregator.ORDINAL)));
     keyList.add(Value.get((byte) (recordOffset << 4 | SumAggregator.ORDINAL)));
     keyList.add(Value.get((byte) (recordOffset << 4 | CountAggregator.ORDINAL)));
-    keyList.add(Value.get((byte) (recordOffset << 4 | AverageAggregator.ORDINAL)));
     keyList.add(Value.get((byte) (recordOffset << 4 | MinAggregator.ORDINAL)));
     keyList.add(Value.get((byte) (recordOffset << 4 | MaxAggregator.ORDINAL)));
     keyList.add(Value.get((byte) (recordOffset << 4 | SumOfSquareAggregator.ORDINAL)));
 
     Operation operation = MapOperation.getByKeyList("", keyList, MapReturnType.VALUE);
-    Record record = client.operate(null, key, operation);
+    record = client.operate(null, key, operation);
     List<byte[]> list = (List<byte[]>) record.getList("");
 
     assertEquals(7, list.size());
 
-    byte aggId =
-        SumAggregator.ID
-            | CountAggregator.ID
-            | AverageAggregator.ID
-            | MinAggregator.ID
-            | MaxAggregator.ID
-            | SumOfSquareAggregator.ID;
-
     byte[] aggIds =
         new byte[] {
-          0,
           AverageAggregator.ID,
           SumAggregator.ID,
           CountAggregator.ID,
@@ -262,9 +268,14 @@ public class AerospikeFunctionalTest {
           SumOfSquareAggregator.ID
         };
 
+    byte[][] aggs = new byte[list.size() - 1][];
+    for (int i = 0; i < aggs.length; i++) {
+      aggs[i] = list.get(i + 1);
+    }
+
     OnHeapAerospikeSegment aerospikeSegment =
-        new OnHeapAerospikeSegment(SEGMENT_TIMESTAMP, aggId, aggIds, list);
-    AerospikeDSTimeSeriesEncoder reader = new AerospikeDSTimeSeriesEncoder(false, aerospikeSegment);
+        new OnHeapAerospikeSegment(SEGMENT_TIMESTAMP - 7200 - 7200, list.get(0), aggIds, aggs);
+    AerospikeDSTimeSeriesEncoder reader = new AerospikeDSTimeSeriesEncoder(aerospikeSegment);
     double[] values = new double[reader.getIntervalCount()];
 
     reader.readAggValues(values, SumAggregator.ID);
@@ -285,22 +296,87 @@ public class AerospikeFunctionalTest {
     reader.readAggValues(values, SumOfSquareAggregator.ID);
     assertArrayEquals(expectedSumOfSquaresValues, values);
 
-    reader.readAggValuesByIndex(values, 2);
+    reader.readAggValuesByIndex(values, 1);
     assertArrayEquals(expectedSumValues, values);
 
-    reader.readAggValuesByIndex(values, 3);
+    reader.readAggValuesByIndex(values, 2);
     assertArrayEquals(expectedCountValues, values);
 
-    reader.readAggValuesByIndex(values, 1);
+    reader.readAggValuesByIndex(values, 0);
     assertArrayEquals(expectedAvgValues, values);
 
-    reader.readAggValuesByIndex(values, 4);
+    reader.readAggValuesByIndex(values, 3);
     assertArrayEquals(expectedMinValues, values);
 
-    reader.readAggValuesByIndex(values, 5);
+    reader.readAggValuesByIndex(values, 4);
     assertArrayEquals(expectedMaxValues, values);
 
-    reader.readAggValuesByIndex(values, 6);
+    reader.readAggValuesByIndex(values, 5);
     assertArrayEquals(expectedSumOfSquaresValues, values);
+  }
+
+  @Test
+  void readFullRecord() {
+    byte[] rowKey = new byte[12];
+    long hash = 8737594818697886573l;
+    int segmentTime = SEGMENT_TIMESTAMP - 7200;
+    int secondsInRecord = 6 * 3600;
+    int secondsInSegment = (int) TimeUnit.HOURS.toSeconds(2);
+    int recordTimestamp = segmentTime - (segmentTime % secondsInRecord);
+    int recordOffset = (segmentTime - recordTimestamp) / secondsInSegment;
+
+    ByteArrays.putLong(hash, rowKey, 0);
+    ByteArrays.putInt(recordTimestamp, rowKey, 8);
+
+    Key key = new Key("default", null, new ByteValue(rowKey));
+
+    Operation operation = MapOperation.getByIndexRange("", 0, MapReturnType.KEY_VALUE);
+    Record record = client.operate(null, key, operation);
+
+    List<Value> keyList = new ArrayList<>();
+    keyList.add(Value.get((byte) (2 << 4 | MinAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (2 << 4 | SumAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (2 << 4 | 0))); // header
+
+    keyList.add(Value.get((byte) (recordOffset << 4 | MinAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (recordOffset << 4 | SumAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (recordOffset << 4 | 0))); // header
+    keyList.add(Value.get((byte) (recordOffset << 4 | AverageAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (recordOffset << 4 | CountAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (recordOffset << 4 | MaxAggregator.ORDINAL)));
+
+    keyList.add(Value.get((byte) (0 << 4 | MinAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (0 << 4 | SumAggregator.ORDINAL)));
+    keyList.add(Value.get((byte) (0 << 4 | 0))); // header
+
+    operation = MapOperation.getByKeyList("", keyList, MapReturnType.KEY_VALUE);
+    record = client.operate(null, key, operation);
+
+    System.out.println(record);
+  }
+
+  @Test
+  void modifyMap() {
+
+    Key key = new Key("default", null, new IntValue(2));
+
+    Map<Value, Value> inputMap = new HashMap<Value, Value>();
+    inputMap.put(Value.get((byte) 1), Value.get("1".getBytes()));
+    inputMap.put(Value.get((byte) 2), Value.get("2".getBytes()));
+    inputMap.put(Value.get((byte) 3), Value.get("3".getBytes()));
+    inputMap.put(Value.get((byte) 4), Value.get("4".getBytes()));
+
+    Record record =
+        client.operate(
+            writePolicy,
+            key,
+            MapOperation.putItems(
+                new MapPolicy(MapOrder.KEY_ORDERED, MapWriteFlags.DEFAULT), null, inputMap));
+
+    System.out.println(record.toString());
+
+    Operation operation = MapOperation.getByIndexRange("", 0, MapReturnType.KEY_VALUE);
+    record = client.operate(null, key, operation);
+    System.out.println(record);
   }
 }

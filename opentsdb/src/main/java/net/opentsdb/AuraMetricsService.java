@@ -443,7 +443,7 @@ public class AuraMetricsService extends BaseTSDBPlugin implements TSDBService {
 
       String segmentTimeFilePath = tsdb.getConfig().getString(
               configId(id, SHARD_TIME_KEY));
-      path = path = new File(segmentTimeFilePath);
+      path = new File(segmentTimeFilePath);
       if (!path.exists()) {
         throw new RuntimeException("Segment time file: " + segmentTimeFilePath + " not found");
       }

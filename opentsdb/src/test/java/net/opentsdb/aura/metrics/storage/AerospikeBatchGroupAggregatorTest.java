@@ -104,6 +104,9 @@ public class AerospikeBatchGroupAggregatorTest {
     if (!TSDB.getConfig().hasProperty(AerospikeBatchSourceFactory.AS_JOBS_PER_QUERY)) {
       TSDB.getConfig().register(AerospikeBatchSourceFactory.AS_JOBS_PER_QUERY, 4, false, "UT");
     }
+    if (!TSDB.getConfig().hasProperty(AerospikeBatchSourceFactory.AS_ROLLUP_AGGS)) {
+      TSDB.getConfig().register(AerospikeBatchSourceFactory.AS_ROLLUP_AGGS, null, false, "UT");
+    }
   }
 
   @BeforeMethod

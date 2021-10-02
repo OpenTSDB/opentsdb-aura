@@ -45,7 +45,8 @@ public class ReusablePartition {
   private final long offset;
 
   public ReusablePartition(final String namespace) {
-    partition = new Partition(namespace, 0);
+//    partition = new Partition(namespace, 0);
+    partition = null;
     try {
       final Field pid = Partition.class.getDeclaredField("partitionId");
       offset = unsafe.objectFieldOffset(pid);

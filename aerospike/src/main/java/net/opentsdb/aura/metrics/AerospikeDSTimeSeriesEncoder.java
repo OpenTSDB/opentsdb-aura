@@ -28,9 +28,9 @@ import static net.opentsdb.aura.metrics.core.downsample.DownSampledTimeSeriesEnc
 public class AerospikeDSTimeSeriesEncoder
     extends GorillaDownSampledTimeSeriesEncoder<OnHeapAerospikeSegment> {
 
-  public AerospikeDSTimeSeriesEncoder(boolean lossy, OnHeapAerospikeSegment segment) {
+  public AerospikeDSTimeSeriesEncoder(OnHeapAerospikeSegment segment) {
     super(
-        lossy,
+        segment.isLossy(),
         decodeInterval(segment.getInterval()),
         decodeSegmentWidth(segment.getInterval()),
         null,
@@ -121,4 +121,17 @@ public class AerospikeDSTimeSeriesEncoder
     }
     return numPoints;
   }
+
+  public static final byte encodeMapKey(final int recordOffset, final int ordinal) {
+    return (byte) (recordOffset << 4 | ordinal);
+  }
+
+  public static final int decodeRecordOffset(final byte mapKey) {
+    return mapKey >>> 4;
+  }
+
+  public static final int decodeAggOrdinal(final byte mapKey) {
+    return mapKey & 0b00001111;
+  }
+
 }

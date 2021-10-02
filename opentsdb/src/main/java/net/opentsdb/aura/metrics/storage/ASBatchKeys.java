@@ -27,6 +27,7 @@ public class ASBatchKeys {
   protected long[] hashes;
   protected int[] groupIdx;
   protected int keyIdx = 0;
+  protected int rollupAggOrdinal;
 
   ASBatchKeys() {
     keys = new byte[DEFAULT_BATCH_LIMIT][];

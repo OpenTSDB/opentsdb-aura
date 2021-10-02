@@ -31,10 +31,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-public class EncoderValue extends Value {
+public class EncoderValue<T extends TimeSeriesEncoder> extends Value {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(EncoderValue.class);
 
-    private TimeSeriesEncoder encoder;
+    protected T encoder;
     int serializationLength;
     // TODO - ugly temp hack!!!
     Field buffer;
@@ -57,7 +58,7 @@ public class EncoderValue extends Value {
         }
     }
 
-    public void setEncoder(final TimeSeriesEncoder encoder) {
+    public void setEncoder(final T encoder) {
         this.encoder = encoder;
         serializationLength = encoder.serializationLength();
     }

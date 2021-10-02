@@ -43,13 +43,12 @@ public class AerospikeDSTimeSeriesEncoderTest {
 
   private static Interval interval = Interval._30_SEC;
   private static SegmentWidth segmentWidth = SegmentWidth._2_HR;
-  private static int intervalWidth = interval.getWidth();
+  private static int intervalWidth = interval.getSeconds();
   private static short intervalCount = interval.getCount(segmentWidth);
   private static double[] rawValues = new double[segmentWidth.getWidth()];
   private static Random random = new Random(System.currentTimeMillis());
 
-  private OffHeapGorillaDownSampledSegment segment =
-      new OffHeapGorillaDownSampledSegment(256, null);
+  private OffHeapGorillaDownSampledSegment segment = new OffHeapGorillaDownSampledSegment(256);
 
   private GorillaDownSampledTimeSeriesEncoder encoder;
 
@@ -98,12 +97,9 @@ public class AerospikeDSTimeSeriesEncoderTest {
 
       OnHeapAerospikeSegment aerospikeSegment =
           new OnHeapAerospikeSegment(
-              SEGMENT_TIMESTAMP,
-              aggIterator.aggID(),
-              new byte[] {0, aggIterator.aggID()},
-              Arrays.asList(header, agg));
+              SEGMENT_TIMESTAMP, header, new byte[] {aggIterator.aggID()}, new byte[][] {agg});
       AerospikeDSTimeSeriesEncoder aerospikeEncoder =
-          new AerospikeDSTimeSeriesEncoder(false, aerospikeSegment);
+          new AerospikeDSTimeSeriesEncoder(aerospikeSegment);
 
       double[] values = new double[intervalCount];
 
@@ -170,12 +166,9 @@ public class AerospikeDSTimeSeriesEncoderTest {
 
       OnHeapAerospikeSegment aerospikeSegment =
           new OnHeapAerospikeSegment(
-              SEGMENT_TIMESTAMP,
-              aggIterator.aggID(),
-              new byte[] {0, aggIterator.aggID()},
-              Arrays.asList(header, agg));
+              SEGMENT_TIMESTAMP, header, new byte[] {aggIterator.aggID()}, new byte[][] {agg});
       AerospikeDSTimeSeriesEncoder aerospikeEncoder =
-          new AerospikeDSTimeSeriesEncoder(false, aerospikeSegment);
+          new AerospikeDSTimeSeriesEncoder(aerospikeSegment);
 
       double[] values = new double[intervalCount];
 

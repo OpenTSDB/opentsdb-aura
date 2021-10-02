@@ -80,7 +80,7 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
     this.aggId = aggId;
     this.aggCount = aggCount;
     this.aggLengthInBits = new int[aggCount];
-    this.intervalCount = (short) (segmentWidth.getWidth() / interval.getWidth());
+    this.intervalCount = (short) (segmentWidth.getWidth() / interval.getSeconds());
     this.intervalCountBytes = (int) Math.ceil(intervalCount / Byte.SIZE);
     this.tsBitMap = new byte[intervalCount];
   }

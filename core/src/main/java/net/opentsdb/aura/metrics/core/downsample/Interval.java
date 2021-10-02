@@ -36,23 +36,23 @@ public enum Interval {
   _1_DAY((byte) 10, (int) DAYS.toSeconds(1));
 
   private final byte id;
-  private final int width;
+  private final int seconds;
 
-  Interval(final byte id, final int width) {
+  Interval(final byte id, final int seconds) {
     this.id = id;
-    this.width = width;
+    this.seconds = seconds;
   }
 
   public byte getId() {
     return id;
   }
 
-  public int getWidth() {
-    return width;
+  public int getSeconds() {
+    return seconds;
   }
 
   public short getCount(SegmentWidth segmentWidth) {
-    return (short) (segmentWidth.getWidth() / width);
+    return (short) (segmentWidth.getWidth() / seconds);
   }
 
   public static Interval getById(byte id) {
@@ -60,27 +60,27 @@ public enum Interval {
   }
 
   public static Interval getBySeconds(final int seconds) {
-    if (seconds == _5_SEC.width) {
+    if (seconds == _5_SEC.seconds) {
       return _5_SEC;
-    } else if (seconds == _10_SEC.width) {
+    } else if (seconds == _10_SEC.seconds) {
       return _10_SEC;
-    } else if (seconds == _15_SEC.width) {
+    } else if (seconds == _15_SEC.seconds) {
       return _15_SEC;
-    } else if (seconds == _30_SEC.width) {
+    } else if (seconds == _30_SEC.seconds) {
       return _30_SEC;
-    } else if (seconds == _1_MIN.width) {
+    } else if (seconds == _1_MIN.seconds) {
       return _1_MIN;
-    } else if (seconds == _5_MIN.width) {
+    } else if (seconds == _5_MIN.seconds) {
       return _5_MIN;
-    } else if (seconds == _10_MIN.width) {
+    } else if (seconds == _10_MIN.seconds) {
       return _10_MIN;
-    } else if (seconds == _15_MIN.width) {
+    } else if (seconds == _15_MIN.seconds) {
       return _15_MIN;
-    } else if (seconds == _30_MIN.width) {
+    } else if (seconds == _30_MIN.seconds) {
       return _30_MIN;
-    } else if (seconds == _1_HR.width) {
+    } else if (seconds == _1_HR.seconds) {
       return _1_HR;
-    } else if (seconds == _1_DAY.width) {
+    } else if (seconds == _1_DAY.seconds) {
       return _1_DAY;
     } else {
       throw new IllegalArgumentException("No interval found for " + seconds + " seconds");

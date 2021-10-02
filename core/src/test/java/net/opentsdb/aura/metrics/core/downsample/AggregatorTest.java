@@ -33,7 +33,7 @@ public class AggregatorTest {
 
   private static Interval interval = Interval._30_SEC;
   private static SegmentWidth segmentWidth = SegmentWidth._2_HR;
-  private static int intervalWidth = interval.getWidth();
+  private static int intervalWidth = interval.getSeconds();
   private static short intervalCount = interval.getCount(segmentWidth);
   private static double[] rawData = new double[segmentWidth.getWidth()];
 
@@ -376,7 +376,7 @@ public class AggregatorTest {
   }
 
   static void generateRawData(double[] rawData, Interval interval) {
-    int intervalWidth = interval.getWidth();
+    int intervalWidth = interval.getSeconds();
     for (int i = 0; i < rawData.length; i++) {
       int intervalOffset = i / intervalWidth % intervalWidth;
       int index = i % intervalWidth;

@@ -42,7 +42,7 @@ public interface DownSampledTimeSeriesEncoder extends TimeSeriesEncoder {
   }
 
   static int decodeIntervalCount(byte encoded) {
-    int intervalInSeconds = decodeInterval(encoded).getWidth();
+    int intervalInSeconds = decodeInterval(encoded).getSeconds();
     int secondsInRawSegment = decodeSegmentWidth(encoded).getWidth();
     return secondsInRawSegment / intervalInSeconds;
   }

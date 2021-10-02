@@ -17,22 +17,29 @@
 
 package net.opentsdb.aura.metrics.storage;
 
+import com.aerospike.client.Record;
+import gnu.trove.map.TLongObjectMap;
+import gnu.trove.map.hash.TLongObjectHashMap;
+import net.opentsdb.aura.metrics.AerospikeDSTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.AerospikeRecordMap;
-import net.opentsdb.aura.metrics.BatchRecordIterator;
+import net.opentsdb.aura.metrics.OnHeapAerospikeSegment;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaRawSegment;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
-import gnu.trove.map.TLongObjectMap;
-import gnu.trove.map.hash.TLongObjectHashMap;
 import net.opentsdb.data.types.numeric.aggregators.NumericArrayAggregator;
 import net.opentsdb.pools.CloseablePooledObject;
 import net.opentsdb.pools.PooledObject;
+import net.opentsdb.query.processor.downsample.DownsampleConfig;
 import org.roaringbitmap.RoaringBitmap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+
+import static net.opentsdb.aura.metrics.AerospikeDSTimeSeriesEncoder.decodeRecordOffset;
 
 /**
  *
@@ -49,6 +56,7 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
   protected ASBatchKeys batchKeys;
   protected AerospikeRecordMap map;
   protected AerospikeBatchQueryNode queryNode;
+  protected DownsampleConfig downsampleConfig;
   protected MetaTimeSeriesQueryResult metaResult;
   protected CountDownLatch latch;
   protected TLongObjectMap<AggregatorFinishedTS> groups;
@@ -64,6 +72,10 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
   protected OnHeapGorillaRawSegment segment;
   protected GorillaRawTimeSeriesEncoder encoder;
 
+  protected OnHeapAerospikeSegment dsSegment;
+  protected AerospikeDSTimeSeriesEncoder dsEncoder;
+  private boolean useRollupData;
+
   // some stats;
   protected volatile long totalAStime;
   protected volatile long totalDecodeTime;
@@ -72,19 +84,23 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
 
   public AerospikeBatchJob() {
     map = new AerospikeRecordMap();
-    groups = new TLongObjectHashMap<AggregatorFinishedTS>();
+    groups = new TLongObjectHashMap<>();
     grouper = new AerospikeBatchGroupAggregator();
     segment = new OnHeapGorillaRawSegment();
     encoder = new GorillaRawTimeSeriesEncoder(false, null, segment, null);
+
+    dsSegment = new OnHeapAerospikeSegment(0, new byte[] {0, 0, 0}, new byte[] {}, new byte[][] {new byte[] {0, 0, 0}});
   }
 
   public void reset(final AerospikeBatchQueryNode queryNode,
                     final MetaTimeSeriesQueryResult metaResult,
                     final CountDownLatch latch) {
     this.queryNode = queryNode;
+    this.downsampleConfig = queryNode.downsampleConfig;
     this.metaResult = metaResult;
     this.latch = latch;
     close();
+    this.useRollupData = queryNode.useRollupData();
   }
 
   public void close() {
@@ -118,6 +134,10 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
       }
       batchKeys = BATCH_KEYS.get();
       batchKeys.keyIdx = 0;
+
+      if(queryNode.useRollupData()) {
+        batchKeys.rollupAggOrdinal = queryNode.getRollupAggOrdinal();
+      }
 
       while (true) {
         MetaTimeSeriesQueryResult.GroupResult gr = metaResult.getGroup(startGroupId);
@@ -268,11 +288,20 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
     }
 
     long st = System.nanoTime();
-    BatchRecordIterator bri = queryNode.client().batchRead(batchKeys.keys, batchKeys.keyIdx);
+    Record[] records;
+    if(useRollupData) {
+      records = queryNode.client().batchRead(batchKeys.keys, batchKeys.keyIdx, "", batchKeys.rollupAggOrdinal);
+    } else {
+      records = queryNode.client().batchRead(batchKeys.keys, batchKeys.keyIdx);
+    }
     long asTime = System.nanoTime() - st;
     totalAStime += asTime;
     st = System.nanoTime();
-    processBatch(bri);
+    if(useRollupData) {
+      processDSBatch(records);
+    } else {
+      processBatch(records);
+    }
     long procTime = System.nanoTime() - st;
     totalDecodeTime += procTime;
 
@@ -302,28 +331,16 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
     }
   }
 
-  void processBatch(BatchRecordIterator bri) {
-    // SO... for downsampling and rate we need data in order. But batches are
-    // emphatically NOT in order. So here is one super inefficient and ugly way
-    // to re-order our keys.
-    if (bri.getResultCode() == 2) {
-      // no keys found
-      return;
-    }
-    if (bri.getResultCode() != 0) {
-      // TODO - error!
-    }
-
-    bri.sort();
-    keyHits += bri.entries();
-
-    for (int i = 0; i < bri.entries(); i++) {
-      int keyIdx = bri.keyIndices()[i];
+  void processBatch(Record[] records) {
+    keyHits += records.length;
+    for (int i = 0; i < records.length; i++) {
+      //TODO: fix the keyIdx
+//      int keyIdx = bri.keyIndices()[i];
+      int keyIdx = i;
       long hash = batchKeys.hashes[keyIdx];
       byte[] key = batchKeys.keys[keyIdx];
       long groupId = batchKeys.groupIds[keyIdx];
 
-      int lastSeggy = 0;
       // check flush
       if (!grouper.isInit() || grouper.gid() != groupId) {
         if (grouper.isInit()) {
@@ -337,7 +354,9 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
       }
 
       int recordTimestamp = ByteArrays.getInt(key, 8);
-      map.reset(bri.buffer(), bri.particleIndex(i), bri.particleLength(i));
+      //TODO: read the correct buffer.
+      byte[] buffer = (byte[]) records[i].getList("b").get(0);
+      map.reset(buffer, 0, buffer.length);
       for (int x = 0; x < map.size(); x++) {
         int segmentTimestamp = recordTimestamp + (map.keys()[x] * queryNode.getSecondsInSegment());
         // TODO - cache results. For now we're just putting on heap then passing into
@@ -346,7 +365,53 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
         grouper.addSegment(encoder, hash);
       }
     }
+  }
 
+  void processDSBatch(Record[] records) {
+    keyHits += records.length;
+    for (int i = 0; i < records.length; i++) {
+      // TODO: fix the keyIdx
+      //      int keyIdx = bri.keyIndices()[i];
+      int keyIdx = i;
+      long hash = batchKeys.hashes[keyIdx];
+      byte[] key = batchKeys.keys[keyIdx];
+      long groupId = batchKeys.groupIds[keyIdx];
+
+      // check flush
+      if (!grouper.isInit() || grouper.gid() != groupId) {
+        if (grouper.isInit()) {
+          NumericArrayAggregator agg = grouper.flush();
+          if (agg != null && agg.end() > agg.offset()) {
+            MetaTimeSeriesQueryResult.GroupResult gr = metaResult.getGroup(grouper.gidx());
+            groups.put(grouper.gid(), new AggregatorFinishedTS(queryNode, gr, agg));
+          }
+        }
+        grouper.reset(groupId, batchKeys.groupIdx[keyIdx], queryNode.queryResult(), metaResult);
+      }
+
+      int recordTimestamp = ByteArrays.getInt(key, 8);
+
+      Record record = records[i];
+      if (record != null) {
+        LOGGER.info("Record found");
+        List<Map.Entry<Long, byte[]>> entries = (List<Map.Entry<Long, byte[]>>) record.getList("");
+        for (int j = 0; j < entries.size(); ) {
+          Map.Entry<Long, byte[]> entry = entries.get(j);
+          long headerKey = entry.getKey();
+          int offset = decodeRecordOffset((byte) headerKey);
+          int segmentTimestamp = recordTimestamp + offset * queryNode.getSecondsInSegment();
+
+          byte[] header = entry.getValue();
+          byte rollupAggId = queryNode.getRollupAggId();
+          dsSegment.reset(segmentTimestamp, header, new byte[] {rollupAggId}, new byte[][]{entries.get(j + 1).getValue()});
+          AerospikeDSTimeSeriesEncoder dsEncoder = new AerospikeDSTimeSeriesEncoder(dsSegment);
+          grouper.addSegment(dsEncoder, hash);
+          j += 2;
+        }
+      } else {
+        LOGGER.info("Record not found");
+      }
+    }
   }
 
   @Override

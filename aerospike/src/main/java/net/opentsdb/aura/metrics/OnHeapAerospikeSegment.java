@@ -20,25 +20,38 @@ package net.opentsdb.aura.metrics;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaDownSampledSegment;
 
-import java.util.List;
+import static net.opentsdb.aura.metrics.core.TimeSeriesEncoderType.GORILLA_LOSSY_SECONDS;
 
 public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
+
   private byte[] aggIds;
-  private List<byte[]> aggList;
+  private byte[][] aggs;
   private byte[] header;
   private int headerLength;
   private byte bitMap;
   private int aggCount;
 
-  public OnHeapAerospikeSegment(int segmentTime, byte bitMap, byte[] aggIds, List<byte[]> aggList) {
-    super(segmentTime, aggList.get(0));
-    this.bitMap = bitMap;
+  public OnHeapAerospikeSegment(int segmentTime, byte[] header, byte[] aggIds, byte[][] aggs) {
+    super(segmentTime, header);
+    reset(header, aggIds, aggs);
+  }
+
+  public void reset(int segmentTime, byte[] header, byte[] aggIds, byte[][] aggs) {
+    this.segmentTime = segmentTime;
+    reset(header, aggIds, aggs);
+    this.lossy = header[0] == GORILLA_LOSSY_SECONDS;
+    this.interval = header[1];
+  }
+
+  private void reset(byte[] header, byte[] aggIds, byte[][] aggs) {
+    this.bitMap = header[2];
     this.aggIds = aggIds;
-    this.aggList = aggList;
-    this.header = aggList.get(0);
+
+    this.aggs = aggs;
+    this.header = header;
     this.headerLength = header.length;
+    this.aggCount = aggs.length;
     this.bitIndex = 0;
-    this.aggCount = aggList.size() - 1;
   }
 
   @Override
@@ -69,7 +82,7 @@ public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
 
   protected byte chooseAggToRead(int index) {
     this.bitIndex = 0;
-    this.buffer = aggList.get(index);
+    this.buffer = aggs[index];
     this.length = buffer.length;
     this.currentLong = ByteArrays.getLong(buffer, 0);
     this.byteIndex = Long.BYTES;

@@ -23,13 +23,16 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import com.stumbleupon.async.Deferred;
+import gnu.trove.iterator.TLongObjectIterator;
+import gnu.trove.map.TLongObjectMap;
 import net.opentsdb.aura.metrics.LTSAerospike;
+import net.opentsdb.aura.metrics.core.downsample.AggregatorType;
+import net.opentsdb.aura.metrics.core.downsample.Interval;
+import net.opentsdb.aura.metrics.core.downsample.SegmentWidth;
 import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.meta.MergedMetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.meta.grpc.MetaGrpcClient;
-import gnu.trove.iterator.TLongObjectIterator;
-import gnu.trove.map.TLongObjectMap;
 import net.opentsdb.common.Const;
 import net.opentsdb.data.ArrayAggregatorConfig;
 import net.opentsdb.data.TimeSeries;
@@ -71,10 +74,13 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAmount;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSeriesDataSource {
   private static final Logger LOGGER = LoggerFactory.getLogger(AerospikeBatchQueryNode.class);
@@ -108,6 +114,14 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
   protected MetaTimeSeriesQueryResult metaResult;
   List<AerospikeBatchJob> jobs = Lists.newArrayList();
 
+  private Set<String> aggsInStore;
+  private boolean useRollupData;
+  private SegmentWidth rollupSegmentWidth;
+  private Interval rollupInterval;
+  private int rollupIntervalCount;
+  private byte rollupAggId;
+  private int rollupAggOrdinal;
+
   public AerospikeBatchQueryNode(final AerospikeBatchSourceFactory factory,
                                  final QueryPipelineContext context,
                                  final TimeSeriesDataSourceConfig config,
@@ -131,8 +145,18 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
     gbThreads = pipelineContext().tsdb().getConfig().getInt(GroupByFactory.GROUPBY_THREAD_COUNT_KEY);
     batchLimit = pipelineContext().tsdb().getConfig().getInt(AerospikeBatchSourceFactory.AS_BATCH_LIMIT_KEY);
     threads = pipelineContext().tsdb().getConfig().getInt(AerospikeBatchSourceFactory.AS_JOBS_PER_QUERY);
-    doublePool = (ArrayObjectPool) pipelineContext().tsdb().getRegistry().getObjectPool(
-            DoubleArrayPool.TYPE);
+    doublePool = (ArrayObjectPool) pipelineContext().tsdb().getRegistry().getObjectPool(DoubleArrayPool.TYPE);
+    String aggs = pipelineContext().tsdb().getConfig().getString(AerospikeBatchSourceFactory.AS_ROLLUP_AGGS);
+    aggsInStore = new HashSet<>();
+    if(aggs != null && !aggs.isEmpty()) {
+      String[] split = aggs.split(",");
+      for (String agg : split) {
+        aggsInStore.add(agg);
+      }
+      this.rollupSegmentWidth = SegmentWidth.valueOf(pipelineContext().tsdb().getConfig().getString(AerospikeBatchSourceFactory.AS_ROLLUP_SEGMENT_WIDTH));
+      this.rollupInterval = Interval.valueOf(pipelineContext().tsdb().getConfig().getString(AerospikeBatchSourceFactory.AS_ROLLUP_INTERVAL));
+      this.rollupIntervalCount = rollupInterval.getCount(rollupSegmentWidth);
+    }
   }
 
   @Override
@@ -179,6 +203,22 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
                                         .setArraySize(downsampleConfig.intervals())
                                         //.setInfectiousNaN(groupByConfig.getInfectiousNan()) // TODO - fix GB nan
                                         .build();
+                        String agg = downsampleConfig.getAggregator();
+                        useRollupData = aggsInStore.contains(agg);
+                        if (useRollupData) {
+                          AggregatorType aggregatorType = AggregatorType.valueOf(agg);
+                          this.rollupAggId = aggregatorType.getId();
+                          this.rollupAggOrdinal = aggregatorType.getOrdinal();
+                          int dsInterval = (int) downsampleConfig.interval().get(ChronoUnit.SECONDS);
+                          int rollupInterval = this.rollupInterval.getSeconds();
+                          if (dsInterval < rollupInterval) {
+                            throw new IllegalArgumentException(
+                                "Downsample interval: "
+                                    + dsInterval
+                                    + " is less than rollup interval: "
+                                    + rollupInterval);
+                          }
+                        }
                       }
 
                       // compute query timestamps.
@@ -423,9 +463,7 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
   }
 
   @Override
-  public void close() {
-
-  }
+  public void close() {}
 
   @Override
   public void onNext(QueryResult queryResult) {
@@ -466,6 +504,26 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
 
   public int getSecondsInSegment() {
     return secondsInSegment;
+  }
+
+  public boolean useRollupData() {
+    return useRollupData;
+  }
+
+  public Interval getRollupInterval() {
+    return rollupInterval;
+  }
+
+  public int getRollupIntervalCount() {
+    return rollupIntervalCount;
+  }
+
+  public byte getRollupAggId() {
+    return rollupAggId;
+  }
+
+  public int getRollupAggOrdinal() {
+    return rollupAggOrdinal;
   }
 
   public ArrayObjectPool getDoublePool() {

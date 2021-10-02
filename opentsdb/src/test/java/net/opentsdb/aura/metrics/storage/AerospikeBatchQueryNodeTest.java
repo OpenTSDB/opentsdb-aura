@@ -88,6 +88,7 @@ public class AerospikeBatchQueryNodeTest {
     TSDB.getConfig().register(AerospikeBatchSourceFactory.SECONDS_IN_SEGMENT_KEY, SECONDS_IN_RECORD, false, "UT");
     TSDB.getConfig().register(AerospikeBatchSourceFactory.AS_BATCH_LIMIT_KEY, BATCH_LIMIT, true, "UT");
     TSDB.getConfig().register(AerospikeBatchSourceFactory.AS_JOBS_PER_QUERY, JOBS_PER_QUERY, true, "UT");
+    TSDB.getConfig().register(AerospikeBatchSourceFactory.AS_ROLLUP_AGGS, null, false, "UT");
   }
 
   @BeforeMethod

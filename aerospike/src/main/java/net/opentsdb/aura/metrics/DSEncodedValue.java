@@ -30,6 +30,8 @@ import org.luaj.vm2.LuaValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static net.opentsdb.aura.metrics.AerospikeDSTimeSeriesEncoder.encodeMapKey;
+
 public class DSEncodedValue extends Value {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DSEncodedValue.class);
@@ -160,10 +162,6 @@ public class DSEncodedValue extends Value {
     buffer[offset++] = (byte) 0;
     buffer[offset++] = (byte) MapOrder.KEY_ORDERED.attributes;
     buffer[offset++] = (byte) 0xc0;
-  }
-
-  private static final byte encodeMapKey(final int recordOffset, final int ordinal) {
-    return (byte) (recordOffset << 4 | ordinal);
   }
 
   @Override
