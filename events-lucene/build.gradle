@@ -33,9 +33,6 @@ dependencies {
     implementation group: 'net.opentsdb', name: 'opentsdb-executors-http', version: '3.0.90-SNAPSHOT'
     implementation group: 'net.opentsdb', name: 'opentsdb-servlet', version: '3.0.90-SNAPSHOT'
     implementation group: 'com.google.guava', name: 'guava', version: '23.6.1-jre'
-    runtime group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.11.2'
-    runtime group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.11.2'
-    runtime group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.11.2'
 
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.7.0'
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-params', version: '5.7.0'

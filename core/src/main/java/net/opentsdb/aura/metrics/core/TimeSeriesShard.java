@@ -519,7 +519,7 @@ public class TimeSeriesShard implements TimeSeriesShardIF {
             if (segmentAddress != 0) {
               encoder.openSegment(segmentAddress);
               if (currentSegmentTime - encoder.getSegmentTime()
-                  > retentionSeconds) { // segment older than 26 hours, delete it.
+                  > (retentionSeconds + (60 * 10))) {
                 int numPoints = encoder.getNumDataPoints();
                 encoder.freeSegment();
                 dpPurgeCount += numPoints; // to decrement data point count
