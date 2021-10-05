@@ -52,7 +52,7 @@ public enum Interval {
   }
 
   public short getCount(SegmentWidth segmentWidth) {
-    return (short) (segmentWidth.getWidth() / seconds);
+    return (short) (segmentWidth.getSeconds() / seconds);
   }
 
   public static Interval getById(byte id) {

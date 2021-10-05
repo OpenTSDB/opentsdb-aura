@@ -185,7 +185,7 @@ public class AerospikeFunctionalTest {
         Aggregator.newBuilder(intervalCount).avg().sum().count().min().max().sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
-    double[] randomValues = new double[segmentWidth.getWidth()];
+    double[] randomValues = new double[segmentWidth.getSeconds()];
     Arrays.fill(randomValues, Double.NaN);
     for (int i = 0; i < randomValues.length; i++) {
       randomValues[i] = random.nextLong() + random.nextDouble();

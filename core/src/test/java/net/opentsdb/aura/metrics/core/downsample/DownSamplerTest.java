@@ -38,7 +38,7 @@ public class DownSamplerTest {
   private static SegmentWidth segmentWidth = SegmentWidth._2_HR;
   private static int intervalWidth = interval.getSeconds();
   private static short intervalCount = interval.getCount(segmentWidth);
-  private static double[] rawData = new double[segmentWidth.getWidth()];
+  private static double[] rawData = new double[segmentWidth.getSeconds()];
 
   @BeforeAll
   static void beforeAll() {

@@ -80,14 +80,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSeriesDataSource {
   private static final Logger LOGGER = LoggerFactory.getLogger(AerospikeBatchQueryNode.class);
-
-  volatile TLongObjectMap[] groupMaps;
-
-  public static final double[] IDENTITY = {0.0, 0.0, Double.MAX_VALUE, -Double.MAX_VALUE, 0.0};
 
   protected final GroupByFactory groupByFactory;
   protected final LTSAerospike client;
@@ -211,12 +206,20 @@ public class AerospikeBatchQueryNode extends AbstractQueryNode implements TimeSe
                           this.rollupAggOrdinal = aggregatorType.getOrdinal();
                           int dsInterval = (int) downsampleConfig.interval().get(ChronoUnit.SECONDS);
                           int rollupInterval = this.rollupInterval.getSeconds();
+                          int segmentWidth = rollupSegmentWidth.getSeconds();
                           if (dsInterval < rollupInterval) {
                             throw new IllegalArgumentException(
                                 "Downsample interval: "
                                     + dsInterval
                                     + " is less than rollup interval: "
                                     + rollupInterval);
+                          }
+                          if(segmentWidth % rollupInterval != 0) {
+                            throw new IllegalArgumentException(
+                                "Rollup interval: "
+                                    + rollupInterval
+                                    + " should be a multiplier of the segment width : "
+                                    + segmentWidth);
                           }
                         }
                       }

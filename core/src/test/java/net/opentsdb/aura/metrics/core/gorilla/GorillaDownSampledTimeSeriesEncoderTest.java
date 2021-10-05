@@ -35,9 +35,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Random;
 
 import static net.opentsdb.aura.metrics.core.TimeSeriesEncoderType.GORILLA_LOSSLESS_SECONDS;
@@ -87,7 +85,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
   private static SegmentWidth segmentWidth = SegmentWidth._2_HR;
   private static int intervalWidth = interval.getSeconds();
   private static short intervalCount = interval.getCount(segmentWidth);
-  private static double[] rawValues = new double[segmentWidth.getWidth()];
+  private static double[] rawValues = new double[segmentWidth.getSeconds()];
   private static Random random = new Random(System.currentTimeMillis());
 
   private OffHeapGorillaDownSampledSegment segment =
@@ -471,7 +469,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
         Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
-    double[] randomValues = new double[segmentWidth.getWidth()];
+    double[] randomValues = new double[segmentWidth.getSeconds()];
     Arrays.fill(randomValues, Double.NaN);
     for (int i = 0; i < randomValues.length; i++) {
       randomValues[i] = random.nextLong() + random.nextDouble();
@@ -532,7 +530,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
         Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
-    double[] randomValues = new double[segmentWidth.getWidth()];
+    double[] randomValues = new double[segmentWidth.getSeconds()];
     Arrays.fill(randomValues, Double.NaN);
     for (int i = 0; i < randomValues.length; i++) {
       randomValues[i] = random.nextLong() + random.nextDouble();
@@ -592,7 +590,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
         Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
-    double[] sparseValues = new double[segmentWidth.getWidth()];
+    double[] sparseValues = new double[segmentWidth.getSeconds()];
     Arrays.fill(sparseValues, Double.NaN);
     sparseValues[39] = random.nextLong() + random.nextDouble();
 
@@ -667,7 +665,7 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
         Aggregator.newBuilder(intervalCount).sum().count().avg().min().max().sumOfSquares().build();
     DownSampler downSampler = new DownSampler(intervalWidth, intervalCount, aggregator);
 
-    double[] randomValues = new double[segmentWidth.getWidth()];
+    double[] randomValues = new double[segmentWidth.getSeconds()];
     Arrays.fill(randomValues, Double.NaN);
     for (int i = 0; i < randomValues.length; i++) {
       randomValues[i] = random.nextLong() + random.nextDouble();

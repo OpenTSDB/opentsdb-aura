@@ -29,19 +29,19 @@ public enum SegmentWidth {
   _6_WEEK((byte) 5, (int) DAYS.toSeconds(42));
 
   private final byte id;
-  private final int width;
+  private final int seconds;
 
-  SegmentWidth(final byte id, final int width) {
+  SegmentWidth(final byte id, final int seconds) {
     this.id = id;
-    this.width = width;
+    this.seconds = seconds;
   }
 
   public byte getId() {
     return id;
   }
 
-  public int getWidth() {
-    return width;
+  public int getSeconds() {
+    return seconds;
   }
 
   public static SegmentWidth getById(final byte id) {
@@ -49,17 +49,17 @@ public enum SegmentWidth {
   }
 
   public static SegmentWidth getBySeconds(final int seconds) {
-    if (seconds == _1_HR.width) {
+    if (seconds == _1_HR.seconds) {
       return _1_HR;
-    } else if (seconds == _2_HR.width) {
+    } else if (seconds == _2_HR.seconds) {
       return _2_HR;
-    } else if (seconds == _6_HR.width) {
+    } else if (seconds == _6_HR.seconds) {
       return _6_HR;
-    } else if (seconds == _24_HR.width) {
+    } else if (seconds == _24_HR.seconds) {
       return _24_HR;
-    } else if (seconds == _1_WEEK.width) {
+    } else if (seconds == _1_WEEK.seconds) {
       return _1_WEEK;
-    } else if (seconds == _6_WEEK.width) {
+    } else if (seconds == _6_WEEK.seconds) {
       return _6_WEEK;
     } else {
       throw new IllegalArgumentException("No Segment found for " + seconds + " seconds");
