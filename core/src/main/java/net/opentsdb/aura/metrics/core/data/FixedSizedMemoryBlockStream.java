@@ -189,7 +189,9 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
 
   @Override
   public void free() {
-    moveToHead();
+    if (dataBlock.getAddress() != header.getAddress()) {
+      doMoveToHead();
+    }
 
     long next = dataBlock.get(0);
     while (next != 0) {
@@ -200,6 +202,13 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
     }
     header.free();
     memoryBlockCount--;
+  }
+
+  private void doMoveToHead() {
+    this.dataBlock.init(address, false, blockSizeLongs);
+    this.bitIndex = (short) (headerLengthBytes() * Byte.SIZE);
+    atHead = true;
+    atTail = false;
   }
 
   public abstract int headerLengthBytes();

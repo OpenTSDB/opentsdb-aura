@@ -17,11 +17,10 @@
 
 package net.opentsdb.aura.metrics.core.gorilla;
 
-import mockit.Expectations;
 import mockit.Injectable;
 import mockit.Verifications;
-import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.SegmentCollector;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoderType;
 import net.opentsdb.aura.metrics.core.data.MemoryBlock;
 import net.opentsdb.stats.StatsCollector;

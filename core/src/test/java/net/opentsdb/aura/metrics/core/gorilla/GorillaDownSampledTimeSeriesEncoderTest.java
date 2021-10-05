@@ -678,6 +678,17 @@ public class GorillaDownSampledTimeSeriesEncoderTest {
     encoder.createSegment(SEGMENT_TIMESTAMP);
     encoder.addDataPoints(randomValues);
 
+    int intervalCount = encoder.getIntervalCount();
+    int headerLength = (int) (3 + Math.ceil(intervalCount / Byte.SIZE));
+    encoder.serializeHeader(new byte[headerLength], 0);
+
+    AggregationLengthIterator iterator = encoder.aggIterator();
+    while (iterator.hasNext()) {
+      iterator.next();
+      int bytes = iterator.aggLengthInBytes();
+      iterator.serialize(new byte[bytes], 0);
+    }
+
     encoder.freeSegment();
   }
 
