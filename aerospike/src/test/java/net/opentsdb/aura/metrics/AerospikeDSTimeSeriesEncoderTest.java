@@ -101,6 +101,8 @@ public class AerospikeDSTimeSeriesEncoderTest {
       AerospikeDSTimeSeriesEncoder aerospikeEncoder =
           new AerospikeDSTimeSeriesEncoder(aerospikeSegment);
 
+      assertEquals(intervalCount, aerospikeEncoder.getNumDataPoints());
+
       double[] values = new double[intervalCount];
 
       int numPoints = aerospikeEncoder.readAggValues(values, aggIterator.aggID());
@@ -169,6 +171,8 @@ public class AerospikeDSTimeSeriesEncoderTest {
               SEGMENT_TIMESTAMP, header, new byte[] {aggIterator.aggID()}, new byte[][] {agg});
       AerospikeDSTimeSeriesEncoder aerospikeEncoder =
           new AerospikeDSTimeSeriesEncoder(aerospikeSegment);
+
+      assertEquals(4, aerospikeEncoder.getNumDataPoints());
 
       double[] values = new double[intervalCount];
 

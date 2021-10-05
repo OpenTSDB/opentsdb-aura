@@ -25,7 +25,7 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
     implements GorillaDownSampledSegment {
 
   protected byte interval;
-  protected byte aggs;
+  protected byte aggBitMap;
   protected boolean lossy;
 
   public OnHeapGorillaDownSampledSegment(int segmentTime, byte[] buffer) {
@@ -37,7 +37,7 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
     super(segmentTime, buffer, startingOffset, length);
     this.lossy = buffer[0] == GORILLA_LOSSY_SECONDS;
     this.interval = buffer[1];
-    this.aggs = buffer[2];
+    this.aggBitMap = buffer[2];
     this.bitIndex = (startingOffset + 3) * Byte.SIZE;
   }
 
@@ -52,13 +52,13 @@ public class OnHeapGorillaDownSampledSegment extends OnHeapGorillaSegment
   }
 
   @Override
-  public void setAggs(byte bitMap) {
+  public void setAggs(byte aggBitMap) {
     throw new UnsupportedOperationException();
   }
 
   @Override
   public byte getAggs() {
-    return aggs;
+    return aggBitMap;
   }
 
   public boolean isLossy() {

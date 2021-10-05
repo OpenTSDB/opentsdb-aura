@@ -386,16 +386,10 @@ public class GorillaDownSampledTimeSeriesEncoder<T extends GorillaDownSampledSeg
       return aggIterator.aggName();
     }
 
-    //    @Override
-    //    public void readAggValue(double[] buffer) {
-    //
-    //    }
-
     @Override
     public void reset() {
       aggIterator.reset();
       index = -1;
-      //      segment.moveToHead();
     }
 
     @Override

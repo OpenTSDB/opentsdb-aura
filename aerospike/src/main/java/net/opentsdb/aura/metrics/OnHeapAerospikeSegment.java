@@ -24,12 +24,12 @@ import static net.opentsdb.aura.metrics.core.TimeSeriesEncoderType.GORILLA_LOSSY
 
 public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
 
-  private byte[] aggIds;
-  private byte[][] aggs;
   private byte[] header;
   private int headerLength;
-  private byte bitMap;
   private int aggCount;
+  private byte[] aggIds;
+  private byte[][] aggs;
+  private byte aggId;
 
   public OnHeapAerospikeSegment(int segmentTime, byte[] header, byte[] aggIds, byte[][] aggs) {
     super(segmentTime, header);
@@ -41,17 +41,20 @@ public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
     reset(header, aggIds, aggs);
     this.lossy = header[0] == GORILLA_LOSSY_SECONDS;
     this.interval = header[1];
+    this.aggBitMap = header[2];
   }
 
   private void reset(byte[] header, byte[] aggIds, byte[][] aggs) {
-    this.bitMap = header[2];
-    this.aggIds = aggIds;
-
-    this.aggs = aggs;
     this.header = header;
     this.headerLength = header.length;
-    this.aggCount = aggs.length;
     this.bitIndex = 0;
+    this.aggIds = aggIds;
+    this.aggs = aggs;
+    this.aggCount = aggs.length;
+    this.aggId = 0;
+    for (int i = 0; i < aggIds.length; i++) {
+      this.aggId |= aggIds[i];
+    }
   }
 
   @Override
@@ -71,6 +74,10 @@ public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
     chooseAggToRead(aggIndex);
   }
 
+  public byte getAggIdReadFromStore() {
+    return aggId;
+  }
+
   private int getAggIndex(byte aggId) {
     for (int i = 0; i < aggIds.length; i++) {
       if (aggIds[i] == aggId) {
@@ -87,10 +94,6 @@ public class OnHeapAerospikeSegment extends OnHeapGorillaDownSampledSegment {
     this.currentLong = ByteArrays.getLong(buffer, 0);
     this.byteIndex = Long.BYTES;
     return aggIds[index];
-  }
-
-  public byte getAggID() {
-    return bitMap;
   }
 
   public int getAggCount() {

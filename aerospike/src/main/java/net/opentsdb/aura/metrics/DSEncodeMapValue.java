@@ -259,17 +259,17 @@ public class DSEncodeMapValue implements SortedMap<Value, Value> {
 
     @Override
     public int estimateSize() throws AerospikeException {
-      return 0;
+      throw new UnsupportedOperationException();
     }
 
     @Override
     public int write(byte[] buffer, int offset) throws AerospikeException {
-      return 0;
+      throw new UnsupportedOperationException();
     }
 
     @Override
     public int getType() {
-      return 0;
+      throw new UnsupportedOperationException();
     }
 
     @Override

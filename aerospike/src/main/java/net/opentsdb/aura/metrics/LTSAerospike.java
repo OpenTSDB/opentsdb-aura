@@ -76,9 +76,6 @@ public class LTSAerospike implements LongTermStorage {
     private final ThreadLocal<EncoderValue> encoderValues = ThreadLocal.withInitial(() -> new EncoderValue());
     private final ThreadLocal<DSEncodeMapValue> encodedMapValues = ThreadLocal.withInitial(() -> new DSEncodeMapValue());
 
-    private final ASSyncClient asClient = null;
-    private final ASBatchClient batchClient = null;
-
     private final AerospikeClient aerospikeClient;
     private final WritePolicy writePolicy;
     private final MapPolicy mapPolicy;

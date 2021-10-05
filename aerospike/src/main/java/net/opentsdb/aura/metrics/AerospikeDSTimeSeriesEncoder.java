@@ -35,18 +35,24 @@ public class AerospikeDSTimeSeriesEncoder
         decodeSegmentWidth(segment.getInterval()),
         null,
         segment,
-        segment.getAggID(),
+        segment.getAggs(),
         segment.getAggCount());
   }
 
   @Override
   public int getNumDataPoints() {
-    return 0;
+    if (!tsBitsSet) {
+      segment.moveToHead();
+      numPoints = segment.decodeTimestampBits(tsBitMap);
+      tsBitsSet = true;
+      tsBitsRead = true;
+    }
+    return numPoints;
   }
 
   @Override
   public int serializationLength() {
-    return 0;
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -62,12 +68,11 @@ public class AerospikeDSTimeSeriesEncoder
   @Override
   public int readAggValues(double[] valueBuffer, byte aggId) {
 
-    if ((this.aggId & aggId) == 0) { // agg not found
-      if ((segment.getAggs() & aggId) == 0) {
-        throw new IllegalArgumentException("aggregation with id: " + aggId + " not found");
-      } else {
-        throw new IllegalArgumentException("aggregation with id: " + aggId + " not fetched");
-      }
+    if ((segment.getAggs() & aggId) == 0) {
+      throw new IllegalArgumentException("aggregation with id: " + aggId + " not found");
+    }
+    if ((segment.getAggIdReadFromStore() & aggId) == 0) {
+      throw new IllegalArgumentException("aggregation with id: " + aggId + " not fetched");
     }
 
     if (!tsBitsRead) {
@@ -133,5 +138,4 @@ public class AerospikeDSTimeSeriesEncoder
   public static final int decodeAggOrdinal(final byte mapKey) {
     return mapKey & 0b00001111;
   }
-
 }
