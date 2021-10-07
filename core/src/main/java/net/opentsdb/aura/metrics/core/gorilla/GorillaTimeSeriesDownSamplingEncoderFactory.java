@@ -31,7 +31,6 @@ public class GorillaTimeSeriesDownSamplingEncoderFactory
   private boolean lossy;
   private Interval interval;
   private SegmentWidth segmentWidth;
-  //  private DownSampler downSampler;
   private short intervalCount;
   private List<String> aggs;
   private GorillaSegmentFactory<OffHeapGorillaDownSampledSegment> segmentFactory;
@@ -60,7 +59,7 @@ public class GorillaTimeSeriesDownSamplingEncoderFactory
     Aggregator.AggregatorBuilder aggBuilder = Aggregator.newBuilder(intervalCount);
     aggs.stream().forEach(agg -> aggBuilder.forType(agg));
     DownSampler downSampler =
-        new DownSampler(interval.getWidth(), intervalCount, aggBuilder.build());
+        new DownSampler(interval.getSeconds(), intervalCount, aggBuilder.build());
     return new GorillaDownSampledTimeSeriesEncoder(
         lossy, interval, segmentWidth, downSampler, segmentHandle);
   }

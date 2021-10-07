@@ -17,16 +17,26 @@
 
 package net.opentsdb.aura.metrics;
 
+import com.aerospike.client.AerospikeClient;
+import com.aerospike.client.Key;
+import com.aerospike.client.Operation;
+import com.aerospike.client.Record;
 import com.aerospike.client.ResultCode;
+import com.aerospike.client.Value;
+import com.aerospike.client.cdt.MapOperation;
+import com.aerospike.client.cdt.MapOrder;
+import com.aerospike.client.cdt.MapPolicy;
+import com.aerospike.client.cdt.MapReturnType;
+import com.aerospike.client.cdt.MapWriteFlags;
+import com.aerospike.client.command.Buffer;
+import com.aerospike.client.policy.WritePolicy;
 import net.opentsdb.aura.metrics.core.LongTermStorage;
 import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.TimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
+import net.opentsdb.aura.metrics.core.downsample.DownSampledTimeSeriesEncoder;
 import net.opentsdb.aura.metrics.core.gorilla.GorillaRawTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaSegment;
-import io.ultrabrew.metrics.Counter;
-import io.ultrabrew.metrics.MetricRegistry;
-import io.ultrabrew.metrics.Timer;
+import net.opentsdb.aura.metrics.core.gorilla.OnHeapGorillaRawSegment;
 import net.opentsdb.stats.StatsCollector;
 import net.opentsdb.utils.DateTime;
 import net.opentsdb.utils.XXHash;
@@ -35,6 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -49,7 +60,6 @@ public class LTSAerospike implements LongTermStorage {
 
     public static final int KEY_LENGTH = 12;
 
-    public static final String M_WRITE_FAILED = "aerospike.timeseries.write.failed";
     public static final String M_WRITE_EX = "aerospike.timeseries.write.exceptions";
     public static final String M_WRITE_SUCCESS = "aerospike.timeseries.write.success";
 
@@ -61,25 +71,34 @@ public class LTSAerospike implements LongTermStorage {
     public static final String M_READ_ITERATORS = "aerospike.timeseries.read.iterators";
     public static final String M_READ_LATENCY = "aerospike.timeseries.read.latency";
 
+    private final StatsCollector stats;
     private final ThreadLocal<byte[]> keys = ThreadLocal.withInitial(() -> new byte[KEY_LENGTH]);
     private final ThreadLocal<EncoderValue> encoderValues = ThreadLocal.withInitial(() -> new EncoderValue());
-    private final StatsCollector stats;
-    private final ASSyncClient asClient;
-    private final ASBatchClient batchClient;
+    private final ThreadLocal<DSEncodeMapValue> encodedMapValues = ThreadLocal.withInitial(() -> new DSEncodeMapValue());
+
+    private final AerospikeClient aerospikeClient;
+    private final WritePolicy writePolicy;
+    private final MapPolicy mapPolicy;
+
     private final int secondsInRecord;
     private final byte[] set;
+    private final String binName;
     private final byte[] bin;
     private final int segmentsInRecord;
     private final int secondsInSegment;
+
     private volatile long writeTSExceptions;
     private volatile long writeTSSuccess;
-    private volatile long writeTSErrors;
     private volatile long readTSExceptions;
     private volatile long readTSSuccess;
     private volatile long readTSErrors;
     private volatile long readTSHits;
     private volatile long readTSMisses;
     private volatile long readTSiterators;
+
+    private String namespace;
+    private String setName;
+    private String setNameHex;
 
     public LTSAerospike(final ASCluster cluster,
                  final String namespace,
@@ -89,20 +108,32 @@ public class LTSAerospike implements LongTermStorage {
                  final String binName,
                  final StatsCollector stats,
                  final ScheduledExecutorService executor) {
+        this.setName = setName;
         if (namespace == null || namespace.isEmpty()) {
             throw new IllegalArgumentException("Unable to start Aerospike cluster client without a cluster namespace.");
         }
+
         this.stats = stats;
+        this.namespace = namespace;
         this.secondsInRecord = secondsInRecord;
         this.secondsInSegment = secondsInSegment;
         segmentsInRecord = secondsInRecord / secondsInSegment;
-        asClient = new ASSyncClient(cluster.cluster(), namespace, stats, executor);
-        batchClient = new ASBatchClient(cluster.cluster(), namespace, stats, executor);
+//        asClient = new ASSyncClient(cluster.cluster(), namespace, metricRegistry, executor);
+//        batchClient = new ASBatchClient(cluster.cluster(), namespace, metricRegistry, executor);
+
+        // TODO: fill in the policy and host details
+        aerospikeClient = new AerospikeClient(null, cluster.getHosts());
+        writePolicy = new WritePolicy();
+        mapPolicy = new MapPolicy(MapOrder.KEY_ORDERED, MapWriteFlags.DEFAULT);
+
         // we hash the namespace to get the set name.
         // TODO - rather have a way to hash to the max # of sets so we don't need
         // a full 8 bytes
         set = new byte[8];
         ByteArrays.putLong(XXHash.hash(setName), set,0);
+        setNameHex = Buffer.bytesToHexString(set);
+        this.binName = binName;
+        LOGGER.info("Aerospike namespace: {} set: {} bin: {}", namespace, setNameHex, binName);
         bin = binName.getBytes(StandardCharsets.UTF_8);
 
         executor.scheduleAtFixedRate(new Metrics(),
@@ -126,29 +157,30 @@ public class LTSAerospike implements LongTermStorage {
             int recordTimestamp = encoder.getSegmentTime() -
                     (encoder.getSegmentTime() % secondsInRecord);
 
-            byte[] key = keys.get();
-            ByteArrays.putLong(hash, key, 0);
-            ByteArrays.putInt(recordTimestamp, key, 8);
-
-            EncoderValue encoderValue = encoderValues.get();
-            encoderValue.setEncoder(encoder);
+            byte[] rowKey = keys.get();
+            ByteArrays.putLong(hash, rowKey, 0);
+            ByteArrays.putInt(recordTimestamp, rowKey, 8);
+            Key key = new Key(namespace, setNameHex, rowKey);
 
             int offset = (encoder.getSegmentTime() - recordTimestamp) / secondsInSegment;
 
-            int rc = asClient.putInMap(key, set, bin, offset, encoderValue);
-            if (rc != ResultCode.OK) {
-                // TODO - if something really goes wrong this might flood our logs.
-                LOGGER.warn("Error in Aerospike response: {}", ResultCode.getResultString(rc));
-                writeTSErrors++;
-                return false;
+            if(encoder instanceof DownSampledTimeSeriesEncoder) {
+                DSEncodeMapValue dsEncodeMapValue = encodedMapValues.get();
+                dsEncodeMapValue.reset((DownSampledTimeSeriesEncoder) encoder, offset);
+                aerospikeClient.operate(
+                    writePolicy, key, MapOperation.putItems(mapPolicy, null, dsEncodeMapValue));
+            } else {
+                EncoderValue encoderValue = encoderValues.get();
+                encoderValue.setEncoder(encoder);
+                aerospikeClient.operate(writePolicy, key, MapOperation.put(mapPolicy, null, Value.get(offset), encoderValue));
             }
             writeTSSuccess++;
             return true;
         } catch (Throwable t) {
             LOGGER.error("WTF? Failed AS", t);
             writeTSExceptions++;
+            return false;
         }
-        return false;
     }
 
     @Override
@@ -160,15 +192,48 @@ public class LTSAerospike implements LongTermStorage {
         return r;
     }
 
-    /**
-     * Issues a batch request to Aerospike given the keys and length.
-     * @param keys The keys array.
-     * @param keyLength The length of the keys to read (When re-using the buffer).
-     * @return The batch record iterator.
-     */
-    public BatchRecordIterator batchRead(final byte[][] keys, final int keyLength) {
-        return batchClient.batchGet(keys, keyLength, set, bin);
+  /**
+   * Issues a batch request to Aerospike given the keys and length.
+   *
+   * @param keys The keys array.
+   * @param keyLength The length of the keys to read (When re-using the buffer).
+   * @return The batch record iterator.
+   */
+  public Record[] batchRead(final byte[][] keys, final int keyLength) {
+    Key[] keyList = new Key[keyLength];
+    for (int i = 0; i < keyLength; i++) {
+      byte[] rowKey = keys[i];
+      Key key = new Key(namespace, setNameHex, new ByteValue(rowKey));
+      keyList[i] = key;
     }
+    return aerospikeClient.get(null, keyList, binName);
+  }
+
+  /**
+   * Issues a batch request to Aerospike given the keys and length.
+   *
+   * @param keys The keys array.
+   * @param keyLength The length of the keys to read (When re-using the buffer).
+   * @return The batch record iterator.
+   */
+  public Record[] batchRead(
+      final byte[][] keys, final int keyLength, final String binName, final int aggOrdinal) {
+
+    List<Value> entryList = new ArrayList<>();
+    for (int recordOffset = 0; recordOffset < 3; recordOffset++) {
+        entryList.add(Value.get((byte) (recordOffset << 4 | 0))); // header
+        entryList.add(Value.get((byte) (recordOffset << 4 | aggOrdinal)));
+    }
+
+    Key[] rowKeys = new Key[keyLength];
+    for (int i = 0; i < keyLength; i++) {
+      byte[] rowKey = keys[i];
+      rowKeys[i] = new Key(namespace, setNameHex, new ByteValue(rowKey));
+    }
+
+    Operation operation = MapOperation.getByKeyList(binName, entryList, MapReturnType.KEY_VALUE);
+    return aerospikeClient.get(null, rowKeys, operation);
+  }
 
     /**
      * @return The number of seconds in a record.
@@ -252,7 +317,7 @@ public class LTSAerospike implements LongTermStorage {
                         iterator.remove();
 
                         // TODO - reuse!!!!
-                        OnHeapGorillaSegment segment = new OnHeapGorillaSegment(segmentTimestamp, data, 0, data.length);
+                        OnHeapGorillaRawSegment segment = new OnHeapGorillaRawSegment(segmentTimestamp, data, 0, data.length);
                         segmentTimestamp += secondsInSegment; // important to advance.
 
                         if (mapEntries.isEmpty()) {
@@ -299,7 +364,8 @@ public class LTSAerospike implements LongTermStorage {
 
             // TODO - watch this as it's expensive.
             final long start = DateTime.nanoTime();
-            RecordIterator iterator = asClient.mapRangeQuery(key, set, bin, offset, end);
+//            RecordIterator iterator = asClient.mapRangeQuery(key, set, bin, offset, end);
+            RecordIterator iterator = null;
 
             stats.addTime(M_READ_LATENCY, DateTime.nanoTime() - start, ChronoUnit.NANOS);
             if (iterator.getResultCode() != ResultCode.OK) {
@@ -338,7 +404,6 @@ public class LTSAerospike implements LongTermStorage {
     class Metrics implements Runnable {
         private long prevWriteTSExceptions;
         private long prevWriteTSSuccess;
-        private long prevWriteTSErrors;
         private long prevReadTSExceptions;
         private long prevReadTSSuccess;
         private long prevReadTSErrors;
@@ -358,11 +423,6 @@ public class LTSAerospike implements LongTermStorage {
             delta = temp - prevWriteTSSuccess;
             prevWriteTSSuccess = temp;
             stats.incrementCounter(M_WRITE_SUCCESS, delta);
-
-            temp = writeTSErrors;
-            delta = temp - prevWriteTSErrors;
-            prevWriteTSErrors = temp;
-            stats.incrementCounter(M_WRITE_FAILED, delta);
 
             // READ metrics
             temp = readTSErrors;

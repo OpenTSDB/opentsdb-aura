@@ -39,7 +39,7 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
   private static final int NEXT_BLOCK_BYTE_INDEX = 0;
   private static final int CURRENT_BLOCK_BYTE_INDEX = 8;
   private static final int CURRENT_BIT_INDEX_BYTE_INDEX = 16;
-  private static final int DATA_BLOCK_ADDRESS_BITS = Long.SIZE;
+  protected static final int DATA_BLOCK_ADDRESS_BITS = Long.SIZE;
   protected static final int DATA_BLOCK_ADDRESS_BYTES = Long.BYTES;
 
   public final int blockSizeBytes;
@@ -189,7 +189,9 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
 
   @Override
   public void free() {
-    moveToHead();
+    if (dataBlock.getAddress() != header.getAddress()) {
+      doMoveToHead();
+    }
 
     long next = dataBlock.get(0);
     while (next != 0) {
@@ -202,28 +204,39 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
     memoryBlockCount--;
   }
 
+  private void doMoveToHead() {
+    this.dataBlock.init(address, false, blockSizeLongs);
+    this.bitIndex = (short) (headerLengthBytes() * Byte.SIZE);
+    atHead = true;
+    atTail = false;
+  }
+
   public abstract int headerLengthBytes();
 
   /** Moves the cursor to the beginning of the data stream. */
-  public void moveToHead() {
+  public boolean moveToHead() {
     if (!atHead) {
       updateHeader();
       this.dataBlock.init(address, false, blockSizeLongs);
       this.bitIndex = (short) (headerLengthBytes() * Byte.SIZE);
       atHead = true;
       atTail = false;
+      return true;
     }
+    return false;
   }
 
   /** Moves the cursor to the end of the data stream */
-  public void moveToTail() {
+  public boolean moveToTail() {
     if (!atTail) {
       updateHeader();
       dataBlock.init(header.getLong(CURRENT_BLOCK_BYTE_INDEX), false, blockSizeLongs);
       bitIndex = header.getShort(CURRENT_BIT_INDEX_BYTE_INDEX);
       atTail = true;
       atHead = false;
+      return true;
     }
+    return false;
   }
 
   public void updateHeader() {
@@ -266,7 +279,7 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
 
   public void serialize(int srcOffset, byte[] dest, int destOffset, int length) {
     moveToHead();
-
+    int bytesRemaining = length;
     int blockIndex = srcOffset / (blockSizeBytes - DATA_BLOCK_ADDRESS_BYTES);
     int blockOffset = srcOffset % (blockSizeBytes - DATA_BLOCK_ADDRESS_BYTES);
 
@@ -274,43 +287,45 @@ public abstract class FixedSizedMemoryBlockStream implements MemoryBlock, BitMap
     for (int i = 1; i <= blockIndex; i++) {
       nextAddress = dataBlock.get(0);
       if (nextAddress == 0) {
-        throw new IndexOutOfBoundsException("srcoffset out of range");
+        throw new IndexOutOfBoundsException("src offset out of range");
       }
       dataBlock.init(nextAddress, false, blockSizeLongs);
+      bitIndex = DATA_BLOCK_ADDRESS_BITS;
     }
 
     int blockLongOffset = blockOffset / Long.BYTES;
-    int finalByteOffset = (int) Math.ceil(header.getShort(CURRENT_BIT_INDEX_BYTE_INDEX) / 8D);
-    int lastSrcOffset = srcOffset + length;
+    bitIndex = (short) (blockOffset * 8);
     nextAddress = dataBlock.get(0);
 
-    while (blockOffset < blockSizeBytes) {
-      if (nextAddress == 0 && blockOffset >= finalByteOffset) {
-        // no more data in this final block.
-        break;
-      }
-      long lv = dataBlock.get(blockLongOffset++);
-      blockOffset += 8;
-      if (srcOffset + 8 >= lastSrcOffset) {
-        int shifty = 56;
-        while (srcOffset++ < lastSrcOffset) {
-          dest[destOffset++] = (byte) (lv >> shifty);
-          shifty -= 8;
-        }
-      } else {
-        ByteArrays.putLong(lv, dest, destOffset);
-        destOffset += 8;
-        srcOffset += 8;
-      }
-
+    while (bytesRemaining > 0) {
       if (blockLongOffset >= blockSizeLongs) {
         if (nextAddress == 0) {
-          break;
+          throw new ArrayIndexOutOfBoundsException();
         }
         dataBlock.init(nextAddress, false, blockSizeLongs);
+        bitIndex = DATA_BLOCK_ADDRESS_BITS;
         nextAddress = dataBlock.get(0);
         blockLongOffset = 1;
         blockOffset = 8;
+      }
+
+      long lv = dataBlock.get(blockLongOffset++);
+      blockOffset += 8;
+
+      if (bytesRemaining >= 8) {
+        ByteArrays.putLong(lv, dest, destOffset);
+        destOffset += 8;
+        bytesRemaining -= 8;
+        bitIndex += 64;
+      } else {
+        int shifty = 56;
+        int bytesToCopy = bytesRemaining;
+        for (int i = 0; i < bytesToCopy; i++) {
+          dest[destOffset++] = (byte) (lv >> shifty);
+          shifty -= 8;
+        }
+        bytesRemaining -= bytesToCopy;
+        bitIndex += bytesToCopy * 8;
       }
     }
   }

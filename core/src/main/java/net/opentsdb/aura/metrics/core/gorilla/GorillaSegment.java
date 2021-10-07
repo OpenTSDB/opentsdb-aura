@@ -24,9 +24,9 @@ public interface GorillaSegment extends Segment, BitMap {
 
   void updateHeader();
 
-  void moveToHead();
+  boolean moveToHead();
 
-  void moveToTail();
+  boolean moveToTail();
 
   default int headerLengthBytes() {
     throw new UnsupportedOperationException();

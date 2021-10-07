@@ -19,29 +19,18 @@ package net.opentsdb.aura.metrics.core.gorilla;
 
 import net.opentsdb.aura.metrics.core.data.ByteArrays;
 
-/** More work to do on this but it's meant to deserialize stored gorilla segments. */
-public class OnHeapGorillaSegment implements GorillaRawSegment {
-  static final int NUM_POINTS_OFFSET = 1;
+public abstract class OnHeapGorillaSegment {
+  protected int segmentTime;
+  protected byte[] buffer;
+  protected int startingOffset;
+  protected int length;
 
-  private int segmentTime;
-  private byte[] buffer;
-  private int startingOffset;
-  private int longIndex;
-  private int length;
-  int numDataPoints;
-
-  int bitIndex;
-  long previousLong;
-
-  public OnHeapGorillaSegment() {
-    // make sure to use the reset method.
-  }
+  protected int bitIndex;
+  protected long currentLong;
+  protected int byteIndex;
 
   public OnHeapGorillaSegment(int segmentTime, byte[] buffer, int startingOffset, int length) {
-    this.segmentTime = segmentTime;
-    this.buffer = buffer;
-    this.startingOffset = startingOffset;
-    this.length = length;
+    reset(segmentTime, buffer, startingOffset, length);
   }
 
   public void reset(int segmentTime, byte[] buffer, int startingOffset, int length) {
@@ -49,120 +38,77 @@ public class OnHeapGorillaSegment implements GorillaRawSegment {
     this.buffer = buffer;
     this.startingOffset = startingOffset;
     this.length = length;
-    bitIndex = 0;
-    previousLong = 0;
+    this.bitIndex = 0;
+    this.currentLong = 0;
   }
 
-  @Override
   public long create(int segmentTime) {
-    return 0;
+    throw new UnsupportedOperationException();
   }
 
-  @Override
-  public void open(long segmentAddress) {}
-
-  @Override
-  public void free() {}
-
-  @Override
-  public boolean isDirty() {
-    return false;
+  public void open(long id) {
+    throw new UnsupportedOperationException();
   }
 
-  @Override
-  public boolean hasDupesOrOutOfOrderData() {
-    return false;
+  public void free() {
+    throw new UnsupportedOperationException();
   }
 
-  @Override
-  public void markFlushed() {}
-
-  @Override
   public int getSegmentTime() {
     return segmentTime;
   }
 
-  @Override
-  public void setNumDataPoints(short numDataPoints) {}
-
-  @Override
-  public short getNumDataPoints() {
-    return (short) numDataPoints;
-  }
-
-  @Override
-  public void setLastTimestamp(int lastTimestamp) {}
-
-  @Override
-  public int getLastTimestamp() {
+  public boolean isDirty() {
     throw new UnsupportedOperationException();
   }
 
-  @Override
-  public void setLastValue(long value) {}
-
-  @Override
-  public long getLastValue() {
+  public boolean hasDupesOrOutOfOrderData() {
     throw new UnsupportedOperationException();
   }
 
-  @Override
-  public void setLastTimestampDelta(short lastTimestampDelta) {}
-
-  @Override
-  public short getLastTimestampDelta() {
+  public void markFlushed() {
     throw new UnsupportedOperationException();
   }
 
-  @Override
-  public void setLastValueLeadingZeros(byte lastLeadingZero) {}
-
-  @Override
-  public byte getLastValueLeadingZeros() {
+  public void write(long value, int bitsToWrite) {
     throw new UnsupportedOperationException();
   }
 
-  @Override
-  public void setLastValueTrailingZeros(byte lastTrailingZero) {}
-
-  @Override
-  public byte getLastValueTrailingZeros() {
+  public void updateHeader() {
     throw new UnsupportedOperationException();
   }
 
-  @Override
   public long read(int bitsToRead) {
+
     if (bitsToRead < 0 && bitsToRead > 64) {
       throw new IllegalArgumentException(
           String.format("Invalid bitsToRead %d. Expected between %d to %d", bitsToRead, 0, 64));
     }
 
-    long result = 0;
     int bitShift = bitIndex % Long.SIZE;
-    if (Long.SIZE - bitShift > bitsToRead) {
-      result = previousLong << bitShift >>> Long.SIZE - bitsToRead;
+    long result;
+    int remainingBits = Long.SIZE - bitShift;
+    if (remainingBits > bitsToRead) {
+      result = currentLong << bitShift >>> Long.SIZE - bitsToRead;
       bitIndex += bitsToRead;
     } else {
-      result = previousLong << bitShift >>> bitShift;
+      result = currentLong << bitShift >>> bitShift;
       bitShift += bitsToRead;
       if (bitShift >= Long.SIZE) {
-        // need the next long.
-        if (longIndex + Long.BYTES >= startingOffset + length) {
-          // we can't read out a long as there were trailing zero bytes so
-          // we need to shift manually
+        if (byteIndex + Long.BYTES >= startingOffset + length) {
+          currentLong = 0;
           int shifty = 56;
-          previousLong = 0;
-          while (longIndex < startingOffset + length) {
-            previousLong |= ((long) buffer[longIndex++] & 0xFF) << shifty;
+          while (byteIndex < startingOffset + length) {
+            currentLong |= ((long) buffer[byteIndex++] & 0xFF) << shifty;
             shifty -= 8;
           }
         } else {
-          previousLong = ByteArrays.getLong(buffer, longIndex);
+          currentLong = ByteArrays.getLong(buffer, byteIndex);
         }
-        longIndex += Long.BYTES;
+        byteIndex += Long.BYTES;
         bitShift -= Long.SIZE;
         if (bitShift != 0) {
-          result = (result << bitShift) | (previousLong >>> Long.SIZE - bitShift);
+          result = (result << bitShift) | (currentLong >>> Long.SIZE - bitShift);
         }
         bitIndex += bitShift;
         bitIndex += (bitsToRead - bitShift);
@@ -171,44 +117,7 @@ public class OnHeapGorillaSegment implements GorillaRawSegment {
     return result;
   }
 
-  @Override
-  public void write(long value, int bitsToWrite) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void updateHeader() {}
-
-  @Override
-  public void moveToTail() {}
-
-  @Override
-  public void moveToHead() {
-    bitIndex = 0;
-    // Number of data points is variable length encoded on either 1 or 2 bytes.
-    if ((OffHeapGorillaRawSegment.TWO_BYTE_FLAG & buffer[startingOffset + NUM_POINTS_OFFSET]) != 0) {
-      numDataPoints =
-          (buffer[startingOffset + NUM_POINTS_OFFSET] & OffHeapGorillaRawSegment.TWO_BYTE_MASK) << 8;
-      numDataPoints |= (buffer[startingOffset + NUM_POINTS_OFFSET + 1] & 0xFF);
-      longIndex = startingOffset + 3;
-    } else {
-      numDataPoints = buffer[startingOffset + NUM_POINTS_OFFSET];
-      longIndex = startingOffset + 2;
-    }
-    if (numDataPoints < 1) {
-      return;
-    }
-    previousLong = ByteArrays.getLong(buffer, longIndex);
-    longIndex += Long.BYTES;
-  }
-
-  @Override
-  public void collectMetrics() {
-
-  }
-
-  @Override
-  public void setTags(String[] tags) {
-
+  public boolean moveToTail() {
+    return false;
   }
 }

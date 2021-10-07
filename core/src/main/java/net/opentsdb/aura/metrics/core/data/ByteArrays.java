@@ -25,6 +25,18 @@ public interface ByteArrays {
     /**
      * @param offset offset in the buffer, inclusive
      */
+    static void putLong(final long l, final int srcOffset, final byte[] buf, final int offset) {
+        int shift = 56 - (srcOffset * 8);
+        int index = offset;
+        for (int i = srcOffset; i < 8; i++) {
+            buf[index++] = (byte) (l >> shift);
+            shift -= 8;
+        }
+    }
+
+    /**
+     * @param offset offset in the buffer, inclusive
+     */
     static void putLong(final long l, final byte[] buf, final int offset) {
         buf[offset] = (byte) (l >> 56);
         buf[offset + 1] = (byte) (l >> 48);

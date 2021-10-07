@@ -71,6 +71,9 @@ public class AerospikeBatchSourceFactory extends BaseTSDBPlugin
   private static String META_HOST_PORT_KEY = "meta.grpc.port";
   public static String AS_BATCH_LIMIT_KEY = "aerospike.batch.limit";
   public static String AS_JOBS_PER_QUERY = "aerospike.jobs.per.query";
+  public static String AS_ROLLUP_AGGS = "aerospike.rollup.aggs";
+  public static String AS_ROLLUP_SEGMENT_WIDTH = "aerospike.rollup.segment.Width";
+  public static String AS_ROLLUP_INTERVAL = "aerospike.rollup.interval";
 
   private RollupConfig rollupConfig;
 
@@ -131,6 +134,18 @@ public class AerospikeBatchSourceFactory extends BaseTSDBPlugin
     if (!tsdb.getConfig().hasProperty(AS_JOBS_PER_QUERY)) {
       tsdb.getConfig().register(AS_JOBS_PER_QUERY, 16, true,
               "How many jobs to submit per query to the query thread pool.");
+    }
+    if (!tsdb.getConfig().hasProperty(AS_ROLLUP_AGGS)) {
+      tsdb.getConfig().register(AS_ROLLUP_AGGS, null, false,
+              "The rollup aggs stored in aerospike.");
+    }
+    if (!tsdb.getConfig().hasProperty(AS_ROLLUP_SEGMENT_WIDTH)) {
+      tsdb.getConfig().register(AS_ROLLUP_SEGMENT_WIDTH, null, false,
+              "The rollup segment span.");
+    }
+    if (!tsdb.getConfig().hasProperty(AS_ROLLUP_INTERVAL)) {
+      tsdb.getConfig().register(AS_ROLLUP_INTERVAL, null, false,
+              "The rollup interval.");
     }
   }
 

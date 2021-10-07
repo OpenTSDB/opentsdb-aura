@@ -17,11 +17,12 @@
 
 package net.opentsdb.aura.metrics.storage;
 
-import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
-import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import gnu.trove.iterator.TLongIntIterator;
 import gnu.trove.map.TLongIntMap;
 import gnu.trove.map.hash.TLongIntHashMap;
+import net.opentsdb.aura.metrics.AerospikeDSTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.core.RawTimeSeriesEncoder;
+import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult;
 import net.opentsdb.data.TimeSeriesId;
 import net.opentsdb.data.types.numeric.MutableNumericValue;
 import net.opentsdb.data.types.numeric.aggregators.NumericAggregator;
@@ -40,6 +41,8 @@ import java.util.Locale;
 
 public class AerospikeBatchGroupAggregator {
   private static final Logger LOG = LoggerFactory.getLogger(AerospikeBatchGroupAggregator.class);
+
+  private static final ThreadLocal<DSValues> THREAD_LOCAL_DS_VALUES = ThreadLocal.withInitial(() -> new DSValues());
 
   protected AerospikeBatchQueryNode.QR results;
   protected MetaTimeSeriesQueryResult metaResult;
@@ -81,6 +84,9 @@ public class AerospikeBatchGroupAggregator {
   protected boolean init;
   protected boolean hadError;
 
+  private double[] dsValues;
+  private byte rollupAggId;
+
   public boolean isInit() {
     return init;
   }
@@ -113,6 +119,16 @@ public class AerospikeBatchGroupAggregator {
       }
     }
     Arrays.fill(values, 0, aerospikeQueryNode.secondsInSegment, Double.NaN);
+
+    if (aerospikeQueryNode.useRollupData()) {
+      this.rollupAggId = aerospikeQueryNode.getRollupAggId();
+      DSValues dsValues = THREAD_LOCAL_DS_VALUES.get();
+      if (dsValues.values == null) {
+        dsValues.values = new double[aerospikeQueryNode.getRollupIntervalCount()];
+      }
+      this.dsValues = dsValues.values;
+    }
+
     dsConfig = aerospikeQueryNode.downsampleConfig();
     infectiousNans = dsConfig.getInfectiousNan();
     this.queryStartTime = (int) dsConfig.startTime().epoch();
@@ -233,6 +249,250 @@ public class AerospikeBatchGroupAggregator {
       computeDataInterval = true;
       distribution = new TLongIntHashMap();
     }
+  }
+
+  public void addSegment(AerospikeDSTimeSeriesEncoder encoder, long hash) {
+    if (hadError) {
+      return;
+    }
+    if (encoder == null) {
+      LOG.error("Encoder was null... ");
+      hadError = true;
+      return;
+    }
+
+    int segmentTime = encoder.getSegmentTime();
+
+    int startIndex = 0;
+    int stopIndex = aerospikeQueryNode.getRollupIntervalCount(); // exclusive
+    int rollupInterval = aerospikeQueryNode.getRollupInterval().getSeconds();
+
+    if (segmentTime < queryStartTime) {
+      startIndex = (queryStartTime - segmentTime) / rollupInterval;
+    }
+    if ((segmentTime + aerospikeQueryNode.getSecondsInSegment()) >= queryEndTime) {
+      stopIndex = (queryEndTime - segmentTime) / rollupInterval;
+    }
+
+    if (startIndex >= stopIndex) {
+      // ignore segments out side of query range
+      return;
+    }
+
+    if (prevHash != hash) {
+      newSeries();
+      prevHash = hash;
+    }
+
+    // see if we need to fill
+    int newIndex = startInterval(segmentTime);
+    if (newIndex < intervalIndex) {
+      // TODO - set an exception flag.
+      aerospikeQueryNode.onError(new QueryDownstreamException(
+          "Encountered an out of order segment " + encoder.getSegmentTime()
+              + " when the last time is " + segmentTime));
+      hadError = true;
+      return;
+    }
+    if (newIndex > intervalIndex + 1) {
+      // could equal or be the next and be ok. BUT if it's more than that, we
+      // need to fill potentially.
+      if (intervalHasValue) {
+        // flush it!
+        flushRemaining();
+      }
+    }
+
+    intervalIndex = newIndex;
+
+    lastRealSegmentTime = segmentTime;
+
+    int numPoints = encoder.readAggValues(dsValues, rollupAggId);
+    if (numPoints <= 0) {
+      // shouldn't happen but...
+      //LOG.info("[" + groupResult.id() + "] => WTF no data from encoder?");
+      hadError = true;
+      return;
+    }
+
+    if (computeDataInterval) {
+      int lastTimestamp = -1;
+      for (int i = 0; i < dsValues.length; i++) {
+        if (Double.isNaN(dsValues[i])) {
+          continue;
+        }
+
+        if (lastTimestamp < 0) {
+          lastTimestamp = segmentTime + i;
+          continue;
+        }
+
+        int d = (segmentTime + i) - lastTimestamp;
+        lastTimestamp = segmentTime + i;
+        if (d > Integer.MIN_VALUE) {
+          if (distribution.containsKey(d)) {
+            distribution.increment(d);
+          } else {
+            distribution.put(d, 1);
+          }
+        }
+      }
+    }
+
+    try {
+      if (computeDataInterval) {
+        long diff = 0;
+        int count = 0;
+        final TLongIntIterator it = distribution.iterator();
+        while (it.hasNext()) {
+          it.advance();
+          if (it.value() > count) {
+            diff = it.key();
+            count = it.value();
+          }
+        }
+        rateDataInterval = diff / aerospikeQueryNode.rateConfig().duration().get(ChronoUnit.SECONDS);
+        if (rateDataInterval < 1) {
+          rateDataInterval = 1;
+        }
+      }
+
+      for (; startIndex < stopIndex; startIndex++) {
+        double value = dsValues[startIndex];
+        int timeStamp = segmentTime + (startIndex * rollupInterval);
+        // skip those outside of the query range.
+        if (timeStamp < queryStartTime) {
+          continue;
+        }
+        if (timeStamp >= queryEndTime) {
+          break;
+        }
+
+        if (aerospikeQueryNode.rateConfig() != null && !Double.isNaN(value)) {
+          double rate;
+          if (Double.isNaN(previousRateValue)) {
+            rate = Double.NaN; // first rate is set to NaN
+          } else {
+            double dr = ((double) (timeStamp - previousRateTimestamp)) / rateInterval;
+            if (aerospikeQueryNode.rateConfig().getRateToCount()) {
+              rate = value * (dr < rateDataInterval ? dr : rateDataInterval);
+            } else if (aerospikeQueryNode.rateConfig().getDeltaOnly()) {
+              rate = value - previousRateValue;
+            } else {
+              double valueDelta = value - previousRateValue;
+              if (aerospikeQueryNode.rateConfig().isCounter() && valueDelta < 0) {
+                if (aerospikeQueryNode.rateConfig().getDropResets()) {
+                  rate = Double.NaN;
+                } else {
+                  valueDelta =
+                      aerospikeQueryNode.rateConfig().getCounterMax() - previousRateValue + value;
+                  rate = valueDelta / dr;
+                  if (aerospikeQueryNode.rateConfig().getResetValue()
+                      > aerospikeQueryNode.rateConfig().DEFAULT_RESET_VALUE
+                      && valueDelta > aerospikeQueryNode.rateConfig().getResetValue()) {
+                    rate = Double.NaN;
+                  }
+                }
+              } else {
+                rate = valueDelta / dr;
+              }
+            }
+          }
+          previousRateTimestamp = timeStamp;
+          previousRateValue = value;
+          value = rate;
+        }
+
+        if (!Double.isNaN(value)) {
+          if (!intervalInfectedByNans) {
+            aggs[0] += value; // sum
+            aggs[1]++; // count
+            if (value < aggs[2]) {
+              aggs[2] = value; // min
+            }
+            if (value > aggs[3]) {
+              aggs[3] = value; // max
+            }
+            aggs[4] = value; // last
+            if (!intervalHasValue) {
+              intervalHasValue = true;
+            }
+          }
+
+          if (dsAgg == AuraMetricsNumericArrayIterator.Agg.NON_OPTIMIZED) {
+            if (nonOptimizedIndex + 1 >= nonOptimizedArray.length) {
+              double[] temp = new double[nonOptimizedArray.length * 2];
+              System.arraycopy(nonOptimizedArray, 0, temp, 0, nonOptimizedIndex);
+              nonOptimizedArray = temp;
+              if (nonOptimizedPooled != null) {
+                nonOptimizedPooled.release();
+              }
+            }
+            nonOptimizedArray[nonOptimizedIndex++] = value;
+          }
+        }
+
+        intervalOffset += rollupInterval;
+
+        if (intervalOffset == dsInterval) { // push it to group by
+          if (intervalHasValue) {
+            final double v;
+            switch (dsAgg) {
+              case SUM:
+                if (reportingAverage) {
+                  v = aggs[0] / dsConfig.dpsInInterval();
+                } else {
+                  v = aggs[0];
+                }
+                break;
+              case COUNT:
+                v = aggs[1];
+                break;
+              case MIN:
+                v = aggs[2];
+                break;
+              case MAX:
+                v = aggs[3];
+                break;
+              case LAST:
+                v = aggs[4];
+                break;
+              case AVG:
+                v = aggs[0] / aggs[1];
+                break;
+              case NON_OPTIMIZED:
+                nonOptimizedAggregator.run(
+                    nonOptimizedArray,
+                    0,
+                    nonOptimizedIndex,
+                    dsConfig.getInfectiousNan(),
+                    nonOptimizedDp);
+                nonOptimizedIndex = 0;
+                v = nonOptimizedDp.toDouble();
+                break;
+              default:
+                throw new UnsupportedOperationException(
+                    "Unsupported aggregator: " + combinedAggregator);
+            }
+            combinedAggregator.accumulate(v, intervalIndex++);
+          } else {
+            intervalIndex++;
+          }
+
+          // reset interval
+          for (int i = 0; i < aggs.length; i++) {
+            aggs[i] = AuraMetricsNumericArrayIterator.IDENTITY[i];
+          }
+          intervalOffset = 0;
+          intervalHasValue = false;
+          intervalInfectedByNans = false;
+        }
+      }
+    } catch (RuntimeException e) {
+      LOG.error("Error during downsample", e);
+      throw e;
+    }
+
   }
 
   public void addSegment(RawTimeSeriesEncoder encoder, long hash) {
@@ -612,6 +872,10 @@ public class AerospikeBatchGroupAggregator {
 
   public int gidx() {
     return gidx;
+  }
+
+  private static class DSValues {
+    double[] values;
   }
 
 }

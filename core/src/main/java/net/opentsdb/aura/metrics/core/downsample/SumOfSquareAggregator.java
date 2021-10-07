@@ -19,6 +19,7 @@ package net.opentsdb.aura.metrics.core.downsample;
 
 public class SumOfSquareAggregator extends Aggregator {
 
+  public static final int ORDINAL = 6;
   public static final byte ID = (byte) 0b100000;
   public static final String NAME = "sumofsquare";
 
@@ -27,7 +28,7 @@ public class SumOfSquareAggregator extends Aggregator {
   }
 
   public SumOfSquareAggregator(final int numPoints, final Aggregator aggregator) {
-    super(0.0, ID, NAME, numPoints, aggregator);
+    super(0.0, ORDINAL, ID, NAME, numPoints, aggregator);
   }
 
   @Override

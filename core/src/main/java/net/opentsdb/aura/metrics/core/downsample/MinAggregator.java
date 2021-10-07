@@ -19,6 +19,7 @@ package net.opentsdb.aura.metrics.core.downsample;
 
 public class MinAggregator extends Aggregator {
 
+  public static final int ORDINAL = 4;
   public static final byte ID = (byte) 0b1000;
   public static final String NAME = "min";
 
@@ -27,7 +28,7 @@ public class MinAggregator extends Aggregator {
   }
 
   public MinAggregator(final int numPoints, final Aggregator aggregator) {
-    super(Double.MAX_VALUE, ID, NAME, numPoints, aggregator);
+    super(Double.MAX_VALUE, ORDINAL, ID, NAME, numPoints, aggregator);
   }
 
   @Override

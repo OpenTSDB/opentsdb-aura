@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Iterator;
 
 import static net.opentsdb.aura.metrics.core.downsample.AggregatorType.sum;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -32,9 +33,9 @@ public class AggregatorTest {
 
   private static Interval interval = Interval._30_SEC;
   private static SegmentWidth segmentWidth = SegmentWidth._2_HR;
-  private static int intervalWidth = interval.getWidth();
+  private static int intervalWidth = interval.getSeconds();
   private static short intervalCount = interval.getCount(segmentWidth);
-  private static double[] rawData = new double[segmentWidth.getWidth()];
+  private static double[] rawData = new double[segmentWidth.getSeconds()];
 
   @BeforeAll
   static void beforeAll() {
@@ -46,6 +47,7 @@ public class AggregatorTest {
 
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).count().build();
 
+    assertEquals(3, aggregator.getOrdinal());
     assertEquals(0b100, aggregator.getId());
     assertEquals("count", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -60,6 +62,7 @@ public class AggregatorTest {
   void sumAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).forType(sum).build();
 
+    assertEquals(2, aggregator.getOrdinal());
     assertEquals(0b10, aggregator.getId());
     assertEquals("sum", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -74,6 +77,7 @@ public class AggregatorTest {
   void averageAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).forType("AVG").build();
 
+    assertEquals(1, aggregator.getOrdinal());
     assertEquals(0b1, aggregator.getId());
     assertEquals("avg", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -88,6 +92,7 @@ public class AggregatorTest {
   void minAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).min().build();
 
+    assertEquals(4, aggregator.getOrdinal());
     assertEquals(0b1000, aggregator.getId());
     assertEquals("min", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -99,9 +104,26 @@ public class AggregatorTest {
   }
 
   @Test
+  void minAggregatorWithNegativeValues() {
+    Aggregator aggregator = Aggregator.newBuilder(3).min().build();
+
+    double[] rawValues =
+        new double[] {-7.8610975558955776E18, 4.739319893824937E18, -4.3908735418470799E18};
+    aggregator.reset();
+    for (int i = 0; i < rawValues.length; i++) {
+      aggregator.apply(rawValues[i]);
+      aggregator.accumulate(i);
+    }
+
+    double[] max = aggregator.iterator().next();
+    assertArrayEquals(rawValues, max);
+  }
+
+  @Test
   void maxAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).max().build();
 
+    assertEquals(5, aggregator.getOrdinal());
     assertEquals(0b10000, aggregator.getId());
     assertEquals("max", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -113,9 +135,26 @@ public class AggregatorTest {
   }
 
   @Test
+  void maxAggregatorWithNegativeValues() {
+    Aggregator aggregator = Aggregator.newBuilder(3).max().build();
+
+    double[] rawValues =
+        new double[] {-7.8610975558955776E18, 4.739319893824937E18, -4.3908735418470799E18};
+    aggregator.reset();
+    for (int i = 0; i < rawValues.length; i++) {
+      aggregator.apply(rawValues[i]);
+      aggregator.accumulate(i);
+    }
+
+    double[] max = aggregator.iterator().next();
+    assertArrayEquals(rawValues, max);
+  }
+
+  @Test
   void sumOfSquareAggregator() {
     Aggregator aggregator = Aggregator.newBuilder(intervalCount).sumOfSquares().build();
 
+    assertEquals(6, aggregator.getOrdinal());
     assertEquals(0b100000, aggregator.getId());
     assertEquals("sumofsquare", aggregator.getName());
     assertEquals(1, aggregator.getAggCount());
@@ -131,6 +170,7 @@ public class AggregatorTest {
     Aggregator aggregator =
         Aggregator.newBuilder(intervalCount).avg().sum().count().min().max().sumOfSquares().build();
 
+    assertEquals(-1, aggregator.getOrdinal());
     assertEquals(0b111111, aggregator.getId());
     assertEquals("avg-sum-count-min-max-sumofsquare", aggregator.getName());
     assertEquals(6, aggregator.getAggCount());
@@ -158,13 +198,30 @@ public class AggregatorTest {
 
     apply(aggregator, rawData);
 
-    Iterator<double[]> iterator = aggregator.iterator();
+    AggregatorIterator<double[]> iterator = aggregator.iterator();
     assertSumOfSquareEquals((iterator.next()), intervalCount, intervalWidth);
+    assertEquals(SumOfSquareAggregator.NAME, iterator.aggName());
+    assertEquals(SumOfSquareAggregator.ID, iterator.aggID());
+
     assertAverageEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(AverageAggregator.NAME, iterator.aggName());
+    assertEquals(AverageAggregator.ID, iterator.aggID());
+
     assertMaxEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(MaxAggregator.NAME, iterator.aggName());
+    assertEquals(MaxAggregator.ID, iterator.aggID());
+
     assertMinEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(MinAggregator.NAME, iterator.aggName());
+    assertEquals(MinAggregator.ID, iterator.aggID());
+
     assertCountEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(CountAggregator.NAME, iterator.aggName());
+    assertEquals(CountAggregator.ID, iterator.aggID());
+
     assertSumEquals(iterator.next(), intervalCount, intervalWidth);
+    assertEquals(SumAggregator.NAME, iterator.aggName());
+    assertEquals(SumAggregator.ID, iterator.aggID());
 
     assertFalse(iterator.hasNext());
   }
@@ -319,7 +376,7 @@ public class AggregatorTest {
   }
 
   static void generateRawData(double[] rawData, Interval interval) {
-    int intervalWidth = interval.getWidth();
+    int intervalWidth = interval.getSeconds();
     for (int i = 0; i < rawData.length; i++) {
       int intervalOffset = i / intervalWidth % intervalWidth;
       int index = i % intervalWidth;

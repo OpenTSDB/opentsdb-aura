@@ -29,6 +29,7 @@ import com.google.common.base.Strings;
 public class ASCluster {
 
     private final Cluster cluster;
+    private final Host[] hosts;
 
     public ASCluster(final String hostList,
                      final int port) {
@@ -41,11 +42,16 @@ public class ASCluster {
         if (Strings.isNullOrEmpty(hostList)) {
             throw new IllegalArgumentException("Unable to start Aerospike cluster client without a host list.");
         }
-        final Host[] hosts = Host.parseHosts(hostList, port);
+        this.hosts = Host.parseHosts(hostList, port);
         cluster = new Cluster(clientPolicy, hosts);
     }
 
     public Cluster cluster() {
         return cluster;
     }
+
+    public Host[] getHosts() {
+        return hosts;
+    }
+
 }
