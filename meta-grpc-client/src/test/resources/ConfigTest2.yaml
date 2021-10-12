@@ -1,0 +1,23 @@
+kubernetes.statefulset.registry.cluster: kubernetes.default.GQ
+kubernetes.statefulset.registry.cluster.domain: cluster.local
+kubernetes.statefulset.registry.namespaces:
+  - namespace: default
+    k8s_namespace: default
+    components:
+      - component: aura-metrics
+        num-shards: 1
+        replicas: 1
+        port: 4080
+      - component: myst
+        num-shards: 1
+        replicas: 1
+        port: 9999
+  - namespace: Onevideo
+    k8s_namespace: default
+    components:
+      - component: myst
+        num-shards: 9
+        replicas: 2
+
+
+
