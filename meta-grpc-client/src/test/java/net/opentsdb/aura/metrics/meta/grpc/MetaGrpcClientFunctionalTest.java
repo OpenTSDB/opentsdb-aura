@@ -39,7 +39,7 @@ public class MetaGrpcClientFunctionalTest {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MetaGrpcClientFunctionalTest.class);
 
-  String host = "10.214.168.140";
+  String host = "localhost";
   int port = 9999;
 
   private MetaGrpcClient client = new MetaGrpcClient(host, port);

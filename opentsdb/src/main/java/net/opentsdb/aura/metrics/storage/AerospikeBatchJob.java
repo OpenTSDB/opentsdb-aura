@@ -393,7 +393,6 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
 
       Record record = records[i];
       if (record != null) {
-        LOGGER.info("Record found");
         List<Map.Entry<Long, byte[]>> entries = (List<Map.Entry<Long, byte[]>>) record.getList("");
         for (int j = 0; j < entries.size(); ) {
           Map.Entry<Long, byte[]> entry = entries.get(j);
@@ -408,8 +407,6 @@ public class AerospikeBatchJob implements Runnable, CloseablePooledObject {
           grouper.addSegment(dsEncoder, hash);
           j += 2;
         }
-      } else {
-        LOGGER.info("Record not found");
       }
     }
   }

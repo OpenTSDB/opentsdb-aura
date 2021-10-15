@@ -20,13 +20,22 @@ package net.opentsdb.aura.metrics.meta.grpc;
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcCleanupRule;
-import myst.*;
+import myst.Dictionary;
+import myst.GroupedTimeseries;
+import myst.MystServiceGrpc;
+import myst.QueryRequest;
+import myst.Timeseries;
+import myst.TimeseriesResponse;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +47,6 @@ import java.util.Iterator;
 import static net.opentsdb.aura.metrics.meta.grpc.TestUtil.getBitMap;
 import static net.opentsdb.aura.metrics.meta.grpc.TestUtil.getTimestampSequence;
 
-
 @RunWith(JUnit4.class)
 public class GrpcServerTest {
 
@@ -47,66 +55,88 @@ public class GrpcServerTest {
 
   private static final int[] timestampSequence = getTimestampSequence(2);
 
-  @Rule
-  public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
+  @Rule public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
 
   @Test
   public void testGetTimeseries() {
 
-    myst.GroupedTimeseries group1 = myst.GroupedTimeseries.newBuilder()
+    myst.GroupedTimeseries group1 =
+        myst.GroupedTimeseries.newBuilder()
             .addGroup(1)
             .addGroup(2)
             .addTimeseries(
-                    Timeseries.newBuilder()
-                            .setHash(2)
-                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
-            )
+                Timeseries.newBuilder()
+                    .setHash(2)
+                    .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))))
             .addTimeseries(
-                    Timeseries.newBuilder()
-                            .setHash(4)
-                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
-            )
+                Timeseries.newBuilder()
+                    .setHash(4)
+                    .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))))
             .build();
-    myst.GroupedTimeseries group2 = myst.GroupedTimeseries.newBuilder()
+    myst.GroupedTimeseries group2 =
+        myst.GroupedTimeseries.newBuilder()
             .addGroup(3)
             .addGroup(4)
             .addTimeseries(
-                    Timeseries.newBuilder()
-                            .setHash(6)
-                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
-            )
+                Timeseries.newBuilder()
+                    .setHash(6)
+                    .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))))
             .addTimeseries(
-                    Timeseries.newBuilder()
-                            .setHash(8)
-                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence)))
-            )
+                Timeseries.newBuilder()
+                    .setHash(8)
+                    .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))))
             .build();
 
-    Dictionary dictionary = Dictionary.newBuilder().putDict(1, String.valueOf(1)).putDict(2, String.valueOf(2)).putDict(3, String.valueOf(3)).putDict(4, String.valueOf(4)).build();
-    TimeseriesResponse response = TimeseriesResponse.newBuilder().addGroupedTimeseries(group1).addGroupedTimeseries(group2).setDict(dictionary).build();
+    Dictionary dictionary =
+        Dictionary.newBuilder()
+            .putDict(1, String.valueOf(1))
+            .putDict(2, String.valueOf(2))
+            .putDict(3, String.valueOf(3))
+            .putDict(4, String.valueOf(4))
+            .build();
+    TimeseriesResponse response =
+        TimeseriesResponse.newBuilder()
+            .addGroupedTimeseries(group1)
+            .addGroupedTimeseries(group2)
+            .setDict(dictionary)
+            .build();
 
-    MystServiceGrpc.MystServiceImplBase mystService = new MystServiceGrpc.MystServiceImplBase() {
-      @Override
-      public void getTimeseries(QueryRequest request, StreamObserver<TimeseriesResponse> responseObserver) {
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
-      }
-    };
+    MystServiceGrpc.MystServiceImplBase mystService =
+        new MystServiceGrpc.MystServiceImplBase() {
+          @Override
+          public void getTimeseries(
+              QueryRequest request, StreamObserver<TimeseriesResponse> responseObserver) {
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+          }
+        };
 
-    Server server = ServerBuilder
-        .forPort(port)
-        .addService(mystService)
-        .build();
+    Server server =
+        ServerBuilder.forPort(port)
+            .addService(mystService)
+            .intercept(
+                new ServerInterceptor() {
+                  @Override
+                  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+                      ServerCall<ReqT, RespT> call,
+                      Metadata headers,
+                      ServerCallHandler<ReqT, RespT> next) {
+                    call.setCompression("gzip");
+                    return next.startCall(call, headers);
+                  }
+                })
+            .build();
 
-    new Thread(() -> {
-      try {
-        server.start();
-        server.awaitTermination();
-      } catch (IOException | InterruptedException e) {
-        e.printStackTrace();
-      }
-    }).start();
-
+    new Thread(
+            () -> {
+              try {
+                server.start();
+                server.awaitTermination();
+              } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+              }
+            })
+        .start();
 
     ManagedChannel channel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build();
     MystServiceGrpc.MystServiceBlockingStub blockingStub = MystServiceGrpc.newBlockingStub(channel);
@@ -132,10 +162,17 @@ public class GrpcServerTest {
   @Test
   public void testInprocess() throws IOException {
     String serverName = InProcessServerBuilder.generateName();
-    grpcCleanup.register(InProcessServerBuilder
-        .forName(serverName).directExecutor().addService(new MystServer.MystServiceImpl()).build().start());
+    grpcCleanup.register(
+        InProcessServerBuilder.forName(serverName)
+            .directExecutor()
+            .addService(new MystServer.MystServiceImpl())
+            .build()
+            .start());
 
-    MystServiceGrpc.MystServiceBlockingStub blockingStub = MystServiceGrpc.newBlockingStub(grpcCleanup.register(InProcessChannelBuilder.forName(serverName).directExecutor().build()));
+    MystServiceGrpc.MystServiceBlockingStub blockingStub =
+        MystServiceGrpc.newBlockingStub(
+            grpcCleanup.register(
+                InProcessChannelBuilder.forName(serverName).directExecutor().build()));
 
     QueryRequest query = QueryRequest.newBuilder().setQuery("test-query").build();
     Iterator<TimeseriesResponse> responseItr = blockingStub.getTimeseries(query);

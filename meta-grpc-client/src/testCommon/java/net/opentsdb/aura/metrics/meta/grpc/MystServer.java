@@ -18,10 +18,20 @@
 package net.opentsdb.aura.metrics.meta.grpc;
 
 import com.google.protobuf.ByteString;
+import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
 import io.grpc.stub.StreamObserver;
-import myst.*;
+import myst.Dictionary;
+import myst.GroupedTimeseries;
+import myst.MystServiceGrpc;
+import myst.QueryRequest;
+import myst.Timeseries;
+import myst.TimeseriesResponse;
+import org.roaringbitmap.RoaringBitmap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,8 +39,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import org.roaringbitmap.RoaringBitmap;
-
 
 public class MystServer {
 
@@ -40,7 +48,7 @@ public class MystServer {
   private final int port;
   private final MystServiceGrpc.MystServiceImplBase mystService;
 
-  private static final int[] timestampSequence = new int[]{0,1};
+  private static final int[] timestampSequence = new int[] {0, 1};
 
   public MystServer(final int port) {
     this(port, new MystServiceImpl());
@@ -53,21 +61,36 @@ public class MystServer {
 
   public void start() throws IOException {
     /* The port on which the server should run */
-    server = ServerBuilder.forPort(port)
-        .addService(mystService)
-        .build()
-        .start();
+    server =
+        ServerBuilder.forPort(port)
+            .addService(mystService)
+            .intercept(
+                new ServerInterceptor() {
+                  @Override
+                  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+                      ServerCall<ReqT, RespT> call,
+                      Metadata headers,
+                      ServerCallHandler<ReqT, RespT> next) {
+                    call.setCompression("gzip");
+                    return next.startCall(call, headers);
+                  }
+                })
+            .build()
+            .start();
     logger.info("Server started, listening on " + port);
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      // Use stderr here since the logger may have been reset by its JVM shutdown hook.
-      System.err.println("*** shutting down gRPC server since JVM is shutting down");
-      try {
-        MystServer.this.stop();
-      } catch (InterruptedException e) {
-        e.printStackTrace(System.err);
-      }
-      System.err.println("*** server shut down");
-    }));
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  // Use stderr here since the logger may have been reset by its JVM shutdown hook.
+                  System.err.println("*** shutting down gRPC server since JVM is shutting down");
+                  try {
+                    MystServer.this.stop();
+                  } catch (InterruptedException e) {
+                    e.printStackTrace(System.err);
+                  }
+                  System.err.println("*** server shut down");
+                }));
   }
 
   public void stop() throws InterruptedException {
@@ -76,9 +99,7 @@ public class MystServer {
     }
   }
 
-  /**
-   * Await termination on the main thread since the grpc library uses daemon threads.
-   */
+  /** Await termination on the main thread since the grpc library uses daemon threads. */
   private void blockUntilShutdown() throws InterruptedException {
     if (server != null) {
       server.awaitTermination();
@@ -95,7 +116,8 @@ public class MystServer {
   static class MystServiceImpl extends MystServiceGrpc.MystServiceImplBase {
 
     @Override
-    public void getTimeseries(QueryRequest request, StreamObserver<TimeseriesResponse> responseObserver) {
+    public void getTimeseries(
+        QueryRequest request, StreamObserver<TimeseriesResponse> responseObserver) {
       String query = request.getQuery();
       logger.debug("Query: " + query);
 
@@ -112,9 +134,9 @@ public class MystServer {
             long groupKey = i + j;
             groupBuilder.addGroup(groupKey);
             groupBuilder.addTimeseries(
-                    Timeseries.newBuilder()
-                            .setHash(j + 1)
-                            .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))));
+                Timeseries.newBuilder()
+                    .setHash(j + 1)
+                    .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))));
           }
           GroupedTimeseries group = groupBuilder.build();
           tsResponseBuilder.addGroupedTimeseries(group);
@@ -143,8 +165,6 @@ public class MystServer {
       throw new RuntimeException(e);
     }
 
-
     return byteArrayOutputStream.toByteArray();
   }
-
 }
