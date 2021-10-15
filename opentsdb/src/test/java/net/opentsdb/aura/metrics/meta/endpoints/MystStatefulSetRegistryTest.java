@@ -14,13 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.opentsdb.aura.metrics.meta.endpoints.impl;
+package net.opentsdb.aura.metrics.meta.endpoints;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import net.opentsdb.aura.metrics.meta.endpoints.ShardEndPoint;
-import org.junit.jupiter.api.Test;
+import net.opentsdb.aura.metrics.meta.endpoints.impl.Component;
+import net.opentsdb.aura.metrics.meta.endpoints.impl.DeploymentConfig;
+import net.opentsdb.aura.metrics.meta.endpoints.impl.Namespace;
+import net.opentsdb.aura.metrics.meta.endpoints.impl.SimpleEndPoint;
+import net.opentsdb.core.DefaultRegistry;
+import net.opentsdb.core.MockTSDB;
+import net.opentsdb.core.TSDB;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,23 +37,35 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 public class MystStatefulSetRegistryTest {
 
-    private static final String pod_name_pattern = "%s-myst-%s-%s.%s.svc.%s";
+    private static final String pod_name_pattern = "%s-myst-%s-%s.%s-myst-%s.svc.%s";
     private static final String[] replicas = {"a", "b", "c", "d", "e"};
     private static final String cluster_domain = "cluster.local";
+
+    private MockTSDB tsdb;
 
     @Test
     public void testListOfEndpoints1() throws IOException {
 
         ObjectMapper mapper1 = new ObjectMapper(new YAMLFactory());
 
+
         try {
-            DeploymentConfig cluster_config1 = mapper1.readValue(new File("src/test/resources/ConfigTest1.yaml"), DeploymentConfig.class);
-            Map<String, Namespace> namespaceMap = cluster_config1.toMap();
-            MystStatefulSetRegistry myststs1 = new MystStatefulSetRegistry(cluster_config1);
+            final JsonNode jsonNode = mapper1.readTree(new File("src/test/resources/ConfigTest1.yaml"));
+            final String s = jsonNode.get("statefulset.namespaces").textValue();
+            MockTSDB tsdb = new MockTSDB();
+            tsdb.registry = new DefaultRegistry(tsdb);
+            tsdb.registry.initialize(true);
+            tsdb.getConfig().register(BaseStatefulSetRegistry.DOMAIN, jsonNode.get("statefulset.domain").asText(), false, "UT" );
+            tsdb.getConfig().register(BaseStatefulSetRegistry.DEFAULT_NAMESPACE, jsonNode.get("statefulset.default.namespace").asText(), false, "UT" );
+            tsdb.getConfig().register(BaseStatefulSetRegistry.DEPLOYMENT_CONFIG, jsonNode.get("statefulset.namespaces").asText(), false, "UT" );
+
+
+            MystStatefulSetRegistry mystStatefulSetRegistry = new MystStatefulSetRegistry();
+
+            mystStatefulSetRegistry.initialize(tsdb, "id");
+
             HashMap<String, List<ShardEndPoint>> expectedEndpointsMap = new HashMap<>();
             List<Component> componentList1 = new ArrayList<>();
             List<Component> componentList2 = new ArrayList<>();
@@ -75,27 +95,27 @@ public class MystStatefulSetRegistryTest {
             n2.setName("ssp");
             n2.setk8sNamespace("ssp");
             n2.setComponents(componentList2);
-            List<Namespace> namespaceList1 = new ArrayList<>();
-            namespaceList1.add(n1);
-            namespaceList1.add(n2);
-            DeploymentConfig expectedConfig = new DeploymentConfig();
-            expectedConfig.setClusterName("kubernetes.default.GQ");
-            expectedConfig.setClusterDomain("cluster.local");
-            expectedConfig.setListOfNamespaces(namespaceList1);
+
+
+            Map<String, Namespace> namespaceMap = new HashMap<>();
+            namespaceMap.put(n1.getName(), n1);
+            namespaceMap.put(n2.getName(), n2);
+            DeploymentConfig expectedConfig = new DeploymentConfig("cluster.local", namespaceMap);
 
 
             System.out.println("Test Case 1: ");
             for (String key : namespaceMap.keySet()) {
-                Map<String, List<ShardEndPoint>> result = myststs1.getEndpoints(key);
-                final int numShards = expectedConfig.toMap().get(key).toMap().get("myst").getNumShards();;
-                final int numReplicas = expectedConfig.toMap().get(key).toMap().get("myst").getNumReplicas();
+                Map<String, List<ShardEndPoint>> result = mystStatefulSetRegistry.getEndpoints(key);
+                final Component myst = expectedConfig.getNamespace(key).getComponent("myst");
+                final int numShards = myst.getNumShards();;
+                final int numReplicas = myst.getNumReplicas();
                 String namespace = key;
                 for (int i = 0; i < numReplicas; i++) {
                     String replica = replicas[i];
                     List<ShardEndPoint> expectedShardEndPoints = new ArrayList<>();
                     expectedEndpointsMap.put(replica, expectedShardEndPoints);
                     for (int j = 0; j < numShards; j++) {
-                         MystEndpoint endpoint = MystEndpoint.Builder.newBuilder()
+                         SimpleEndPoint endpoint = SimpleEndPoint.Builder.newBuilder()
                                 .withHost(
                                         String.format(
                                                 pod_name_pattern,
@@ -103,6 +123,7 @@ public class MystStatefulSetRegistryTest {
                                                 replica,
                                                 j,
                                                 namespace,
+                                                replica,
                                                 cluster_domain))
                                 .withPort(9999)
                                 .build();
@@ -111,9 +132,9 @@ public class MystStatefulSetRegistryTest {
                     }
                 }
 
-                System.out.println("Result"+myststs1.getEndpoints(key));
+                System.out.println("Result"+mystStatefulSetRegistry.getEndpoints(key));
                 System.out.println("Expected"+expectedEndpointsMap);
-                assertEquals(expectedEndpointsMap,result);
+                Assert.assertEquals(expectedEndpointsMap, result);
             }
 
 
@@ -121,10 +142,9 @@ public class MystStatefulSetRegistryTest {
             System.out.println(e);
         }
 
-
     }
 
-
+    /**
     @Test
     public void testListOfEndpoints2() throws IOException {
 
@@ -185,7 +205,7 @@ public class MystStatefulSetRegistryTest {
                     List<ShardEndPoint> expectedShardEndPoints = new ArrayList<>();
                     expectedEndpointsMap.put(replica, expectedShardEndPoints);
                     for (int j = 0; j < numShards; j++) {
-                         MystEndpoint endpoint = MystEndpoint.Builder.newBuilder()
+                         SimpleEndPoint endpoint = SimpleEndPoint.Builder.newBuilder()
                                 .withHost(
                                         String.format(
                                                 pod_name_pattern,
@@ -203,7 +223,7 @@ public class MystStatefulSetRegistryTest {
 
                 System.out.println("Result"+myststs1.getEndpoints(key));
                 System.out.println("Expected"+expectedEndpointsMap);
-                assertEquals(expectedEndpointsMap, result);
+                Assert.assertEquals(expectedEndpointsMap, result);
             }
 
 
@@ -269,7 +289,7 @@ public class MystStatefulSetRegistryTest {
                     List<ShardEndPoint> expectedShardEndPoints = new ArrayList<>();
                     expectedEndpointsMap.put(replica, expectedShardEndPoints);
                     for (int j = 0; j < numShards; j++) {
-                        final MystEndpoint endpoint = MystEndpoint.Builder.newBuilder()
+                        final SimpleEndPoint endpoint = SimpleEndPoint.Builder.newBuilder()
                                 .withHost(
                                         String.format(
                                                 pod_name_pattern,
@@ -287,7 +307,7 @@ public class MystStatefulSetRegistryTest {
 
                 System.out.println("Result"+myststs1.getEndpoints(key));
                 System.out.println("Expected"+expectedEndpointsMap);
-                assertEquals(expectedEndpointsMap.toString(), result.toString());
+                Assert.assertEquals(expectedEndpointsMap.toString(), result.toString());
             }
 
 
@@ -353,7 +373,7 @@ public class MystStatefulSetRegistryTest {
                     List<ShardEndPoint> expectedShardEndPoints = new ArrayList<>();
                     expectedEndpointsMap.put(replica, expectedShardEndPoints);
                     for (int j = 0; j < numShards; j++) {
-                        final MystEndpoint endpoint = MystEndpoint.Builder.newBuilder()
+                        final SimpleEndPoint endpoint = SimpleEndPoint.Builder.newBuilder()
                                 .withHost(
                                         String.format(
                                                 pod_name_pattern,
@@ -372,7 +392,7 @@ public class MystStatefulSetRegistryTest {
 
                 System.out.println("Result"+myststs1.getEndpoints(key));
                 System.out.println("Expected"+expectedEndpointsMap);
-                assertEquals(expectedEndpointsMap, result);
+                Assert.assertEquals(expectedEndpointsMap, result);
             }
 
 
@@ -380,5 +400,5 @@ public class MystStatefulSetRegistryTest {
             System.out.println(e);
         }
 
-    }
+    } */
 }

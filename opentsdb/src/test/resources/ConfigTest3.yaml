@@ -1,7 +1,8 @@
-kubernetes.statefulset.registry.cluster: kubernetes.default.GQ
-kubernetes.statefulset.registry.cluster.domain: cluster.local
-kubernetes.statefulset.registry.namespaces:
-  - namespace: default
+statefulset.cluster: kubernetes.default.GQ
+statefulset.default.namespace: ns.default
+statefulset.cluster.domain: cluster.local
+statefulset.namespaces:
+  - namespace: ns.default
     k8s_namespace: default
     components:
       - component: aura-metrics

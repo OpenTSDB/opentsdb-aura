@@ -29,9 +29,11 @@ public class Component {
     @JsonProperty("replicas")
     private int numReplicas;
 
+    @JsonProperty("epoch-length")
+    private int epochLength;
+
     private static final String[] replicas = {"a", "b", "c", "d", "e"};
     private int port;
-
 
     public Component() {
 
@@ -67,6 +69,10 @@ public class Component {
         return replicas[replicaId];
     }
 
+    public int getEpochLength() {
+        return epochLength;
+    }
+
     public int getPort() {
 
         return port;
@@ -97,6 +103,9 @@ public class Component {
         }
         if (this.port == 0){
             this.port = defaultComponent.getPort();
+        }
+        if(epochLength == 0) {
+            this.epochLength = defaultComponent.getEpochLength();
         }
     }
 

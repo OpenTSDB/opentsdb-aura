@@ -21,14 +21,16 @@ import net.opentsdb.aura.metrics.meta.endpoints.ShardEndPoint;
 import java.util.Objects;
 
 
-public class MystEndpoint implements ShardEndPoint {
+public class SimpleEndPoint implements ShardEndPoint {
 
     private final String host;
     private final int port;
+    private final int shardIndex;
 
-    public MystEndpoint(String host, int port) {
+    public SimpleEndPoint(String host, int port, int shardIndex) {
         this.host = host;
         this.port = port;
+        this.shardIndex = shardIndex;
     }
 
 
@@ -43,26 +45,31 @@ public class MystEndpoint implements ShardEndPoint {
     }
 
     @Override
+    public int getShardIndex() {
+        return this.shardIndex;
+    }
+
+    @Override
     public Protocol getProtocol() {
         return Protocol.http2_0;
     }
 
     @Override
-    public boolean equals(Object that){
-        if (Objects.isNull(that)){
+    public boolean equals(Object obj){
+        if (Objects.isNull(obj)){
             return false;
         }
-        if (this == that){
+        if (this == obj){
             return  true;
-        }else if (!(that instanceof ShardEndPoint)) {
+        }else if (!(obj instanceof ShardEndPoint)) {
             return false;
 
         }else{
-            if (Objects.equals(this.getHost(), ((ShardEndPoint) that).getHost()) &&
-                    Objects.equals(this.getPort(), ((ShardEndPoint) that).getPort())
-                    && Objects.equals(this.getProtocol(), ((ShardEndPoint) that).getProtocol()) &&
-                    ((ShardEndPoint) that).mtls() == false && this.mtls() == false ){
-
+            ShardEndPoint that = (ShardEndPoint) obj; 
+            if (Objects.equals(this.getHost(), that.getHost()) &&
+                    Objects.equals(this.getPort(), that.getPort())
+                    && Objects.equals(this.getProtocol(), that.getProtocol()) &&
+                    Objects.equals(this.mtls(), that.mtls())){
                         return true;
             }else{
                         return false;
@@ -79,6 +86,12 @@ public class MystEndpoint implements ShardEndPoint {
     public static class Builder {
         private String l_host;
         private int l_port;
+        private int l_shardIndex;
+
+        public Builder withShardIndex(int shardIndex) {
+            this.l_shardIndex = shardIndex;
+            return this;
+        }
 
         public Builder withHost(String host) {
             this.l_host = host;
@@ -90,8 +103,8 @@ public class MystEndpoint implements ShardEndPoint {
             return this;
         }
 
-        public MystEndpoint build() {
-            return new MystEndpoint(l_host, l_port);
+        public SimpleEndPoint build() {
+            return new SimpleEndPoint(l_host, l_port, l_shardIndex);
         }
 
         public static Builder newBuilder() {

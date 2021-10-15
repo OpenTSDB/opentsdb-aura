@@ -4,8 +4,8 @@ import java.util.Iterator;
 
 public interface ShardedMetaClient<ResT extends MetaTimeSeriesQueryResult> {
 
-    Iterator<Iterator<ResT>> getTimeseriesAllShards();
+    Iterator<ResT> getTimeseriesAllShards(String namespace, String query);
 
-    Iterator<ResT> getTimeSeriesPerShard(int shardId);
+    ResT getTimeSeriesPerShard(String namespace, String query, int shardId);
 
 }

@@ -24,6 +24,8 @@ public interface ShardEndPoint {
 
     int getPort();
 
+    int getShardIndex();
+
     Protocol getProtocol();
 
     boolean mtls();

@@ -1,7 +1,5 @@
 package net.opentsdb.aura.metrics.meta;
 
-public interface ShardedMetaClientFactory {
-
-    ShardedMetaClient getShardedMetaClient(String namespace);
-
+public interface ShardedMetaClientFactory<ResT extends MetaTimeSeriesQueryResult> {
+    ShardedMetaClient<ResT> getShardedMetaClient(String namespace);
 }

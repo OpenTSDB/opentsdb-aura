@@ -17,10 +17,8 @@
 package net.opentsdb.aura.metrics.meta.endpoints.impl;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+
+import java.util.*;
 
 public class Namespace {
 
@@ -46,11 +44,11 @@ public class Namespace {
     }
 
     public void setDefaultNamespace(Namespace defaultNamespace) {
-        if (Objects.nonNull(this.k8sNamespace)) {
-            this.k8sNamespace = defaultNamespace.getk8sNamespace();
-        }
-        if (Objects.nonNull(defaultNamespace)) {
 
+        if (Objects.nonNull(defaultNamespace)) {
+            if (Objects.isNull(this.k8sNamespace)) {
+                this.k8sNamespace = defaultNamespace.getk8sNamespace();
+            }
             final Map<String, Component> defaultComponentMap = defaultNamespace.componentMap;
             Component defaultComponent = null;
             for (String key : defaultComponentMap.keySet()) {
@@ -78,6 +76,10 @@ public class Namespace {
 
     public void setComponents(List<Component> components){
         this.components = components;
+    }
+
+    public Component getComponent(String name) {
+        return componentMap.get(name);
     }
 
     public Map<String,Component> toMap()
