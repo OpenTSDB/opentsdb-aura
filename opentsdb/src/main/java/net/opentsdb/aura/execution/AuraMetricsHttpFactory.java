@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
+import com.stumbleupon.async.Callback;
 import com.stumbleupon.async.Deferred;
 import io.netty.util.Timeout;
 import io.netty.util.TimerTask;
@@ -35,6 +36,7 @@ import net.opentsdb.query.DefaultTimeSeriesDataSourceConfig;
 import net.opentsdb.query.QueryNodeConfig;
 import net.opentsdb.query.QueryPipelineContext;
 import net.opentsdb.query.TimeSeriesDataSourceConfig;
+import net.opentsdb.query.execution.HttpQueryV3Factory;
 import net.opentsdb.query.execution.HttpQueryV3Source;
 import net.opentsdb.rollup.DefaultRollupConfig;
 import net.opentsdb.rollup.DefaultRollupInterval;
@@ -60,7 +62,7 @@ import java.util.concurrent.TimeUnit;
  *
  */
 public class AuraMetricsHttpFactory
-    extends AuraHttpFactory<TimeSeriesDataSourceConfig, HttpQueryV3Source> 
+    extends HttpQueryV3Factory
     implements TimerTask {
 
   private static final Logger LOG = LoggerFactory.getLogger(AuraMetricsHttpFactory.class);
@@ -75,6 +77,7 @@ public class AuraMetricsHttpFactory
   public static final String RETENTION_KEY = "retention";
   public static final String USE_UPTIME_KEY = "use_uptime";
   public static final String HOST_MODE_KEY = "host.mode";
+  public static final String STATIC_HOST_KEY = "static.host";
   public static final String FALLBACK_KEY = "fallback";
   
   public static final String BYPASS_METRIC = "aurametrics.query.bypassed";
@@ -90,8 +93,6 @@ public class AuraMetricsHttpFactory
     FAILOVER,
     ROUND_ROBIN,
   }
-
-  private TSDB tsdb;
 
   // TODO - singleton config. Waste of space having dupes.
   protected volatile AuraMetricsClusterConfig config;
@@ -146,6 +147,11 @@ public class AuraMetricsHttpFactory
       return true;
     }
 
+    final String staticHost = tsdb.getConfig().getString(getConfigKey(STATIC_HOST_KEY));
+    if (!Strings.isNullOrEmpty(staticHost)) {
+      return true;
+    }
+
     final Host host = getHost(context, config);
     if (host == null) {
       return false;
@@ -170,61 +176,65 @@ public class AuraMetricsHttpFactory
 
   @Override
   public Deferred<Object> initialize(final TSDB tsdb, final String id) {
-    this.id = Strings.isNullOrEmpty(id) ? TYPE : id;
-    this.tsdb = tsdb;
-    registerConfigs(tsdb);
+    return super.initialize(tsdb, id).addCallback(
+      new Callback<Object, Object>() {
+        @Override
+        public Object call(final Object ignored) throws Exception {
+          registerConfigsLocal(tsdb);
 
-    final String client_id = tsdb.getConfig().getString(getConfigKey(CLIENT_KEY));
-    final SharedHttpClient shared_client =
-        tsdb.getRegistry().getPlugin(SharedHttpClient.class, client_id);
-    if (shared_client == null) {
-      throw new IllegalArgumentException(
-          "No shared HTTP client found "
-              + "for ID: "
-              + (Strings.isNullOrEmpty(client_id) ? "Default" : client_id));
-    }
+          final String client_id = tsdb.getConfig().getString(getConfigKey(CLIENT_KEY));
+          final SharedHttpClient shared_client =
+              tsdb.getRegistry().getPlugin(SharedHttpClient.class, client_id);
+          if (shared_client == null) {
+            throw new IllegalArgumentException(
+                "No shared HTTP client found "
+                    + "for ID: "
+                    + (Strings.isNullOrEmpty(client_id) ? "Default" : client_id));
+          }
 
-    // TODO - TEMP!! FIX ME!! USE CONFIG!!!
-    rollup_config =
-        DefaultRollupConfig.newBuilder()
-            .addAggregationId("sum", 0)
-            .addAggregationId("count", 1)
-            .addAggregationId("min", 2)
-            .addAggregationId("max", 3)
-            .addAggregationId("avg", 5)
-            .addAggregationId("first", 6)
-            .addAggregationId("last", 7)
-            .addInterval(
-                DefaultRollupInterval.builder()
-                    .setInterval("1h")
-                    .setRowSpan("1d")
-                    .setTable("ignored")
-                    .setPreAggregationTable("ignored"))
-            .build();
-    
-    client = shared_client.getClient();
+          // TODO - TEMP!! FIX ME!! USE CONFIG!!!
+          rollup_config =
+              DefaultRollupConfig.newBuilder()
+                  .addAggregationId("sum", 0)
+                  .addAggregationId("count", 1)
+                  .addAggregationId("min", 2)
+                  .addAggregationId("max", 3)
+                  .addAggregationId("avg", 5)
+                  .addAggregationId("first", 6)
+                  .addAggregationId("last", 7)
+                  .addInterval(
+                      DefaultRollupInterval.builder()
+                          .setInterval("1m")
+                          .setRowSpan("1h")
+                          .setTable("ignored")
+                          .setPreAggregationTable("ignored"))
+                  .build();
 
-    endpoint = tsdb.getConfig().getString(getConfigKey(ENDPOINT_KEY));
-    host_mode = HostMode.valueOf(tsdb.getConfig().getString(getConfigKey(HOST_MODE_KEY)));
-    fallback = tsdb.getConfig().getBoolean(getConfigKey(FALLBACK_KEY));
-    
-    // health checker singleton
-    String health_checker_id = "AuraMetricsHealthCheck";
-    Object shared_health_checker = tsdb.getRegistry().getSharedObject(health_checker_id);
-    if (shared_health_checker != null) {
-      // all set!
-      health_checker = (AuraMetricsHealthChecker) shared_health_checker;
-      return Deferred.fromResult(null);
-    }
+          client = shared_client.getClient();
 
-    health_checker = new AuraMetricsHealthChecker(tsdb, config);
-    if (tsdb.getRegistry().registerSharedObject(health_checker_id, health_checker) != null) {
-      // lost the race somehow. (e.g. if we load plugins in parallel)
-      health_checker.shutdown();
-      return Deferred.fromResult(null);
-    }
-    owns_healthchecker = true;
-    return Deferred.fromResult(null);
+          endpoint = tsdb.getConfig().getString(getConfigKey(ENDPOINT_KEY));
+          host_mode = HostMode.valueOf(tsdb.getConfig().getString(getConfigKey(HOST_MODE_KEY)));
+          fallback = tsdb.getConfig().getBoolean(getConfigKey(FALLBACK_KEY));
+
+          // health checker singleton
+          String health_checker_id = "AuraMetricsHealthCheck";
+          Object shared_health_checker = tsdb.getRegistry().getSharedObject(health_checker_id);
+          if (shared_health_checker != null) {
+            // all set!
+            health_checker = (AuraMetricsHealthChecker) shared_health_checker;
+            return Deferred.fromResult(null);
+          }
+
+          health_checker = new AuraMetricsHealthChecker(tsdb, config);
+          if (tsdb.getRegistry().registerSharedObject(health_checker_id, health_checker) != null) {
+            // lost the race somehow. (e.g. if we load plugins in parallel)
+            health_checker.shutdown();
+            return Deferred.fromResult(null);
+          }
+          owns_healthchecker = true;
+          return null;
+      }
+    });
   }
 
   @Override
@@ -245,7 +255,9 @@ public class AuraMetricsHttpFactory
           LOG.warn("Removing an old possible host entry for: " + entry.getValue().getValue());
         }
       }
-      LOG.warn("Removed " + removed + " entries from the posible hosts map.");
+      if (removed > 0) {
+        LOG.warn("Removed " + removed + " entries from the posible hosts map.");
+      }
     } catch (Exception e) {
       LOG.error("Failed to run the cleanup??", e);
     }
@@ -297,8 +309,7 @@ public class AuraMetricsHttpFactory
    *
    * @param tsdb A non-null TSDB.
    */
-  protected void registerConfigs(final TSDB tsdb) {
-    super.registerConfigs(tsdb);
+  protected void registerConfigsLocal(final TSDB tsdb) {
     if (!tsdb.getConfig().hasProperty(KEY_PREFIX + ROUTER_KEY)) {
       tsdb.getConfig()
           .register(
@@ -369,6 +380,11 @@ public class AuraMetricsHttpFactory
               + "two were present but out of rotation. If false, we throw an"
               + "exception.");
     }
+    if (!tsdb.getConfig().hasProperty(getConfigKey(STATIC_HOST_KEY))) {
+      tsdb.getConfig().register(getConfigKey(STATIC_HOST_KEY), null, true,
+              "An optional static host to query. Ignores the health " +
+                      "checks and configs but honors overrides.");
+    }
   }
   
   Host getHost(final QueryPipelineContext context, 
@@ -385,6 +401,11 @@ public class AuraMetricsHttpFactory
           context.queryContext().logDebug("Aura override from query: " + host);
         }
         return new Host(host, host, host, null);
+      }
+
+      final String staticHost = tsdb.getConfig().getString(getConfigKey(STATIC_HOST_KEY));
+      if (!Strings.isNullOrEmpty(staticHost)) {
+        return new Host(staticHost, staticHost, staticHost, null);
       }
       
       TimeStamp timestamp = null;

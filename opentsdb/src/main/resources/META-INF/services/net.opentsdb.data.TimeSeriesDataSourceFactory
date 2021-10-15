@@ -1,2 +1,4 @@
 net.opentsdb.aura.metrics.storage.AuraMetricsSourceFactory
+net.opentsdb.aura.execution.AuraMetricsHttpFactory
 net.opentsdb.aura.metrics.storage.AerospikeBatchSourceFactory
+net.opentsdb.aura.execution.EphemeralAuraFactory

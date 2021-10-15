@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import com.stumbleupon.async.Deferred;
 import net.opentsdb.aura.execution.MockDiscoveryService.ShardEndPoint;
@@ -37,7 +38,6 @@ import net.opentsdb.data.types.numeric.NumericType;
 import net.opentsdb.query.DefaultQueryResultId;
 import net.opentsdb.query.DefaultTimeSeriesDataSourceConfig;
 import net.opentsdb.query.QueryFillPolicy.FillWithRealPolicy;
-import net.opentsdb.query.QueryNode;
 import net.opentsdb.query.QueryNodeConfig;
 import net.opentsdb.query.QueryPipelineContext;
 import net.opentsdb.query.TimeSeriesDataSourceConfig;
@@ -48,6 +48,7 @@ import net.opentsdb.query.plan.QueryPlanner;
 import net.opentsdb.query.pojo.FillPolicy;
 import net.opentsdb.query.processor.groupby.GroupByConfig;
 import net.opentsdb.query.processor.merge.MergerConfig;
+import net.opentsdb.query.router.RoutingUtils;
 import net.opentsdb.rollup.RollupConfig;
 import net.opentsdb.stats.Span;
 import net.opentsdb.utils.DateTime;
@@ -56,6 +57,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  *     Use the TimeRouter like this
@@ -88,7 +90,6 @@ public class EphemeralAuraFactory
 
   protected AuraMetricsHttpFactory factory;
   protected MockDiscoveryService discoveryService;
-  protected String serviceKey;
   protected long relativeStart;
   protected long relativeEnd;
 
@@ -105,10 +106,6 @@ public class EphemeralAuraFactory
     if (!tsdb.getConfig().hasProperty(getConfigKey(DISCOVERY_ID))) {
       tsdb.getConfig().register(getConfigKey(DISCOVERY_ID), null, false,
               "A non-null K8s discovery service plugin ID.");
-    }
-    if (!tsdb.getConfig().hasProperty(getConfigKey(SERVICE_KEY))) {
-      tsdb.getConfig().register(getConfigKey(SERVICE_KEY), "AuraMetrics", false,
-              "The service key in the discoverability config for metrics.");
     }
     if (!tsdb.getConfig().hasProperty(getConfigKey(START))) {
       tsdb.getConfig().register(getConfigKey(START), null, false,
@@ -141,28 +138,29 @@ public class EphemeralAuraFactory
               "The " + getConfigKey(SOURCE_ID) + " must be set and valid."));
     }
 
-    factory = tsdb.getRegistry().getPlugin(AuraMetricsHttpFactory.class, sourceId);
-    if (factory == null) {
+    TimeSeriesDataSourceFactory tsds = tsdb.getRegistry().getPlugin(
+            TimeSeriesDataSourceFactory.class, sourceId);
+    if (tsds == null) {
       LOG.error("No AuraMetricsHttpFactory found for source ID {}", sourceId);
       return Deferred.fromError(new IllegalArgumentException(
               "No AuraMetricsHttpFactory found for source ID " + sourceId));
     }
+    factory = (AuraMetricsHttpFactory) tsds;
 
     // could be null
     String discoveryId = tsdb.getConfig().getString(getConfigKey(DISCOVERY_ID));
     discoveryService = tsdb.getRegistry().getPlugin(MockDiscoveryService.class, discoveryId);
+
     if (discoveryService == null) {
-      LOG.error("No MockDiscoveryService found for source ID {}",
+      LOG.error("No DiscoveryService found for source ID {}",
               discoveryId == null ? "default" : discoveryId);
       return Deferred.fromError(new IllegalArgumentException(
-              "No MockDiscoveryService found for source ID " +
+              "No DiscoveryService found for source ID " +
                       (discoveryId == null ? "default" : discoveryId)));
     }
-    serviceKey = tsdb.getConfig().getString(getConfigKey(SERVICE_KEY));
 
-    LOG.info("Successfully initialized Ephemeral Aura Source Factory with ID {} and service key {}",
-            (id == null ? "default" : id),
-            serviceKey);
+    LOG.info("Successfully initialized Ephemeral Aura Source Factory with ID {}",
+            (id == null ? "default" : id));
     return Deferred.fromResult(null);
   }
 
@@ -175,13 +173,30 @@ public class EphemeralAuraFactory
 
     final long now = DateTime.currentTimeMillis() / 1000;
     final Map<String, List<ShardEndPoint>> services = discoveryService.getEndpoints(
-            namespace, now - relativeStart, now - relativeEnd);
-    final List<ShardEndPoint> shards = services.get(serviceKey);
+            namespace, now - relativeStart);
+    final List<ShardEndPoint> shards = services.values().iterator().next();
     if (shards == null || shards.isEmpty()) {
       throw new IllegalStateException("Unable to find shards for namespace "
-              + namespace + " and service " + serviceKey);
+              + namespace);
     }
-    List<TimeSeriesDataSourceConfig.Builder> sources = Lists.newArrayListWithExpectedSize(shards.size());
+
+    // TODO - note that for now averaging we'll average averages until we can tell
+    // the sources to return sum and count.
+    // TODO - we also need smarts to handle OTHER agg types like ptiles, etc.
+    String aggregator = groupBy(config, planner);
+    if (aggregator != null && aggregator.equalsIgnoreCase("count")) {
+      aggregator = "sum";
+    }
+
+    final List<TimeSeriesDataSourceFactory> factories =
+            Lists.newArrayListWithExpectedSize(shards.size());
+    for (int i = 0; i < shards.size(); i++) {
+      factories.add(factory);
+    }
+    final List<List<QueryNodeConfig>> pushdowns =
+            RoutingUtils.getPotentialPushDowns(config, factories, planner);
+    List<TimeSeriesDataSourceConfig.Builder> sources =
+            Lists.newArrayListWithExpectedSize(shards.size());
     List<String> ids = Lists.newArrayListWithExpectedSize(shards.size());
     List<String> timeouts = Lists.newArrayListWithExpectedSize(shards.size());
     for (int i = 0; i < shards.size(); i++) {
@@ -190,16 +205,21 @@ public class EphemeralAuraFactory
       sources.add(builder);
       final String newId = config.getId() + "_shard_" + i;
       ids.add(newId);
-      builder.setSources(Lists.newArrayList(factory.id() +
-              ":https://" + shard.getHost() + ":" + shard.getPort()))
+      builder.setSourceId(factory.id() +
+              ":http://" + shard.getHost() + ":" + shard.getPort())
+              .setDataSource(newId)
               .setId(newId)
               .setResultIds(Lists.newArrayList(new DefaultQueryResultId(
                       newId, newId)));
+      List<QueryNodeConfig> pds = pushdowns.get(i);
+      if (pds != null && !pds.isEmpty()) {
+        builder.setPushDownNodes(pds);
+      }
       timeouts.add("30s"); // TODO - config
     }
 
     MergerConfig merger = (MergerConfig) MergerConfig.newBuilder()
-            .setAggregator(groupBy(config))
+            .setAggregator(aggregator)
             .setMode(MergerConfig.MergeMode.SHARD)
             .setTimeouts(timeouts)
             .setSortedDataSources(ids)
@@ -212,9 +232,8 @@ public class EphemeralAuraFactory
             .setId(config.getId())
             .build();
     planner.replace(config, merger);
-    for (final TimeSeriesDataSourceConfig.Builder builder : sources) {
-      planner.addEdge(merger, builder.build());
-    }
+
+    RoutingUtils.rebuildGraph(context, merger, false, pushdowns, sources, planner);
   }
 
   @Override
@@ -233,7 +252,7 @@ public class EphemeralAuraFactory
     final String namespace = config.getMetric().getMetric()
             .substring(0, config.getMetric().getMetric().indexOf("."));
     Map<String, List<ShardEndPoint>> services = discoveryService.getEndpoints(namespace);
-    List<ShardEndPoint> shards = services.get(serviceKey);
+    List<ShardEndPoint> shards = services.values().iterator().next();
     if (shards == null || shards.isEmpty()) {
       return false;
     }
@@ -285,16 +304,37 @@ public class EphemeralAuraFactory
     return TYPE;
   }
 
-  String groupBy(TimeSeriesDataSourceConfig config) {
-    List<QueryNodeConfig> pushdowns = config.getPushDownNodes();
-    if (pushdowns == null) {
+  String groupBy(QueryNodeConfig config, QueryPlanner planner) {
+    if (config instanceof TimeSeriesDataSourceConfig) {
+      List<QueryNodeConfig> pds = ((TimeSeriesDataSourceConfig) config).getPushDownNodes();
+      if (pds != null) {
+        for (int i = pds.size() - 1; i >= 0; i--) {
+          QueryNodeConfig pd = pds.get(i);
+          if (pd instanceof GroupByConfig) {
+            return ((GroupByConfig) pd).getAggregator();
+          }
+        }
+      }
+
+    }
+
+    final Set<QueryNodeConfig> predecessors = planner.configGraph()
+            .predecessors(config);
+    if (predecessors.isEmpty()) {
       return null;
     }
 
-    for (int i = 0; i < pushdowns.size(); i++) {
-      QueryNodeConfig nodeConfig = pushdowns.get(i);
-      if (nodeConfig instanceof GroupByConfig) {
-        return ((GroupByConfig) nodeConfig).getAggregator();
+    // breadth first
+    for (final QueryNodeConfig predecessor : predecessors) {
+      if (predecessor instanceof GroupByConfig) {
+        return ((GroupByConfig) predecessor).getAggregator();
+      }
+    }
+
+    for (final QueryNodeConfig predecessor : predecessors) {
+      String gb = groupBy(predecessor, planner);
+      if (!Strings.isNullOrEmpty(gb)) {
+        return gb;
       }
     }
     return null;
