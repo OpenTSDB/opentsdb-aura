@@ -19,25 +19,22 @@ package net.opentsdb.aura.metrics.meta.grpc;
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.ExtensionRegistryLite;
-import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
-import net.opentsdb.aura.metrics.meta.grpc.protobuf.*;
-import io.grpc.KnownLength;
 import io.grpc.MethodDescriptor;
+import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
+import net.opentsdb.aura.metrics.meta.grpc.protobuf.BitmapGroupResultLite;
+import net.opentsdb.aura.metrics.meta.grpc.protobuf.BitmapGroupResultParser;
+import net.opentsdb.aura.metrics.meta.grpc.protobuf.DictionaryLite;
+import net.opentsdb.aura.metrics.meta.grpc.protobuf.DictionaryParser;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
 
 public class TimeSeriesQueryResultMarshaller {
 
-  private static final ThreadLocal<Reference<byte[]>> bufs = new ThreadLocal<>();
   private static final BitmapGroupResultParser groupedTsParser = new BitmapGroupResultParser();
   private static final DictionaryParser dictParser = new DictionaryParser();
 
-
-  private TimeSeriesQueryResultMarshaller() {
-  }
+  private TimeSeriesQueryResultMarshaller() {}
 
   public static MethodDescriptor.Marshaller<DefaultMetaTimeSeriesQueryResult> marshaller() {
 
@@ -50,77 +47,56 @@ public class TimeSeriesQueryResultMarshaller {
 
       @Override
       public DefaultMetaTimeSeriesQueryResult parse(InputStream stream) {
-        DefaultMetaTimeSeriesQueryResult result = new DefaultMetaTimeSeriesQueryResult(); //TODO: reuse
+        DefaultMetaTimeSeriesQueryResult result =
+            new DefaultMetaTimeSeriesQueryResult(); // TODO: reuse
         ExtensionRegistryLite extensionRegistry = ExtensionRegistryLite.newInstance();
-        if (stream instanceof KnownLength) {
+        try {
+          CodedInputStream input = CodedInputStream.newInstance(stream); // TODO: source of garbage
+
           try {
-            int size = stream.available();
-            Reference<byte[]> ref;
-            byte[] buf;
-            if ((ref = bufs.get()) == null || (buf = ref.get()) == null || buf.length < size) {
-              buf = new byte[size];
-              bufs.set(new WeakReference<>(buf));
-            }
-
-            int remaining = size;
-            while (remaining > 0) {
-              int position = size - remaining;
-              int count = stream.read(buf, position, remaining);
-              if (count == -1) {
-                break;
-              }
-              remaining -= count;
-            }
-
-            if (remaining != 0) {
-              int position = size - remaining;
-              throw new RuntimeException("size inaccurate: " + size + " != " + position);
-            }
-
-            CodedInputStream input = CodedInputStream.newInstance(buf, 0, size); // TODO: source of garbage
-
-            try {
-              boolean done = false;
-              while (!done) {
-                int tag = input.readTag();
-                switch (tag) {
-                  case 0:
-                    done = true;
-                    break;
-                  case 10: {
-                    BitmapGroupResultLite gt = input.readMessage(groupedTsParser, extensionRegistry);
+            boolean done = false;
+            while (!done) {
+              int tag = input.readTag();
+              switch (tag) {
+                case 0:
+                  done = true;
+                  break;
+                case 10:
+                  {
+                    BitmapGroupResultLite gt =
+                        input.readMessage(groupedTsParser, extensionRegistry);
                     result.addGroupResult(gt);
                     break;
                   }
-                  case 18: {
-//                    dictParser.parsePartialFrom(input, response.dict);
+                case 18:
+                  {
                     DictionaryLite dictionary = input.readMessage(dictParser, extensionRegistry);
                     result.setDictionary(dictionary);
                     break;
                   }
-                  case 24: {
+                case 24:
+                  {
                     result.setTotalResults(input.readInt32());
                     break;
                   }
-                  default: {
+                default:
+                  {
                     if (!input.skipField(tag)) {
                       done = true;
                     }
                     break;
                   }
-                }
               }
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e);
             }
-
-          } catch (IOException e) {
-            result.setException(e);
+          } catch (java.io.IOException e) {
+            throw new com.google.protobuf.InvalidProtocolBufferException(e);
           }
+
+        } catch (IOException e) {
+          result.setException(e);
         }
         return result;
       }
     };
-
   }
 }
