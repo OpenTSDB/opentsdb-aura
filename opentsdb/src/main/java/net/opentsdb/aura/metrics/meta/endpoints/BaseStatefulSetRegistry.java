@@ -80,6 +80,7 @@ public abstract class BaseStatefulSetRegistry extends BaseTSDBPlugin implements 
                 final SimpleEndPoint endpoint = SimpleEndPoint.Builder.newBuilder()
                         .withHost(
                                 String.format(
+                                        pod_name_pattern,
                                         prefix,
                                         j,
                                         prefix,
