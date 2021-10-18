@@ -44,24 +44,25 @@ public class MystStatefulSetRegistryTest {
     private static final String cluster_domain = "cluster.local";
 
     private MockTSDB tsdb;
+    private ObjectMapper mapper1 = new ObjectMapper(new YAMLFactory());
+    private void setUpForFile(String filename) throws IOException {
+
+        final JsonNode jsonNode = mapper1.readTree(new File(filename));
+        tsdb = new MockTSDB();
+        tsdb.registry = new DefaultRegistry(tsdb);
+        tsdb.registry.initialize(true);
+        tsdb.getConfig().register(BaseStatefulSetRegistry.DOMAIN, jsonNode.get("statefulset.domain").asText(), false, "UT" );
+        tsdb.getConfig().register(BaseStatefulSetRegistry.DEFAULT_NAMESPACE, jsonNode.get("statefulset.default.namespace").asText(), false, "UT" );
+        tsdb.getConfig().register(BaseStatefulSetRegistry.DEPLOYMENT_CONFIG, jsonNode.get("statefulset.namespaces").asText(), false, "UT" );
+
+    }
 
     @Test
-    public void testListOfEndpoints1() throws IOException {
-
-        ObjectMapper mapper1 = new ObjectMapper(new YAMLFactory());
+    public void testListOfEndpoints1() {
 
 
         try {
-            final JsonNode jsonNode = mapper1.readTree(new File("src/test/resources/ConfigTest1.yaml"));
-            final String s = jsonNode.get("statefulset.namespaces").textValue();
-            MockTSDB tsdb = new MockTSDB();
-            tsdb.registry = new DefaultRegistry(tsdb);
-            tsdb.registry.initialize(true);
-            tsdb.getConfig().register(BaseStatefulSetRegistry.DOMAIN, jsonNode.get("statefulset.domain").asText(), false, "UT" );
-            tsdb.getConfig().register(BaseStatefulSetRegistry.DEFAULT_NAMESPACE, jsonNode.get("statefulset.default.namespace").asText(), false, "UT" );
-            tsdb.getConfig().register(BaseStatefulSetRegistry.DEPLOYMENT_CONFIG, jsonNode.get("statefulset.namespaces").asText(), false, "UT" );
-
-
+            setUpForFile("src/test/resources/ConfigTest1.yaml");
             MystStatefulSetRegistry mystStatefulSetRegistry = new MystStatefulSetRegistry();
 
             mystStatefulSetRegistry.initialize(tsdb, "id");

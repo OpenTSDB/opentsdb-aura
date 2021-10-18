@@ -23,9 +23,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
-public class MergedMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResult {
+public class MergedMetaTimeSeriesQueryResult implements MetaResultWithDictionary {
   private static final Logger logger = LoggerFactory.getLogger(MergedMetaTimeSeriesQueryResult.class);
 
+  // TODO: Converting this into a map will make look ups faster.
+  // TODO: Atleast we can maintain another array with the hashes to find the index faster.
   private DefaultMetaTimeSeriesQueryResult.DefaultGroupResult[] groupResults =
           new DefaultMetaTimeSeriesQueryResult.DefaultGroupResult[32];
   private Throwable exception;
@@ -34,7 +36,7 @@ public class MergedMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResul
   private int groupCount;
   private int hashCount;
 
-  public void add(DefaultMetaTimeSeriesQueryResult result) {
+  public void add(MetaResultWithDictionary result) {
     if (exception != null) {
       return;
     }
@@ -84,11 +86,7 @@ public class MergedMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResul
     }
 
     // Dictionary
-    TLongIntIterator iterator = result.dictionary.indexMap.iterator();
-    while (iterator.hasNext()) {
-      iterator.advance();
-      dictionary.put(iterator.key(), result.dictionary.values[iterator.value()]);
-    }
+    result.getDictionary().mergeInto(dictionary);
   }
 
   @Override
@@ -125,4 +123,8 @@ public class MergedMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResul
     return groupResults[index];
   }
 
+  @Override
+  public Dictionary getDictionary() {
+    return dictionary;
+  }
 }
