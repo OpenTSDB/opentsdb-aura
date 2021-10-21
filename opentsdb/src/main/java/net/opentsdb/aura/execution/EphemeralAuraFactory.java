@@ -24,7 +24,8 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 import com.stumbleupon.async.Deferred;
-import net.opentsdb.aura.execution.MockDiscoveryService.ShardEndPoint;
+import net.opentsdb.aura.metrics.meta.endpoints.AuraMetricsStatefulSetRegistry;
+import net.opentsdb.aura.metrics.meta.endpoints.ShardEndPoint;
 import net.opentsdb.common.Const;
 import net.opentsdb.core.BaseTSDBPlugin;
 import net.opentsdb.core.TSDB;
@@ -37,7 +38,6 @@ import net.opentsdb.data.types.numeric.NumericType;
 import net.opentsdb.query.DefaultQueryResultId;
 import net.opentsdb.query.DefaultTimeSeriesDataSourceConfig;
 import net.opentsdb.query.QueryFillPolicy.FillWithRealPolicy;
-import net.opentsdb.query.QueryNode;
 import net.opentsdb.query.QueryNodeConfig;
 import net.opentsdb.query.QueryPipelineContext;
 import net.opentsdb.query.TimeSeriesDataSourceConfig;
@@ -56,6 +56,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  *     Use the TimeRouter like this
@@ -87,11 +88,11 @@ public class EphemeralAuraFactory
   public static final String TYPE = "EphemeralAuraMetricsHttp";
 
   protected AuraMetricsHttpFactory factory;
-  protected MockDiscoveryService discoveryService;
+  protected AuraMetricsStatefulSetRegistry discoveryService;
   protected String serviceKey;
   protected long relativeStart;
   protected long relativeEnd;
-
+  private final Random random = new Random();
   @Override
   public Deferred<Object> initialize(final TSDB tsdb, final String id) {
     this.id = Strings.isNullOrEmpty(id) ? TYPE : id;
@@ -150,12 +151,12 @@ public class EphemeralAuraFactory
 
     // could be null
     String discoveryId = tsdb.getConfig().getString(getConfigKey(DISCOVERY_ID));
-    discoveryService = tsdb.getRegistry().getPlugin(MockDiscoveryService.class, discoveryId);
+    discoveryService = tsdb.getRegistry().getPlugin(AuraMetricsStatefulSetRegistry.class, discoveryId);
     if (discoveryService == null) {
-      LOG.error("No MockDiscoveryService found for source ID {}",
+      LOG.error("No AuraMetricsDiscoveryService found for source ID {}",
               discoveryId == null ? "default" : discoveryId);
       return Deferred.fromError(new IllegalArgumentException(
-              "No MockDiscoveryService found for source ID " +
+              "No AuraMetricsDiscoveryService found for source ID " +
                       (discoveryId == null ? "default" : discoveryId)));
     }
     serviceKey = tsdb.getConfig().getString(getConfigKey(SERVICE_KEY));
@@ -175,8 +176,11 @@ public class EphemeralAuraFactory
 
     final long now = DateTime.currentTimeMillis() / 1000;
     final Map<String, List<ShardEndPoint>> services = discoveryService.getEndpoints(
-            namespace, now - relativeStart, now - relativeEnd);
+            namespace, now - relativeStart);
     final List<ShardEndPoint> shards = services.get(serviceKey);
+
+    LOG.info("Received end points: {} {}", services, shards);
+
     if (shards == null || shards.isEmpty()) {
       throw new IllegalStateException("Unable to find shards for namespace "
               + namespace + " and service " + serviceKey);
@@ -232,8 +236,7 @@ public class EphemeralAuraFactory
                                final TimeSeriesDataSourceConfig config) {
     final String namespace = config.getMetric().getMetric()
             .substring(0, config.getMetric().getMetric().indexOf("."));
-    Map<String, List<ShardEndPoint>> services = discoveryService.getEndpoints(namespace);
-    List<ShardEndPoint> shards = services.get(serviceKey);
+    final List<ShardEndPoint> shards = pickEndpoints(discoveryService.getEndpoints(namespace));
     if (shards == null || shards.isEmpty()) {
       return false;
     }
@@ -313,6 +316,19 @@ public class EphemeralAuraFactory
     } else {
       return KEY_PREFIX + id + "." + suffix;
     }
+  }
+
+  private List<ShardEndPoint> pickEndpoints(Map<String, List<ShardEndPoint>> endpointsMap) {
+    final int i = random.nextInt(endpointsMap.size());
+    int j = 0;
+    for(String key: endpointsMap.keySet()) {
+      if (j == i) {
+        return endpointsMap.get(key);
+      }
+      j++;
+    }
+
+    return null;
   }
 
 }
