@@ -17,8 +17,6 @@
 
 package net.opentsdb.aura.metrics.meta.grpc;
 
-import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
-import net.opentsdb.aura.metrics.meta.MetaClient;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ManagedChannel;
@@ -30,6 +28,8 @@ import io.grpc.stub.AbstractBlockingStub;
 import io.grpc.stub.StreamObserver;
 import myst.MystServiceGrpc;
 import myst.QueryRequest;
+import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
+import net.opentsdb.aura.metrics.meta.MetaClient;
 
 import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
@@ -207,7 +207,6 @@ public class MetaGrpcClient implements MetaClient<DefaultMetaTimeSeriesQueryResu
 
     protected MetaResultAsyncSub(Channel channel) {
       super(channel, CallOptions.DEFAULT.withExecutor(Executors.newFixedThreadPool(10)));
-      //      super(channel, CallOptions.DEFAULT);
     }
 
     protected MetaResultAsyncSub(Channel channel, CallOptions callOptions) {

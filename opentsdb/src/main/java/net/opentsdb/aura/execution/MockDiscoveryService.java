@@ -39,9 +39,8 @@ public interface MockDiscoveryService extends TSDBPlugin {
    *
    * @param namespace
    * @param start Start of the query in unix epoch seconds
-   * @param end End of the query in unix epoch seconds
    * @return A map of service name (Myst, Aura, etc.) to endpoints.
    */
-  Map<String, List<ShardEndPoint>> getEndpoints(String namespace, long start, long end);
+  Map<String, List<ShardEndPoint>> getEndpoints(String namespace, long start);
 
 }
