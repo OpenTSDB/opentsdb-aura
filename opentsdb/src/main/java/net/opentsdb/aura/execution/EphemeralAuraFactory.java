@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import com.stumbleupon.async.Deferred;
 import net.opentsdb.aura.metrics.meta.endpoints.AuraMetricsStatefulSetRegistry;
@@ -92,6 +93,7 @@ public class EphemeralAuraFactory
   protected AuraMetricsHttpFactory factory;
   protected AuraMetricsStatefulSetRegistry discoveryService;
   protected String serviceKey;
+
   protected long relativeStart;
   protected long relativeEnd;
   private final Random random = new Random();
@@ -156,6 +158,17 @@ public class EphemeralAuraFactory
 
     discoveryService = new AuraMetricsStatefulSetRegistry();
 
+   /**
+    discoveryService = tsdb.getRegistry().getPlugin(MockDiscoveryService.class, discoveryId);
+
+    if (discoveryService == null) {
+      LOG.error("No DiscoveryService found for source ID {}",
+              discoveryId == null ? "default" : discoveryId);
+      return Deferred.fromError(new IllegalArgumentException(
+              "No DiscoveryService found for source ID " +
+                      (discoveryId == null ? "default" : discoveryId)));
+    }
+*/
     LOG.info("Successfully initialized Ephemeral Aura Source Factory with ID {}",
             (id == null ? "default" : id));
     return Deferred.fromResult(null);
@@ -252,6 +265,7 @@ public class EphemeralAuraFactory
     final String namespace = config.getMetric().getMetric()
             .substring(0, config.getMetric().getMetric().indexOf("."));
     final List<ShardEndPoint> shards = pickEndpoints(discoveryService.getEndpoints(namespace));
+
     if (shards == null || shards.isEmpty()) {
       return false;
     }
