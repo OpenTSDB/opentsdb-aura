@@ -151,14 +151,10 @@ public class EphemeralAuraFactory
 
     // could be null
     String discoveryId = tsdb.getConfig().getString(getConfigKey(DISCOVERY_ID));
-    discoveryService = tsdb.getRegistry().getPlugin(AuraMetricsStatefulSetRegistry.class, discoveryId);
-    if (discoveryService == null) {
-      LOG.error("No AuraMetricsDiscoveryService found for source ID {}",
-              discoveryId == null ? "default" : discoveryId);
-      return Deferred.fromError(new IllegalArgumentException(
-              "No AuraMetricsDiscoveryService found for source ID " +
-                      (discoveryId == null ? "default" : discoveryId)));
-    }
+
+    LOG.info("Discovery id: {} for AuraMetricsStatefulSetRegistry", discoveryId);
+
+    discoveryService = new AuraMetricsStatefulSetRegistry();
 
     LOG.info("Successfully initialized Ephemeral Aura Source Factory with ID {}",
             (id == null ? "default" : id));
