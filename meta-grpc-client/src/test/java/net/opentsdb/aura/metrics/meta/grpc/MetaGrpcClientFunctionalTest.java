@@ -17,12 +17,12 @@
 
 package net.opentsdb.aura.metrics.meta.grpc;
 
-import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import myst.MystServiceGrpc;
 import myst.QueryRequest;
 import myst.TimeseriesResponse;
+import net.opentsdb.aura.metrics.meta.DefaultMetaTimeSeriesQueryResult;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult.GroupResult;
 import net.opentsdb.aura.metrics.meta.MetaTimeSeriesQueryResult.GroupResult.TagHashes;
 import org.junit.jupiter.api.Disabled;
@@ -39,13 +39,16 @@ public class MetaGrpcClientFunctionalTest {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MetaGrpcClientFunctionalTest.class);
 
-  String host = "localhost";
+    String host = "localhost";
   int port = 9999;
+  //  int port = 50051;
 
   private MetaGrpcClient client = new MetaGrpcClient(host, port);
 
-//  private String queryString = "{\"from\":0,\"to\":1,\"start\":1616508000,\"end\":1616509800,\"order\":\"ASCENDING\",\"type\":\"TIMESERIES\",\"limit\":100,\"group\":[\"flid\"],\"namespace\":\"Yamas\",\"filter\":{\"type\":\"Chain\",\"filters\":[{\"type\":\"TagValueRegex\",\"key\":\"flid\",\"filter\":\"1111\"},{\"type\":\"TagValueRegex\",\"key\":\"node_function_type\",\"filter\":\"normal\"},{\"type\":\"MetricLiteral\",\"metric\":\"exch.bdr.Bids\"}]}}";
-  private String queryString = "{\"from\":0,\"to\":1,\"start\":1616508000,\"end\":1616509800,\"order\":\"ASCENDING\",\"type\":\"TIMESERIES\",\"limit\":100,\"group\":[\"flid\"],\"namespace\":\"Yamas\",\"filter\":{\"type\":\"Chain\",\"filters\":[{\"type\":\"Chain\",\"op\":\"OR\",\"filters\":[{\"type\":\"TagValueLiteralOr\",\"filter\":\"ats-proxy|ats\",\"key\":\"corp:Application\"}]},{\"type\":\"TagValueLiteralOr\",\"filter\":\"prod\",\"key\":\"corp:Environment\"},{\"type\":\"TagValueRegex\",\"filter\":\".*\",\"key\":\"InstanceId\"},{\"type\":\"MetricLiteral\",\"metric\":\"net.bytes_sent\"}]}}";
+  //  private String queryString =
+  // "{\"from\":0,\"to\":1,\"start\":1616508000,\"end\":1616509800,\"order\":\"ASCENDING\",\"type\":\"TIMESERIES\",\"limit\":100,\"group\":[\"flid\"],\"namespace\":\"Yamas\",\"filter\":{\"type\":\"Chain\",\"filters\":[{\"type\":\"TagValueRegex\",\"key\":\"flid\",\"filter\":\"1111\"},{\"type\":\"TagValueRegex\",\"key\":\"node_function_type\",\"filter\":\"normal\"},{\"type\":\"MetricLiteral\",\"metric\":\"exch.bdr.Bids\"}]}}";
+  private String queryString =
+      "{\"from\":0,\"to\":1,\"start\":1616508000,\"end\":1616509800,\"order\":\"ASCENDING\",\"type\":\"TIMESERIES\",\"limit\":100,\"group\":[\"flid\"],\"namespace\":\"Yamas\",\"filter\":{\"type\":\"Chain\",\"filters\":[{\"type\":\"Chain\",\"op\":\"OR\",\"filters\":[{\"type\":\"TagValueLiteralOr\",\"filter\":\"ats-proxy|ats\",\"key\":\"corp:Application\"}]},{\"type\":\"TagValueLiteralOr\",\"filter\":\"prod\",\"key\":\"corp:Environment\"},{\"type\":\"TagValueRegex\",\"filter\":\".*\",\"key\":\"InstanceId\"},{\"type\":\"MetricLiteral\",\"metric\":\"net.bytes_sent\"}]}}";
 
   @Test
   @Disabled
@@ -85,14 +88,45 @@ public class MetaGrpcClientFunctionalTest {
   void callWithDefaultClient() {
     ManagedChannel channel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build();
     MystServiceGrpc.MystServiceBlockingStub blockingStub = MystServiceGrpc.newBlockingStub(channel);
-
+//    TimeSeriesQueryResultMarshaller.parseTime = 0;
     QueryRequest query = QueryRequest.newBuilder().setQuery(queryString).build();
-    Iterator<TimeseriesResponse> responseItr = blockingStub.getTimeseries(query);
-    int i = 1;
-    while (responseItr.hasNext()) {
-      TimeseriesResponse response = responseItr.next();
-      System.out.println(i++);
-      System.out.println(response.toString());
+    for (int i = 0; i < 10; i++) {
+      Iterator<TimeseriesResponse> responseItr = blockingStub.getTimeseries(query);
+      long start = System.nanoTime();
+      while (responseItr.hasNext()) {
+        TimeseriesResponse response = responseItr.next();
+        //      System.out.println(i++);
+        //      System.out.println(response.toString());
+      }
+      System.out.println((System.nanoTime() - start) / 1_000_000.0D);
+//      System.out.println(TimeSeriesQueryResultMarshaller.parseTime / 1_000_000.0D);
+    }
+  }
+
+  @Test
+  @Disabled
+  void benchMark() {
+    for (int i = 0; i < 100; i++) {
+//      TimeSeriesQueryResultMarshaller.parseTime = 0;
+//      TimeSeriesQueryResultMarshaller.size = 0;
+      Iterator<DefaultMetaTimeSeriesQueryResult> timeseriesItr = client.getTimeseries(queryString);
+      long start = System.nanoTime();
+      int totalHashes = 0;
+      int streams = 0;
+      while (timeseriesItr.hasNext()) {
+        DefaultMetaTimeSeriesQueryResult result = timeseriesItr.next();
+        totalHashes += result.totalHashes();
+        streams++;
+      }
+      double totalTime = (System.nanoTime() - start) / 1_000_000.0D;
+//      double totalParseTime = TimeSeriesQueryResultMarshaller.parseTime / 1_000_000.0D;
+//      long totalResponseSize = TimeSeriesQueryResultMarshaller.size;
+//      long streamSize = totalResponseSize / streams;
+//      String message =
+//          String.format(
+//              "TotalHash: %d TotalTime: %f ms TotalParseTime: %f ms Total ResponseSize: %d bytes  StreamSize: %d bytes",
+//              totalHashes, totalTime, totalParseTime, totalResponseSize, streamSize);
+//      System.out.println(message);
     }
   }
 }

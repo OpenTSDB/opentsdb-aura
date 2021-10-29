@@ -36,6 +36,9 @@ public class TimeSeriesQueryResultMarshaller {
 
   private TimeSeriesQueryResultMarshaller() {}
 
+//  public static long parseTime;
+//  public static long size;
+
   public static MethodDescriptor.Marshaller<DefaultMetaTimeSeriesQueryResult> marshaller() {
 
     return new MethodDescriptor.Marshaller<DefaultMetaTimeSeriesQueryResult>() {
@@ -47,10 +50,12 @@ public class TimeSeriesQueryResultMarshaller {
 
       @Override
       public DefaultMetaTimeSeriesQueryResult parse(InputStream stream) {
+//        long start = System.nanoTime();
         DefaultMetaTimeSeriesQueryResult result =
             new DefaultMetaTimeSeriesQueryResult(); // TODO: reuse
         ExtensionRegistryLite extensionRegistry = ExtensionRegistryLite.newInstance();
         try {
+//          size += stream.available();
           CodedInputStream input = CodedInputStream.newInstance(stream); // TODO: source of garbage
 
           try {
@@ -95,6 +100,8 @@ public class TimeSeriesQueryResultMarshaller {
         } catch (IOException e) {
           result.setException(e);
         }
+//        long time = System.nanoTime() - start;
+//        parseTime += time;
         return result;
       }
     };
