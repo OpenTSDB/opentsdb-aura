@@ -84,10 +84,12 @@ public class MergedMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResul
     }
 
     // Dictionary
-    TLongIntIterator iterator = result.dictionary.indexMap.iterator();
-    while (iterator.hasNext()) {
-      iterator.advance();
-      dictionary.put(iterator.key(), result.dictionary.values[iterator.value()]);
+    if(result.dictionary != null) {
+      TLongIntIterator iterator = result.dictionary.indexMap.iterator();
+      while (iterator.hasNext()) {
+        iterator.advance();
+        dictionary.put(iterator.key(), result.dictionary.values[iterator.value()]);
+      }
     }
   }
 

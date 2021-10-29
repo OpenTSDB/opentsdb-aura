@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 public class MystServer {
@@ -47,42 +48,53 @@ public class MystServer {
   private Server server;
   private final int port;
   private final MystServiceGrpc.MystServiceImplBase mystService;
-
+  private boolean compress;
+  private static Random random = new Random();
+  private static TimeseriesResponse[] responseStream;
+  private static int streamCount;
   private static final int[] timestampSequence = new int[] {0, 1};
 
   public MystServer(final int port) {
-    this(port, new MystServiceImpl());
+    this(port, true);
+  }
+
+  public MystServer(final int port, final boolean compress) {
+    this(port, new MystServiceImpl(), compress);
   }
 
   public MystServer(final int port, MystServiceGrpc.MystServiceImplBase mystService) {
+    this(port, mystService, true);
+  }
+
+  public MystServer(
+      final int port, MystServiceGrpc.MystServiceImplBase mystService, boolean compress) {
     this.port = port;
     this.mystService = mystService;
+    this.compress = compress;
   }
 
   public void start() throws IOException {
     /* The port on which the server should run */
-    server =
-        ServerBuilder.forPort(port)
-            .addService(mystService)
-            .intercept(
-                new ServerInterceptor() {
-                  @Override
-                  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-                      ServerCall<ReqT, RespT> call,
-                      Metadata headers,
-                      ServerCallHandler<ReqT, RespT> next) {
-                    call.setCompression("gzip");
-                    return next.startCall(call, headers);
-                  }
-                })
-            .build()
-            .start();
-    logger.info("Server started, listening on " + port);
+    ServerBuilder<?> builder = ServerBuilder.forPort(port).addService(mystService);
+    if (compress) {
+      builder.intercept(
+          new ServerInterceptor() {
+            @Override
+            public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+                ServerCall<ReqT, RespT> call,
+                Metadata headers,
+                ServerCallHandler<ReqT, RespT> next) {
+              call.setCompression("gzip");
+              return next.startCall(call, headers);
+            }
+          });
+    }
+    server = builder.build().start();
+    logger.info("Server started, listening on {} compression enabled: {}", port, compress);
     Runtime.getRuntime()
         .addShutdownHook(
             new Thread(
                 () -> {
-                  // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                   System.err.println("*** shutting down gRPC server since JVM is shutting down");
                   try {
                     MystServer.this.stop();
@@ -107,8 +119,48 @@ public class MystServer {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    int port = 50051;
-    final MystServer server = new MystServer(port);
+
+    boolean compress = true;
+    int hashPerStream = 100_000;
+    int totalHash = 3000_000;
+    int groupCount = 1;
+
+    if (args != null) {
+      int length = args.length;
+      if (length >= 1) {
+        compress = Boolean.parseBoolean(args[0]);
+      }
+      if (length >= 2) {
+        hashPerStream = Integer.parseInt(args[1]);
+      }
+      if (length >= 3) {
+        totalHash = Integer.parseInt(args[2]);
+      }
+    }
+
+    streamCount = totalHash / hashPerStream;
+    responseStream = new TimeseriesResponse[streamCount];
+
+    ByteString bitMap = ByteString.copyFrom(getBitMap(new int[] {1634558400, 1634580000}));
+    for (int stream = 0; stream < streamCount; stream++) {
+      TimeseriesResponse.Builder tsResponseBuilder = TimeseriesResponse.newBuilder();
+      Dictionary dict = Dictionary.newBuilder().build();
+      for (int i = 0; i < groupCount; i++) {
+        GroupedTimeseries.Builder groupBuilder = GroupedTimeseries.newBuilder();
+        for (int j = 0; j < hashPerStream; j++) {
+          groupBuilder.addTimeseries(
+              Timeseries.newBuilder().setHash(random.nextLong()).setEpochBitmap(bitMap));
+        }
+        GroupedTimeseries group = groupBuilder.build();
+        tsResponseBuilder.addGroupedTimeseries(group);
+      }
+      tsResponseBuilder.setDict(dict);
+      TimeseriesResponse response = tsResponseBuilder.build();
+      responseStream[stream] = response;
+    }
+
+    int port = 9999;
+    final MystServer server = new MystServer(port, compress);
     server.start();
     server.blockUntilShutdown();
   }
@@ -121,30 +173,8 @@ public class MystServer {
       String query = request.getQuery();
       logger.debug("Query: " + query);
 
-      int shardCount = 30;
-      int groupCount = 1;
-      int tsInAGroup = 10;
-
-      for (int shard = 0; shard < shardCount; shard++) {
-        TimeseriesResponse.Builder tsResponseBuilder = TimeseriesResponse.newBuilder();
-        Dictionary.Builder dictBuilder = Dictionary.newBuilder();
-        for (int i = 0; i < groupCount; i++) {
-          GroupedTimeseries.Builder groupBuilder = GroupedTimeseries.newBuilder();
-          for (int j = 0; j < tsInAGroup; j++) {
-            long groupKey = i + j;
-            groupBuilder.addGroup(groupKey);
-            groupBuilder.addTimeseries(
-                Timeseries.newBuilder()
-                    .setHash(j + 1)
-                    .setEpochBitmap(ByteString.copyFrom(getBitMap(timestampSequence))));
-          }
-          GroupedTimeseries group = groupBuilder.build();
-          tsResponseBuilder.addGroupedTimeseries(group);
-        }
-        Dictionary dict = dictBuilder.build();
-        dictBuilder.putDict(0, "0");
-        tsResponseBuilder.setDict(dict);
-        responseObserver.onNext(tsResponseBuilder.build());
+      for (int stream = 0; stream < streamCount; stream++) {
+        responseObserver.onNext(responseStream[stream]);
       }
       responseObserver.onCompleted();
     }
