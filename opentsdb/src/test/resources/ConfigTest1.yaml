@@ -1,0 +1,27 @@
+statefulset.cluster: kubernetes.default.GQ
+statefulset.default.namespace: ns.default
+statefulset.cluster.domain: cluster.local
+statefulset.namespaces:
+  - namespace: ns.default
+    k8s_namespace: default
+    components:
+      - component: aura-metrics
+        num-shards: 1
+        replicas: 1
+        port: 4080
+      - component: myst
+        num-shards: 1
+        replicas: 1
+        port: 9999
+  - namespace: ssp
+    k8s_namespace: ssp
+    components:
+      - component: aura-metrics
+        num-shards: 10
+        replicas: 1
+      - component: myst
+
+
+
+
+

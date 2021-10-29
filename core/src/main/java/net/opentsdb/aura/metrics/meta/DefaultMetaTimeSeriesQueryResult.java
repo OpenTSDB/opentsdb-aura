@@ -17,6 +17,7 @@
 
 package net.opentsdb.aura.metrics.meta;
 
+import gnu.trove.iterator.TLongIntIterator;
 import gnu.trove.map.TLongIntMap;
 import gnu.trove.map.hash.TLongIntHashMap;
 import net.opentsdb.utils.XXHash;
@@ -28,7 +29,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResult {
+public class DefaultMetaTimeSeriesQueryResult implements MetaResultWithDictionary {
   private static final Logger logger = LoggerFactory.getLogger(DefaultMetaTimeSeriesQueryResult.class);
 
   private static final int DEFAULT_ARRAY_SIZE = 32;
@@ -105,6 +106,11 @@ public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResu
   @Override
   public GroupResult getGroup(final int index) {
     return groupResults[index];
+  }
+
+  @Override
+  public Dictionary getDictionary() {
+    return dictionary;
   }
 
   public static class DefaultGroupResult implements GroupResult {
@@ -208,14 +214,6 @@ public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResu
     }
   }
 
-  public interface Dictionary {
-    void put(final long id, final byte[] value);
-
-    byte[] get(final long id);
-
-    int size();
-  }
-
   public static class DefaultDictionary implements Dictionary {
 
     private int nextIndex = 0;
@@ -265,6 +263,15 @@ public class DefaultMetaTimeSeriesQueryResult implements MetaTimeSeriesQueryResu
     @Override
     public int size() {
       return nextIndex;
+    }
+
+    @Override
+    public void mergeInto(Dictionary dictionary) {
+      final TLongIntIterator iterator = indexMap.iterator();
+      while (iterator.hasNext()) {
+        iterator.advance();
+        dictionary.put(iterator.key(), values[iterator.value()]);
+      }
     }
 
   }

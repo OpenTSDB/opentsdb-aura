@@ -45,6 +45,9 @@ def grpcVersion = '1.40.0'
 def protobufVersion = '3.15.6'
 def protocVersion = protobufVersion
 
+
+
+
 dependencies {
 
     api project(':core')
@@ -58,6 +61,9 @@ dependencies {
     implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
 
     implementation group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.14.1'
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.14.1'
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.14.1'
+    implementation 'org.projectlombok:lombok:1.18.16'
 
     testImplementation "io.grpc:grpc-testing:${grpcVersion}"
     testImplementation "io.grpc:grpc-testing:${grpcVersion}"
@@ -71,6 +77,9 @@ dependencies {
     testCommonImplementation group: 'com.google.protobuf', name: 'protobuf-java', version: '3.14.0'
     testCommonImplementation group: 'org.roaringbitmap', name: 'RoaringBitmap', version: '0.9.3'
     testCommonImplementation "io.grpc:grpc-stub:${grpcVersion}"
+
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.0-rc2'
+    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.0-rc2'
 
 }
 

@@ -25,7 +25,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import com.stumbleupon.async.Deferred;
-import net.opentsdb.aura.execution.MockDiscoveryService.ShardEndPoint;
+import net.opentsdb.aura.metrics.meta.endpoints.AuraMetricsStatefulSetRegistry;
+import net.opentsdb.aura.metrics.meta.endpoints.ShardEndPoint;
 import net.opentsdb.common.Const;
 import net.opentsdb.core.BaseTSDBPlugin;
 import net.opentsdb.core.TSDB;
@@ -57,6 +58,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -89,10 +91,12 @@ public class EphemeralAuraFactory
   public static final String TYPE = "EphemeralAuraMetricsHttp";
 
   protected AuraMetricsHttpFactory factory;
-  protected MockDiscoveryService discoveryService;
+  protected AuraMetricsStatefulSetRegistry discoveryService;
+  protected String serviceKey;
+
   protected long relativeStart;
   protected long relativeEnd;
-
+  private final Random random = new Random();
   @Override
   public Deferred<Object> initialize(final TSDB tsdb, final String id) {
     this.id = Strings.isNullOrEmpty(id) ? TYPE : id;
@@ -149,6 +153,12 @@ public class EphemeralAuraFactory
 
     // could be null
     String discoveryId = tsdb.getConfig().getString(getConfigKey(DISCOVERY_ID));
+
+    LOG.info("Discovery id: {} for AuraMetricsStatefulSetRegistry", discoveryId);
+
+    discoveryService = new AuraMetricsStatefulSetRegistry();
+
+   /**
     discoveryService = tsdb.getRegistry().getPlugin(MockDiscoveryService.class, discoveryId);
 
     if (discoveryService == null) {
@@ -158,7 +168,7 @@ public class EphemeralAuraFactory
               "No DiscoveryService found for source ID " +
                       (discoveryId == null ? "default" : discoveryId)));
     }
-
+*/
     LOG.info("Successfully initialized Ephemeral Aura Source Factory with ID {}",
             (id == null ? "default" : id));
     return Deferred.fromResult(null);
@@ -174,7 +184,10 @@ public class EphemeralAuraFactory
     final long now = DateTime.currentTimeMillis() / 1000;
     final Map<String, List<ShardEndPoint>> services = discoveryService.getEndpoints(
             namespace, now - relativeStart);
-    final List<ShardEndPoint> shards = services.values().iterator().next();
+    final List<ShardEndPoint> shards = pickEndpoints(services);
+
+    LOG.info("Received end points: {} {}", services, shards);
+
     if (shards == null || shards.isEmpty()) {
       throw new IllegalStateException("Unable to find shards for namespace "
               + namespace);
@@ -251,8 +264,8 @@ public class EphemeralAuraFactory
                                final TimeSeriesDataSourceConfig config) {
     final String namespace = config.getMetric().getMetric()
             .substring(0, config.getMetric().getMetric().indexOf("."));
-    Map<String, List<ShardEndPoint>> services = discoveryService.getEndpoints(namespace);
-    List<ShardEndPoint> shards = services.values().iterator().next();
+    final List<ShardEndPoint> shards = pickEndpoints(discoveryService.getEndpoints(namespace));
+
     if (shards == null || shards.isEmpty()) {
       return false;
     }
@@ -353,6 +366,20 @@ public class EphemeralAuraFactory
     } else {
       return KEY_PREFIX + id + "." + suffix;
     }
+  }
+
+  private List<ShardEndPoint> pickEndpoints(Map<String, List<ShardEndPoint>> endpointsMap) {
+
+    final int i = random.nextInt(endpointsMap.size());
+    int j = 0;
+    for(String key: endpointsMap.keySet()) {
+      if (j == i) {
+        return endpointsMap.get(key);
+      }
+      j++;
+    }
+
+    return null;
   }
 
 }
