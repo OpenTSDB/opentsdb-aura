@@ -27,9 +27,7 @@ public class AuraMetricsStatefulSetRegistry extends BaseStatefulSetRegistry {
         //Get index of hour in the day.
         final long epochHr = epoch - epoch % 3600;
         final long epochDay = epoch - epoch % 86400;
-        final int hrIndex = (int)(epochHr - epochDay) / 3600;
-        final int epochLengthInHr = epochLength / 3600;
-        return hrIndex / epochLengthInHr;
+        return (int)(epochHr - epochDay) / 3600;
     }
 
     @Override
