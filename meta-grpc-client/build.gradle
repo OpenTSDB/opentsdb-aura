@@ -54,10 +54,7 @@ dependencies {
     implementation "io.grpc:grpc-protobuf:${grpcVersion}"
     implementation "io.grpc:grpc-stub:${grpcVersion}"
     implementation "io.grpc:grpc-stub:${grpcVersion}"
-
     implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
-
-    implementation group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.14.1'
 
     testImplementation "io.grpc:grpc-testing:${grpcVersion}"
     testImplementation "io.grpc:grpc-testing:${grpcVersion}"
@@ -65,9 +62,9 @@ dependencies {
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-params', version: '5.7.0'
     testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.7.0'
     testImplementation group: 'org.hamcrest', name: 'hamcrest-core', version: '2.2'
-    testRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.14.1'
+    testRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-core', version: log4jVersion
 
-    testCommonImplementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
+    testCommonImplementation group: 'org.slf4j', name: 'slf4j-api', version: slf4jVersion
     testCommonImplementation group: 'com.google.protobuf', name: 'protobuf-java', version: '3.14.0'
     testCommonImplementation group: 'org.roaringbitmap', name: 'RoaringBitmap', version: '0.9.3'
     testCommonImplementation "io.grpc:grpc-stub:${grpcVersion}"

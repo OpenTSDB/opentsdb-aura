@@ -28,8 +28,6 @@ dependencies {
 
     implementation project(':core')
 
-    implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
-
     implementation group: 'software.amazon.awssdk', name: 'bom', version: '2.15.61'
     implementation group: 'software.amazon.awssdk', name: 'sts', version: '2.15.61'
     implementation group: 'software.amazon.awssdk', name: 's3', version: '2.15.61'
