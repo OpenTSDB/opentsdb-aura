@@ -16,6 +16,7 @@
  */
 package net.opentsdb.aura.execution;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,6 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @JsonInclude(Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
 @JsonDeserialize(builder = AuraMetricsClusterConfig.Builder.class)
 public class AuraMetricsClusterConfig {
   private static final Logger LOG = LoggerFactory.getLogger(AuraMetricsClusterConfig.class);
@@ -164,19 +166,21 @@ public class AuraMetricsClusterConfig {
       return hosts.toString();
     }
   }
-  
+
+  @JsonInclude(Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class Host {
     public String host;
     public String uri;
     public String retention;
     public List<String> namespaces;
-    
+
     public Host() {
-      
+
     }
-    
-    public Host(final String host, 
-                final String uri, 
+
+    public Host(final String host,
+                final String uri,
                 final String retention,
                 final List<String> namespaces) {
       this.host = host;
@@ -184,12 +188,12 @@ public class AuraMetricsClusterConfig {
       this.retention = retention;
       this.namespaces = namespaces;
     }
-    
+
     @Override
     public int hashCode() {
       return host.hashCode();
     }
-    
+
     @Override
     public boolean equals(final Object obj) {
       if (obj == null) {
@@ -203,7 +207,7 @@ public class AuraMetricsClusterConfig {
       }
       return ((Host) obj).host.equals(host);
     }
-    
+
     @Override
     public String toString() {
       return new StringBuilder()
