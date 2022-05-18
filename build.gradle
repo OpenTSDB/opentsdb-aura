@@ -25,6 +25,7 @@ plugins {
     id "io.spring.dependency-management" version "1.0.8.RELEASE"
     id "com.google.protobuf" version "0.8.15"
     id 'com.bmuschko.docker-java-application' version '6.6.1'
+    id "org.ajoberstar.git-publish" version "3.0.1"
 }
 
 allprojects {

@@ -38,7 +38,7 @@ dependencies {
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-params', version: '5.7.0'
     testImplementation group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
     testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.7.0'
-    testCompile group: 'net.opentsdb', name: 'opentsdb-common', version: '3.0.90-SNAPSHOT', classifier: 'tests'
+    testImplementation group: 'net.opentsdb', name: 'opentsdb-common', version: '3.0.90-SNAPSHOT', classifier: 'tests'
 }
 
 test {

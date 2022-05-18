@@ -19,18 +19,18 @@ plugins {
 }
 
 dependencies {
-    compile 'com.esotericsoftware.kryo:kryo:2.21'
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.7'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.7'
-    compile 'com.fasterxml.jackson.core:jackson-annotations:2.9.7'
-    compile 'com.fasterxml.jackson.core:jackson-core:2.9.7'
-    compile 'org.codehaus.jackson:jackson-mapper-asl:1.8.5'
-    compile 'net.openhft:zero-allocation-hashing:0.11'
-    compile 'net.opentsdb:opentsdb-common:3.0.90-SNAPSHOT'
-    compile 'net.opentsdb:opentsdb-core:3.0.90-SNAPSHOT'
+    api 'com.esotericsoftware.kryo:kryo:2.21'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.7'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.7'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.9.7'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.9.7'
+    implementation 'org.codehaus.jackson:jackson-mapper-asl:1.8.5'
+    implementation 'net.openhft:zero-allocation-hashing:0.11'
+    implementation 'net.opentsdb:opentsdb-common:3.0.90-SNAPSHOT'
+    implementation 'net.opentsdb:opentsdb-core:3.0.90-SNAPSHOT'
     compileOnly "org.slf4j:slf4j-api:${slf4jVersion}"
 
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testImplementation group: 'junit', name: 'junit', version: '4.12'
 }
 
 test {
