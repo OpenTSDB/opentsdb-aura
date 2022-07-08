@@ -186,7 +186,7 @@ public class ShardAwareHashedLowLevelMetricDataWrapper implements
 
   @Override
   public int tagValueLength() {
-    return data.tagKeyLength();
+    return data.tagValueLength();
   }
 
   @Override
