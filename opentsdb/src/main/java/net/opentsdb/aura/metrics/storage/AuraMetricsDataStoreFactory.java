@@ -140,7 +140,7 @@ public class AuraMetricsDataStoreFactory extends BaseTSDBPlugin
         timeSeriesStorage.addEvent((HashedLowLevelMetricData) data);
       } else {
         final ShardAwareHashedLowLevelMetricDataWrapper wrapper =
-                (ShardAwareHashedLowLevelMetricDataWrapper) shardAwareWrapperPool.claim();
+                (ShardAwareHashedLowLevelMetricDataWrapper) shardAwareWrapperPool.claim().object();
         wrapper.data = (HashedLowLevelMetricData) data;
         timeSeriesStorage.addEvent(wrapper);
       }
