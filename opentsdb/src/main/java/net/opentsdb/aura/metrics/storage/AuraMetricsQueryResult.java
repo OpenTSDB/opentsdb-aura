@@ -77,12 +77,6 @@ public class AuraMetricsQueryResult implements QueryResult, TimeSpecification {
           for (final QueryNodeConfig node : nodes) {
             if (node != null && node instanceof DownsampleConfig) {
               downsampleConfig = (DownsampleConfig) node;
-              if (((TimeSeriesDataSourceConfig) queryNode.config()).timeShifts() != null) {
-                downsampleConfig.startTime().subtract((TemporalAmount) ((TimeSeriesDataSourceConfig)
-                    queryNode.config()).timeShifts().getValue());
-                downsampleConfig.endTime().subtract((TemporalAmount) ((TimeSeriesDataSourceConfig)
-                    queryNode.config()).timeShifts().getValue());
-              }
               aggregatorConfig = DefaultArrayAggregatorConfig.newBuilder()
                   .setArraySize(downsampleConfig.intervals())
                   .setInfectiousNaN(downsampleConfig.getInfectiousNan())
